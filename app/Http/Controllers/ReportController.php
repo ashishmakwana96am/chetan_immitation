@@ -349,9 +349,13 @@ class ReportController extends Controller
         ]);
     }
 
-    private function stockInventoryFilteredQuery(Request $request, ?int $locationId)
+    private function stockInventoryFilteredQuery(Request $request, ?int $locationId = null)
     {
-        [$stockExprSql, $stockExprBindings] = $this->stockTotalSubquery($locationId);
+        $user = auth()->user();
+        $isRestricted = $user->location_id && !$user->hasRole('super-admin');
+        $effectiveLocationId = $isRestricted ? $user->location_id : ($request->input('location_id') ? (int) $request->input('location_id') : $locationId);
+
+        [$stockExprSql, $stockExprBindings] = $this->stockTotalSubquery($effectiveLocationId);
         [$lastPurchaseExprSql, $lastPurchaseExprBindings] = $this->lastPurchaseSubquery();
 
         $categoryId = $request->input('category_id');
@@ -372,11 +376,11 @@ class ReportController extends Controller
                 });
             });
 
-        if ($stockFilter === 'in') {
+        if ($stockFilter === 'in' || $stockFilter === 'in_stock') {
             $query->whereRaw("{$stockExprSql} > 0", $stockExprBindings);
-        } elseif ($stockFilter === 'low') {
+        } elseif ($stockFilter === 'low' || $stockFilter === 'low_stock') {
             $query->whereRaw("{$stockExprSql} > 0 AND {$stockExprSql} <= 5", array_merge($stockExprBindings, $stockExprBindings));
-        } elseif ($stockFilter === 'out') {
+        } elseif ($stockFilter === 'out' || $stockFilter === 'out_of_stock') {
             $query->whereRaw("{$stockExprSql} <= 0", $stockExprBindings);
         }
 
@@ -411,7 +415,7 @@ class ReportController extends Controller
 
     private function stockTotalSubquery(?int $locationId): array
     {
-        $sql = '(select coalesce(sum(quantity), 0) from inventories where inventories.product_id = products.id';
+        $sql = '(select coalesce(sum(quantity), 0) from inventories where inventories.product_id = products.id and inventories.deleted_at is null';
         $bindings = [];
         if ($locationId) {
             $sql .= ' and location_id = ?';
@@ -461,7 +465,7 @@ class ReportController extends Controller
 
         $user = auth()->user();
         $isRestricted = $user->location_id && !$user->hasRole('super-admin');
-        $locationId = $isRestricted ? $user->location_id : null;
+        $locationId = $isRestricted ? $user->location_id : ($request->input('location_id') ? (int) $request->input('location_id') : null);
 
         $locations = $isRestricted
             ? Location::where('id', $user->location_id)->get()
@@ -492,7 +496,7 @@ class ReportController extends Controller
         } elseif ($columnName === 'total_qty') {
             $query->orderByRaw("{$stockExprSql} {$orderDir}", $stockExprBindings);
         } elseif ($columnName === 'purchase_value') {
-            $query->orderByRaw("({$stockExprSql} * products.purchase_price) {$orderDir}", $stockExprBindings);
+            $query->orderByRaw("({$stockExprSql} * COALESCE((SELECT pi.purchase_price FROM purchase_items pi WHERE pi.product_id = products.id AND pi.deleted_at IS NULL ORDER BY pi.id ASC LIMIT 1), (SELECT pbi.purchase_price FROM purchase_bill_items pbi WHERE pbi.product_id = products.id AND pbi.deleted_at IS NULL ORDER BY pbi.id ASC LIMIT 1), products.purchase_price, 0)) {$orderDir}", $stockExprBindings);
         } elseif ($columnName === 'mrp_value') {
             $query->orderByRaw("({$stockExprSql} * COALESCE(NULLIF(products.mrp, 0), products.sale_price)) {$orderDir}", $stockExprBindings);
         } elseif ($columnName === 'last_purchase') {
@@ -547,11 +551,51 @@ class ReportController extends Controller
             }
         }
 
+        $productIds = $products->pluck('id');
+
+        $transferPriceMap = DB::table('purchase_bill_items')
+            ->join('purchase_bills', 'purchase_bills.id', '=', 'purchase_bill_items.purchase_bill_id')
+            ->whereIn('purchase_bill_items.product_id', $productIds)
+            ->whereNull('purchase_bill_items.deleted_at')
+            ->whereNull('purchase_bills.deleted_at')
+            ->where('purchase_bills.status', 2)
+            ->when($locationId, fn($q) => $q->where('purchase_bills.to_location_id', $locationId))
+            ->select('purchase_bill_items.product_id', 'purchase_bill_items.purchase_price', 'purchase_bill_items.mrp')
+            ->orderBy('purchase_bill_items.id', 'asc')
+            ->get()
+            ->groupBy('product_id');
+
+        $purchasePriceMap = DB::table('purchase_items')
+            ->join('purchases', 'purchases.id', '=', 'purchase_items.purchase_id')
+            ->leftJoin('products', 'products.id', '=', 'purchase_items.product_id')
+            ->whereIn('purchase_items.product_id', $productIds)
+            ->whereNull('purchase_items.deleted_at')
+            ->whereNull('purchases.deleted_at')
+            ->where('purchases.status', 2)
+            ->select('purchase_items.product_id', 'purchase_items.purchase_price')
+            ->orderBy('purchase_items.id', 'asc')
+            ->get()
+            ->groupBy('product_id');
+
         $data = [];
         $index = $start + 1;
 
         foreach ($products as $product) {
-            $purchasePrice = (float) $product->purchase_price;
+            $pItem = $purchasePriceMap->get($product->id, collect())->first();
+            $tItem = $transferPriceMap->get($product->id, collect())->first();
+
+            $unitPurchPrice = 0.0;
+            if ($locationId && $tItem && (float)$tItem->purchase_price > 0) {
+                $unitPurchPrice = (float) $tItem->purchase_price;
+            } elseif ($pItem && (float)$pItem->purchase_price > 0) {
+                $unitPurchPrice = (float) $pItem->purchase_price;
+            } elseif ($tItem && (float)$tItem->purchase_price > 0) {
+                $unitPurchPrice = (float) $tItem->purchase_price;
+            } else {
+                $unitPurchPrice = (float) ($product->purchase_price ?? 0);
+            }
+
+            $purchasePrice = $unitPurchPrice;
             $salePrice = (float) $product->sale_price;
             $sizes = collect($product->custom_sizes ?? [])->pluck('size')->map(fn($s) => (float) $s)->filter(fn($s) => $s > 0);
             $pairSize = ($product->pair_product && $sizes->count() > 0) ? (float) $sizes->max() : 1.0;
@@ -654,7 +698,121 @@ class ReportController extends Controller
                 }
                 $totalStock = array_sum($stock);
                 $effectiveQty = $product->pair_product ? ($totalStock / $pairSize) : (float) $totalStock;
-                $purchaseValue = $effectiveQty * $purchasePrice;
+                
+                $remQty = $effectiveQty;
+
+                $pTransfers = DB::table('purchase_bill_items')
+                    ->join('purchase_bills', 'purchase_bills.id', '=', 'purchase_bill_items.purchase_bill_id')
+                    ->where('purchase_bill_items.product_id', $product->id)
+                    ->whereNull('purchase_bill_items.deleted_at')
+                    ->whereNull('purchase_bills.deleted_at')
+                    ->where('purchase_bills.status', 2)
+                    ->when($locationId, fn($q) => $q->where('purchase_bills.to_location_id', $locationId))
+                    ->select('purchase_bill_items.id', 'purchase_bill_items.quantity', 'purchase_bill_items.purchase_price', 'purchase_bills.created_at')
+                    ->get();
+
+                $pAllocations = DB::table('purchase_allocations')
+                    ->join('purchase_items', 'purchase_items.id', '=', 'purchase_allocations.purchase_item_id')
+                    ->join('purchases', 'purchases.id', '=', 'purchase_items.purchase_id')
+                    ->where('purchase_items.product_id', $product->id)
+                    ->whereNull('purchase_items.deleted_at')
+                    ->whereNull('purchases.deleted_at')
+                    ->where('purchases.status', 2)
+                    ->when($locationId, fn($q) => $q->where('purchase_allocations.location_id', $locationId))
+                    ->select('purchase_items.id', 'purchase_allocations.quantity', 'purchase_items.purchase_price', 'purchases.created_at')
+                    ->get();
+
+                $pAllBatches = $pTransfers->concat($pAllocations)->sortBy('created_at')->values();
+
+                $pSoldItems = DB::table('order_items')
+                    ->join('orders', 'orders.id', '=', 'order_items.order_id')
+                    ->where('order_items.product_id', $product->id)
+                    ->whereNull('order_items.deleted_at')
+                    ->whereNull('orders.deleted_at')
+                    ->where('orders.order_type', 'sale')
+                    ->whereIn('orders.status', [Order::STATUS_APPROVE, Order::STATUS_SHIPPED, Order::STATUS_OUT_FOR_DELIVERY, Order::STATUS_DELIVERED])
+                    ->when($locationId, fn($q) => $q->where('orders.location_id', $locationId))
+                    ->select('order_items.id', 'order_items.quantity', 'order_items.purchase_price')
+                    ->orderBy('orders.id', 'asc')
+                    ->get();
+
+                $batches = [];
+                foreach ($pAllBatches as $t) {
+                    $batches[] = [
+                        'id'    => $t->id,
+                        'price' => (float)$t->purchase_price,
+                        'qty'   => (float)$t->quantity,
+                    ];
+                }
+
+                foreach ($pSoldItems as $sale) {
+                    $sQty = (float)$sale->quantity;
+                    $sPrice = (float)$sale->purchase_price;
+
+                    $matchedIndex = null;
+                    if ($sPrice > 0 && $sQty > 0) {
+                        $unitP = $sPrice / $sQty;
+                        foreach ($batches as $idx => $bData) {
+                            if ($bData['qty'] > 0 && abs($bData['price'] - $unitP) < 0.01) {
+                                $matchedIndex = $idx;
+                                break;
+                            }
+                        }
+                    }
+
+                    if ($matchedIndex !== null) {
+                        $take = min($sQty, $batches[$matchedIndex]['qty']);
+                        $batches[$matchedIndex]['qty'] -= $take;
+                        $sQty -= $take;
+                    }
+
+                    if ($sQty > 0) {
+                        foreach ($batches as &$bData) {
+                            if ($bData['qty'] <= 0) continue;
+                            $take = min($sQty, $bData['qty']);
+                            $bData['qty'] -= $take;
+                            $sQty -= $take;
+                            if ($sQty <= 0) break;
+                        }
+                    }
+                }
+
+                $rowPurchVal = 0.0;
+                $remNeed = $remQty;
+
+                $reversedBatches = array_reverse($batches);
+                foreach ($reversedBatches as $bData) {
+                    if ($remNeed <= 0) break;
+                    if ($bData['qty'] <= 0) continue;
+                    $take = min($remNeed, $bData['qty']);
+                    $rowPurchVal += $take * $bData['price'];
+                    $remNeed -= $take;
+                }
+
+                if ($remNeed > 0) {
+                    $pPurchases = DB::table('purchase_items')
+                        ->join('purchases', 'purchases.id', '=', 'purchase_items.purchase_id')
+                        ->where('purchase_items.product_id', $product->id)
+                        ->whereNull('purchase_items.deleted_at')
+                        ->whereNull('purchases.deleted_at')
+                        ->where('purchases.status', 2)
+                        ->select('purchase_items.quantity', 'purchase_items.purchase_price')
+                        ->orderBy('purchase_items.id', 'desc')
+                        ->get();
+
+                    foreach ($pPurchases as $p) {
+                        if ($remNeed <= 0) break;
+                        $take = min($remNeed, (float)$p->quantity);
+                        $rowPurchVal += $take * (float)$p->purchase_price;
+                        $remNeed -= $take;
+                    }
+                }
+
+                if ($remNeed > 0 && (float)($product->purchase_price ?? 0) > 0) {
+                    $rowPurchVal += $remNeed * (float) $product->purchase_price;
+                }
+
+                $purchaseValue = $rowPurchVal;
                 $mrpValue = $effectiveQty * $mrpPrice;
                 $parentLocStock = $stock;
             }
@@ -720,19 +878,70 @@ class ReportController extends Controller
 
         $user = auth()->user();
         $isRestricted = $user->location_id && !$user->hasRole('super-admin');
-        $locationId = $isRestricted ? $user->location_id : null;
+        $locationId = $isRestricted ? $user->location_id : ($request->input('location_id') ? (int) $request->input('location_id') : null);
 
         $locations = $isRestricted
             ? Location::where('id', $user->location_id)->get()
             : Location::where('status', 1)->orderBy('name')->get();
 
-        $totals = $this->computeStockTotals($this->stockInventoryFilteredQuery($request, $locationId), $locations, $locationId);
+        $filteredQuery = $this->stockInventoryFilteredQuery($request, $locationId);
+        $totals = $this->computeStockTotals($filteredQuery, $locations, $locationId);
+
+        $filteredIds = (clone $filteredQuery)->pluck('id');
+        $productCount = $filteredIds->count();
+
+        $soldoutCount = Product::whereIn('id', $filteredIds)
+            ->whereDoesntHave('inventories', function ($q) use ($locationId) {
+                $q->where('quantity', '>', 0);
+                if ($locationId) {
+                    $q->where('location_id', $locationId);
+                }
+            })
+            ->count();
+
+        $locationChartData = [];
+        foreach ($locations as $location) {
+            $locationChartData[] = [
+                'name' => $location->name,
+                'stock' => (int) Inventory::whereIn('product_id', $filteredIds)
+                    ->where('location_id', $location->id)
+                    ->sum('quantity'),
+            ];
+        }
+
+        $top10Products = Product::select('products.id', 'products.name', DB::raw('COALESCE(SUM(inventories.quantity), 0) as stock'))
+            ->leftJoin('inventories', 'products.id', '=', 'inventories.product_id')
+            ->whereIn('products.id', $filteredIds)
+            ->when($locationId, fn($q) => $q->where('inventories.location_id', $locationId))
+            ->groupBy('products.id', 'products.name')
+            ->orderByDesc('stock')
+            ->take(10)
+            ->get();
+
+        $top10Breakdown = Inventory::whereIn('product_id', $top10Products->pluck('id'))
+            ->when($locationId, fn($q) => $q->where('location_id', $locationId))
+            ->get()
+            ->groupBy('product_id');
+
+        $stackedChartData = [];
+        foreach ($top10Products as $p) {
+            $row = ['name' => $p->name];
+            $productInv = $top10Breakdown->get($p->id, collect());
+            foreach ($locations as $location) {
+                $row[$location->id] = (int) $productInv->where('location_id', $location->id)->sum('quantity');
+            }
+            $stackedChartData[] = $row;
+        }
 
         return response()->json([
             'location_totals' => $totals['location_totals'],
             'qty_total' => $totals['qty_total'],
             'purchase_total' => format_price($totals['purchase_total']),
             'mrp_total' => format_price($totals['mrp_total']),
+            'product_count' => number_format($productCount),
+            'soldout_count' => number_format($soldoutCount),
+            'location_chart_data' => $locationChartData,
+            'stacked_chart_data' => $stackedChartData,
         ]);
     }
 
@@ -743,14 +952,57 @@ class ReportController extends Controller
      * desync, accepted so this can run over the full (often 1000+) catalog on every filter
      * change without recomputing each product's purchase/sale/transfer ledger.
      */
+    public static function calculateStockTotalsForDashboard(?int $locationId = null): array
+    {
+        $locations = $locationId
+            ? Location::where('id', $locationId)->get()
+            : Location::where('status', 1)->orderBy('name')->get();
+
+        $productQuery = Product::query();
+        $controller = app(self::class);
+        return $controller->computeStockTotals($productQuery, $locations, $locationId);
+    }
+
     private function computeStockTotals($productQuery, $locations, ?int $locationId): array
     {
         $products = $productQuery
-            ->select('id', 'pair_product', 'custom_sizes', 'purchase_price', 'sale_price', 'mrp')
+            ->with('variants')
+            ->select('id', 'name', 'barcode', 'type', 'pair_product', 'custom_sizes', 'purchase_price', 'sale_price', 'mrp')
             ->get();
 
-        $invByProduct = Inventory::whereIn('product_id', $products->pluck('id'))
+        $productIds = $products->pluck('id');
+
+        $invByProduct = Inventory::whereIn('product_id', $productIds)
             ->when($locationId, fn($q) => $q->where('location_id', $locationId))
+            ->get()
+            ->groupBy('product_id');
+
+        // 1. Map batch purchase prices per product from transfer bills & purchase items
+        $transferPriceMap = DB::table('purchase_bill_items')
+            ->join('purchase_bills', 'purchase_bills.id', '=', 'purchase_bill_items.purchase_bill_id')
+            ->whereIn('purchase_bill_items.product_id', $productIds)
+            ->whereNull('purchase_bill_items.deleted_at')
+            ->whereNull('purchase_bills.deleted_at')
+            ->where('purchase_bills.status', 2)
+            ->when($locationId, fn($q) => $q->where('purchase_bills.to_location_id', $locationId))
+            ->select('purchase_bill_items.product_id', 'purchase_bill_items.purchase_price', 'purchase_bill_items.mrp')
+            ->orderBy('purchase_bill_items.id', 'asc')
+            ->get()
+            ->groupBy('product_id');
+
+        $purchasePriceMap = DB::table('purchase_items')
+            ->join('purchases', 'purchases.id', '=', 'purchase_items.purchase_id')
+            ->leftJoin('products', 'products.id', '=', 'purchase_items.product_id')
+            ->whereIn('purchase_items.product_id', $productIds)
+            ->whereNull('purchase_items.deleted_at')
+            ->whereNull('purchases.deleted_at')
+            ->where('purchases.status', 2)
+            ->select(
+                'purchase_items.product_id',
+                'purchase_items.purchase_price',
+                DB::raw('COALESCE(NULLIF(purchase_items.mrp, 0), NULLIF(products.mrp, 0), products.sale_price, 0) as mrp')
+            )
+            ->orderBy('purchase_items.id', 'asc')
             ->get()
             ->groupBy('product_id');
 
@@ -768,11 +1020,10 @@ class ReportController extends Controller
 
         foreach ($products as $product) {
             $invRows = $invByProduct->get($product->id, collect());
-            $totalQty = 0;
 
+            // 1. Per-location Pair/Pcs totals for breakdown chart
             foreach ($locations as $location) {
                 $qty = (int) $invRows->where('location_id', $location->id)->sum('quantity');
-                $totalQty += $qty;
 
                 if ($product->pair_product && $qty > 0) {
                     $sizes = collect($product->custom_sizes ?? [])->pluck('size')->map(fn($s) => (float) $s)->filter(fn($s) => $s > 0);
@@ -786,7 +1037,11 @@ class ReportController extends Controller
                 }
             }
 
-            if ($totalQty <= 0) {
+            // 2. Strict target inventory rows for the selected location (or all locations if $locationId is null)
+            $targetInvRows = $locationId ? $invRows->where('location_id', $locationId) : $invRows;
+            $targetQty = (int) $targetInvRows->sum('quantity');
+
+            if ($targetQty <= 0) {
                 continue;
             }
 
@@ -796,10 +1051,10 @@ class ReportController extends Controller
                 $pairSize = 1.0;
 
             if ($product->pair_product) {
-                $totalPairUnits += (int) floor($totalQty / $pairSize);
-                $totalLoosePcs += (int) ($totalQty % $pairSize);
+                $totalPairUnits += (int) floor($targetQty / $pairSize);
+                $totalLoosePcs += (int) ($targetQty % $pairSize);
             } else {
-                $totalLoosePcs += $totalQty;
+                $totalLoosePcs += $targetQty;
             }
 
             $mrpPrice = (float) (($product->mrp ?? 0) > 0 ? $product->mrp : $product->sale_price);
@@ -812,6 +1067,135 @@ class ReportController extends Controller
             $effectiveQty = $product->pair_product ? ($totalQty / $pairSize) : (float) $totalQty;
             $totalPurchaseValue += $effectiveQty * (float) $product->purchase_price;
             $totalMrpValue += $effectiveQty * $mrpPrice;
+            // 3. FIFO batch netting stock valuation for physical stock on hand at this location
+            $remainingQty = $product->pair_product ? ($targetQty / $pairSize) : (float) $targetQty;
+
+            // Fetch transfer batches sent to this location AND direct purchase allocations to this location
+            $transfers = DB::table('purchase_bill_items')
+                ->join('purchase_bills', 'purchase_bills.id', '=', 'purchase_bill_items.purchase_bill_id')
+                ->where('purchase_bill_items.product_id', $product->id)
+                ->whereNull('purchase_bill_items.deleted_at')
+                ->whereNull('purchase_bills.deleted_at')
+                ->where('purchase_bills.status', 2)
+                ->when($locationId, fn($q) => $q->where('purchase_bills.to_location_id', $locationId))
+                ->select('purchase_bill_items.id', 'purchase_bill_items.quantity', 'purchase_bill_items.purchase_price', 'purchase_bill_items.mrp', 'purchase_bills.created_at')
+                ->get();
+
+            $allocations = DB::table('purchase_allocations')
+                ->join('purchase_items', 'purchase_items.id', '=', 'purchase_allocations.purchase_item_id')
+                ->join('purchases', 'purchases.id', '=', 'purchase_items.purchase_id')
+                ->where('purchase_items.product_id', $product->id)
+                ->whereNull('purchase_items.deleted_at')
+                ->whereNull('purchases.deleted_at')
+                ->where('purchases.status', 2)
+                ->when($locationId, fn($q) => $q->where('purchase_allocations.location_id', $locationId))
+                ->select('purchase_items.id', 'purchase_allocations.quantity', 'purchase_items.purchase_price', 'purchase_items.mrp', 'purchases.created_at')
+                ->get();
+
+            $allBatchesList = $transfers->concat($allocations)->sortBy('created_at')->values();
+
+            // Fetch sales from this location
+            $soldItems = DB::table('order_items')
+                ->join('orders', 'orders.id', '=', 'order_items.order_id')
+                ->where('order_items.product_id', $product->id)
+                ->whereNull('order_items.deleted_at')
+                ->whereNull('orders.deleted_at')
+                ->where('orders.order_type', 'sale')
+                ->whereIn('orders.status', [Order::STATUS_APPROVE, Order::STATUS_SHIPPED, Order::STATUS_OUT_FOR_DELIVERY, Order::STATUS_DELIVERED])
+                ->when($locationId, fn($q) => $q->where('orders.location_id', $locationId))
+                ->select('order_items.id', 'order_items.quantity', 'order_items.purchase_price')
+                ->orderBy('orders.id', 'asc')
+                ->get();
+
+            $batches = [];
+            foreach ($allBatchesList as $t) {
+                $batches[] = [
+                    'id'    => $t->id,
+                    'price' => (float)$t->purchase_price,
+                    'qty'   => (float)$t->quantity,
+                ];
+            }
+
+            // Deduct sales from batches (matching sale purchase_price or FIFO)
+            foreach ($soldItems as $sale) {
+                $sQty = (float)$sale->quantity;
+                $sPrice = (float)$sale->purchase_price;
+
+                $matchedIndex = null;
+                if ($sPrice > 0 && $sQty > 0) {
+                    $unitP = $sPrice / $sQty;
+                    foreach ($batches as $idx => $bData) {
+                        if ($bData['qty'] > 0 && abs($bData['price'] - $unitP) < 0.01) {
+                            $matchedIndex = $idx;
+                            break;
+                        }
+                    }
+                }
+
+                if ($matchedIndex !== null) {
+                    $take = min($sQty, $batches[$matchedIndex]['qty']);
+                    $batches[$matchedIndex]['qty'] -= $take;
+                    $sQty -= $take;
+                }
+
+                if ($sQty > 0) {
+                    foreach ($batches as &$bData) {
+                        if ($bData['qty'] <= 0) continue;
+                        $take = min($sQty, $bData['qty']);
+                        $bData['qty'] -= $take;
+                        $sQty -= $take;
+                        if ($sQty <= 0) break;
+                    }
+                }
+            }
+
+            $productPurchVal = 0.0;
+            $remainingNeed = $remainingQty;
+
+            $reversedBatches = array_reverse($batches);
+            foreach ($reversedBatches as $bData) {
+                if ($remainingNeed <= 0) break;
+                if ($bData['qty'] <= 0) continue;
+                $take = min($remainingNeed, $bData['qty']);
+                $productPurchVal += $take * $bData['price'];
+                $remainingNeed -= $take;
+            }
+
+            if ($remainingNeed > 0) {
+                $purchases = DB::table('purchase_items')
+                    ->join('purchases', 'purchases.id', '=', 'purchase_items.purchase_id')
+                    ->where('purchase_items.product_id', $product->id)
+                    ->whereNull('purchase_items.deleted_at')
+                    ->whereNull('purchases.deleted_at')
+                    ->where('purchases.status', 2)
+                    ->select('purchase_items.quantity', 'purchase_items.purchase_price')
+                    ->orderBy('purchase_items.id', 'desc')
+                    ->get();
+
+                foreach ($purchases as $p) {
+                    if ($remainingNeed <= 0) break;
+                    $take = min($remainingNeed, (float)$p->quantity);
+                    $productPurchVal += $take * (float)$p->purchase_price;
+                    $remainingNeed -= $take;
+                }
+            }
+
+            if ($remainingNeed > 0 && (float)($product->purchase_price ?? 0) > 0) {
+                $productPurchVal += $remainingNeed * (float) $product->purchase_price;
+            }
+
+            $unitMrpPrice = 0.0;
+            if ($transfers->isNotEmpty() && (float)$transfers->last()->mrp > 0) {
+                $unitMrpPrice = (float) $transfers->last()->mrp;
+            } elseif ((float)($product->mrp ?? 0) > 0) {
+                $unitMrpPrice = (float) $product->mrp;
+            } else {
+                $unitMrpPrice = (float) $product->sale_price;
+            }
+
+            $effectiveQty = $product->pair_product ? ($targetQty / $pairSize) : (float) $targetQty;
+            $totalPurchaseValue += $productPurchVal;
+            $totalMrpValue += $effectiveQty * $unitMrpPrice;
         }
 
         $formatPairsPcs = function ($pairs, $pcs) {
@@ -835,6 +1219,10 @@ class ReportController extends Controller
             'qty_total' => $formatPairsPcs($totalPairUnits, $totalLoosePcs),
             'purchase_total' => $totalPurchaseValue,
             'mrp_total' => $totalMrpValue,
+            'location_pair_totals' => $locationPairTotals,
+            'location_loose_totals' => $locationLooseTotals,
+            'total_pairs' => $totalPairUnits,
+            'total_loose' => $totalLoosePcs,
         ];
     }
 
@@ -1649,7 +2037,6 @@ class ReportController extends Controller
             ->whereNull('orders.deleted_at')
             ->where('orders.order_type', 'sale')
             ->whereIn('orders.status', [Order::STATUS_APPROVE, Order::STATUS_SHIPPED, Order::STATUS_OUT_FOR_DELIVERY, Order::STATUS_DELIVERED])
-            ->whereIn('orders.payment_status', [Order::PAYMENT_STATUS_PAID, Order::PAYMENT_STATUS_PARTIAL])
             ->when($user->location_id && !$user->hasRole('super-admin'), fn($q) => $q->where('orders.location_id', $user->location_id));
 
         if ($startDate) {
@@ -1664,7 +2051,7 @@ class ReportController extends Controller
 
         // Total Revenue via direct SQL sum
         $totalRevenue = (float) (clone $salesQuery)
-            ->selectRaw('SUM(COALESCE(orders.paid_cash_amount, 0) + COALESCE(orders.paid_online_amount, 0)) as total_rev')
+            ->selectRaw('SUM(COALESCE(orders.final_amount, 0)) as total_rev')
             ->value('total_rev');
 
         // Direct SQL aggregation for COGS and Product Profitability (without loading all sales into memory)
@@ -1675,7 +2062,6 @@ class ReportController extends Controller
             ->whereNull('orders.deleted_at')
             ->where('orders.order_type', 'sale')
             ->whereIn('orders.status', [Order::STATUS_APPROVE, Order::STATUS_SHIPPED, Order::STATUS_OUT_FOR_DELIVERY, Order::STATUS_DELIVERED])
-            ->whereIn('orders.payment_status', [Order::PAYMENT_STATUS_PAID, Order::PAYMENT_STATUS_PARTIAL])
             ->when($user->location_id && !$user->hasRole('super-admin'), fn($q) => $q->where('orders.location_id', $user->location_id));
 
         if ($startDate) {
@@ -1700,17 +2086,8 @@ class ReportController extends Controller
                         ELSE 1.0
                     END
                 ) as qty_sold,
-                SUM(
-                    CASE 
-                        WHEN orders.final_amount > 0 THEN 
-                            order_items.total * (
-                                orders.final_amount / 
-                                NULLIF((SELECT SUM(oi.total) FROM order_items oi WHERE oi.order_id = orders.id), 0)
-                            )
-                        ELSE order_items.total
-                    END
-                ) as total_revenue,
-                SUM(order_items.quantity * COALESCE(product_variants.purchase_price, products.purchase_price, 0)) as total_cost
+                SUM(order_items.total) as total_revenue,
+                SUM(COALESCE(order_items.purchase_price, order_items.quantity * product_variants.purchase_price, order_items.quantity * products.purchase_price, 0)) as total_cost
             ')
             ->groupBy('order_items.product_id', 'products.name', 'products.barcode')
             ->orderByDesc('order_items.product_id')
@@ -1812,7 +2189,6 @@ class ReportController extends Controller
             ->whereNull('orders.deleted_at')
             ->where('orders.order_type', 'sale')
             ->whereIn('orders.status', [Order::STATUS_APPROVE, Order::STATUS_SHIPPED, Order::STATUS_OUT_FOR_DELIVERY, Order::STATUS_DELIVERED])
-            ->whereIn('orders.payment_status', [Order::PAYMENT_STATUS_PAID, Order::PAYMENT_STATUS_PARTIAL])
             ->when($user->location_id && !$user->hasRole('super-admin'), fn($q) => $q->where('orders.location_id', $user->location_id));
 
         if ($startDate) {
@@ -1844,17 +2220,8 @@ class ReportController extends Controller
                         ELSE 1.0
                     END
                 ) as qty_sold,
-                SUM(
-                    CASE 
-                        WHEN orders.final_amount > 0 THEN 
-                            order_items.total * (
-                                orders.final_amount / 
-                                NULLIF((SELECT SUM(oi.total) FROM order_items oi WHERE oi.order_id = orders.id), 0)
-                            )
-                        ELSE order_items.total
-                    END
-                ) as total_revenue,
-                SUM(order_items.quantity * COALESCE(product_variants.purchase_price, products.purchase_price, 0)) as total_cost
+                SUM(order_items.total) as total_revenue,
+                SUM(COALESCE(order_items.purchase_price, order_items.quantity * product_variants.purchase_price, order_items.quantity * products.purchase_price, 0)) as total_cost
             ')
             ->groupBy('order_items.product_id', 'products.name', 'products.barcode');
 
@@ -1889,19 +2256,19 @@ class ReportController extends Controller
             }
         }
 
-        $proratedRevenueExpr = 'SUM(CASE WHEN orders.final_amount > 0 THEN order_items.total * (orders.final_amount / NULLIF((SELECT SUM(oi.total) FROM order_items oi WHERE oi.order_id = orders.id), 0)) ELSE order_items.total END)';
+        $proratedRevenueExpr = 'SUM(CASE WHEN orders.final_amount > 0 THEN order_items.total * (orders.final_amount / NULLIF((SELECT SUM(oi.total) FROM order_items oi WHERE oi.order_id = orders.id AND oi.deleted_at IS NULL), 0)) ELSE order_items.total END)';
 
         if ($sortKey === 'product') {
             $groupedQuery->orderBy('products.name', $sortDir);
         } elseif ($sortKey === 'barcode') {
             $groupedQuery->orderBy('products.barcode', $sortDir);
         } elseif ($sortKey === 'profit') {
-            $groupedQuery->orderByRaw("({$proratedRevenueExpr} - SUM(order_items.quantity * COALESCE(product_variants.purchase_price, products.purchase_price, 0))) {$sortDir}");
+            $groupedQuery->orderByRaw("({$proratedRevenueExpr} - SUM(COALESCE(order_items.purchase_price, order_items.quantity * product_variants.purchase_price, order_items.quantity * products.purchase_price, 0))) {$sortDir}");
         } elseif ($sortKey === 'margin') {
             $groupedQuery->orderByRaw("
                 CASE 
                     WHEN {$proratedRevenueExpr} > 0 THEN 
-                        (({$proratedRevenueExpr} - SUM(order_items.quantity * COALESCE(product_variants.purchase_price, products.purchase_price, 0))) / {$proratedRevenueExpr}) * 100 
+                        (({$proratedRevenueExpr} - SUM(COALESCE(order_items.purchase_price, order_items.quantity * product_variants.purchase_price, order_items.quantity * products.purchase_price, 0))) / {$proratedRevenueExpr}) * 100 
                     ELSE 0 
                 END {$sortDir}
             ");
@@ -1927,9 +2294,10 @@ class ReportController extends Controller
             $imgPath = $productImagesMap[$row->product_id] ?? null;
             $imgUrl = $imgPath ? asset('uploads/'.$imgPath) : asset('website/assets/images/placeholder.png');
             $productObj = $productsMap->get($row->product_id);
-
-            $prodProfit = (float)$row->total_revenue - (float)$row->total_cost;
-            $prodMargin = (float)$row->total_revenue > 0 ? ($prodProfit / (float)$row->total_revenue) * 100 : 0.0;
+            $prodRevenue = (float)$row->total_revenue;
+            $prodCost = (float)$row->total_cost;
+            $prodProfit = $prodRevenue - $prodCost;
+            $prodMargin = $prodRevenue > 0 ? ($prodProfit / $prodRevenue) * 100 : 0.0;
 
             $prodHtml = '
                 <div class="d-flex align-items-center">
@@ -1945,8 +2313,7 @@ class ReportController extends Controller
                 ->whereHas('order', function ($q) use ($user, $startDate, $endDate, $locationId) {
                     $q->whereNull('orders.deleted_at')
                       ->where('orders.order_type', 'sale')
-                      ->whereIn('orders.status', [Order::STATUS_APPROVE, Order::STATUS_SHIPPED, Order::STATUS_OUT_FOR_DELIVERY, Order::STATUS_DELIVERED])
-                      ->whereIn('orders.payment_status', [Order::PAYMENT_STATUS_PAID, Order::PAYMENT_STATUS_PARTIAL]);
+                      ->whereIn('orders.status', [Order::STATUS_APPROVE, Order::STATUS_SHIPPED, Order::STATUS_OUT_FOR_DELIVERY, Order::STATUS_DELIVERED]);
                     if ($startDate) $q->whereDate('orders.created_at', '>=', $startDate);
                     if ($endDate) $q->whereDate('orders.created_at', '<=', $endDate);
                     if ($locationId) $q->where('orders.location_id', $locationId);
@@ -1975,7 +2342,7 @@ class ReportController extends Controller
                 ->implode(', ');
 
                 if ($bdText !== '') {
-                    $breakdownHtml = '<br><small class="text-muted">' . e($bdText) . '</small>';
+                    $breakdownHtml = '<br><small class="text-muted" style="font-size:0.75rem;">(' . e($bdText) . ')</small>';
                 }
             }
 
@@ -1988,10 +2355,10 @@ class ReportController extends Controller
                 'raw_barcode'      => $row->barcode ?? '',
                 'qty_sold'         => '<span class="fw-semibold">' . $formattedQty . '</span>' . $breakdownHtml,
                 'raw_qty_sold'     => (float) $row->qty_sold,
-                'total_revenue'    => '<span class="text-success fw-semibold">' . format_price($row->total_revenue) . '</span>',
-                'raw_total_revenue'=> (float) $row->total_revenue,
-                'total_cost'       => '<span class="text-danger fw-semibold">' . format_price($row->total_cost) . '</span>',
-                'raw_total_cost'   => (float) $row->total_cost,
+                'total_revenue'    => '<span class="text-success fw-semibold">' . format_price($prodRevenue) . '</span>',
+                'raw_total_revenue'=> (float) $prodRevenue,
+                'total_cost'       => '<span class="text-danger fw-semibold">' . format_price($prodCost) . '</span>',
+                'raw_total_cost'   => (float) $prodCost,
                 'profit'           => $profitBadge,
                 'raw_profit'       => (float) $prodProfit,
                 'margin'           => $marginBadge,
@@ -2074,16 +2441,7 @@ class ReportController extends Controller
                         ELSE 1.0
                     END
                 ) as qty_sold,
-                SUM(
-                    CASE 
-                        WHEN orders.final_amount > 0 THEN 
-                            order_items.total * (
-                                orders.final_amount / 
-                                NULLIF((SELECT SUM(oi.total) FROM order_items oi WHERE oi.order_id = orders.id), 0)
-                            )
-                        ELSE order_items.total
-                    END
-                ) as total_revenue,
+                SUM(order_items.total) as total_revenue,
                 SUM(order_items.quantity * COALESCE(product_variants.purchase_price, products.purchase_price, 0)) as total_cost
             ')
             ->groupBy('order_items.product_id', 'products.name', 'products.barcode')
@@ -2598,27 +2956,65 @@ class ReportController extends Controller
     {
         $this->authorize('view stock inventory reports');
 
-        $categoryId = $request->query('category_id');
-        $stockStatus = $request->query('stock');
-
         $user = auth()->user();
-        if ($user->location_id && !$user->hasRole('super-admin')) {
-            $locations = Location::where('id', $user->location_id)->get();
+        $isRestricted = $user->location_id && !$user->hasRole('super-admin');
+        $locationId = $isRestricted ? $user->location_id : ($request->input('location_id') ? (int) $request->input('location_id') : null);
+
+        if ($locationId) {
+            $locations = Location::where('id', $locationId)->get();
         } else {
             $locations = Location::where('status', 1)->orderBy('name')->get();
         }
 
-        $query = Product::with(['category', 'subCategory', 'primaryImage', 'inventories.location', 'variants.attributeValue.attribute']);
-        if ($categoryId) {
-            $query->where('category_id', $categoryId);
-        }
+        $stockStatus = $request->input('stock');
 
-        $products = $query->orderBy('name')->get();
-        Product::preloadVariantStock($products);
+        $query = $this->stockInventoryFilteredQuery($request, $locationId);
+        $query->with(['category', 'subCategory', 'primaryImage', 'inventories.location', 'variants.attributeValue.attribute']);
+
+        $products = $query->get();
+        $productIds = $products->pluck('id');
+
+        $transferPriceMap = DB::table('purchase_bill_items')
+            ->join('purchase_bills', 'purchase_bills.id', '=', 'purchase_bill_items.purchase_bill_id')
+            ->whereIn('purchase_bill_items.product_id', $productIds)
+            ->whereNull('purchase_bill_items.deleted_at')
+            ->whereNull('purchase_bills.deleted_at')
+            ->where('purchase_bills.status', 2)
+            ->when($locationId, fn($q) => $q->where('purchase_bills.to_location_id', $locationId))
+            ->select('purchase_bill_items.product_id', 'purchase_bill_items.purchase_price', 'purchase_bill_items.mrp')
+            ->orderBy('purchase_bill_items.id', 'asc')
+            ->get()
+            ->groupBy('product_id');
+
+        $purchasePriceMap = DB::table('purchase_items')
+            ->join('purchases', 'purchases.id', '=', 'purchase_items.purchase_id')
+            ->leftJoin('products', 'products.id', '=', 'purchase_items.product_id')
+            ->whereIn('purchase_items.product_id', $productIds)
+            ->whereNull('purchase_items.deleted_at')
+            ->whereNull('purchases.deleted_at')
+            ->where('purchases.status', 2)
+            ->select('purchase_items.product_id', 'purchase_items.purchase_price')
+            ->orderBy('purchase_items.id', 'asc')
+            ->get()
+            ->groupBy('product_id');
 
         $productsList = collect();
         foreach ($products as $product) {
-            $purchasePrice = (float) $product->purchase_price;
+            $pItem = $purchasePriceMap->get($product->id, collect())->first();
+            $tItem = $transferPriceMap->get($product->id, collect())->first();
+
+            $unitPurchPrice = 0.0;
+            if ($locationId && $tItem && (float)$tItem->purchase_price > 0) {
+                $unitPurchPrice = (float) $tItem->purchase_price;
+            } elseif ($pItem && (float)$pItem->purchase_price > 0) {
+                $unitPurchPrice = (float) $pItem->purchase_price;
+            } elseif ($tItem && (float)$tItem->purchase_price > 0) {
+                $unitPurchPrice = (float) $tItem->purchase_price;
+            } else {
+                $unitPurchPrice = (float) ($product->purchase_price ?? 0);
+            }
+
+            $purchasePrice = $unitPurchPrice;
             $salePrice = (float) $product->sale_price;
             $sizes = collect($product->custom_sizes ?? [])->pluck('size')->map(fn($s) => (float) $s)->filter(fn($s) => $s > 0);
             $pairSize = ($product->pair_product && $sizes->count() > 0) ? (float) $sizes->max() : 1.0;

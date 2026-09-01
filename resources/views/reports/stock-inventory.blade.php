@@ -66,6 +66,7 @@
             }
             return {
                 category_id : $('#filterCategory').val() || '',
+                location_id : $('#filterLocation').val() || '',
                 stock       : $('#filterStock').val() || '',
                 min_age     : minAge || '',
                 sort_by     : $('#sortBy').val() || '',
@@ -82,6 +83,25 @@
                 $('#stockTableFooterRow td[data-footer="qty"]').html(res.qty_total);
                 $('#stockTableFooterRow td[data-footer="purchase"]').html(res.purchase_total);
                 $('#stockTableFooterRow td[data-footer="mrp"]').html(res.mrp_total);
+
+                if (res.product_count !== undefined) {
+                    $('#statActiveProductCount').text(res.product_count);
+                }
+                if (res.qty_total !== undefined) {
+                    $('#statTotalStockDisplay').html(res.qty_total);
+                }
+                if (res.purchase_total !== undefined) {
+                    $('#statTotalPurchaseValueDisplay').text(res.purchase_total);
+                }
+                if (res.mrp_total !== undefined) {
+                    $('#statTotalMrpValueDisplay').text(res.mrp_total);
+                }
+                if (res.soldout_count !== undefined) {
+                    $('#statSoldoutProductCount').text(res.soldout_count);
+                }
+                if (res.location_chart_data && res.stacked_chart_data) {
+                    updateCharts(res.location_chart_data, res.stacked_chart_data);
+                }
             });
         }
 
@@ -116,7 +136,7 @@
             table = $('#stockTable').DataTable({
                 responsive : false,
                 serverSide : true,
-                processing : false,
+                processing : true,
                 pageLength : 25,
                 ordering   : true,
                 order      : [[1, 'asc']],
@@ -153,7 +173,10 @@
             });
 
             table.on('xhr.dt draw.dt', function () {
-                window.hideAjaxLoader && window.hideAjaxLoader();
+                if (window.hideAjaxLoader) {
+                    window.hideAjaxLoader();
+                    $('.loader-status').text('Loading');
+                }
                 $('#stockTable_processing').css('display', 'none');
             });
 
@@ -179,12 +202,37 @@
             });
         }
 
+        let chartLocation = null;
+        let chartStacked = null;
+
+        function updateCharts(locationChartData, stackedChartData) {
+            if (chartLocation && locationChartData) {
+                chartLocation.updateOptions({
+                    xaxis: { categories: locationChartData.map(l => l.name) }
+                });
+                chartLocation.updateSeries([{ name: 'Total Stock', data: locationChartData.map(l => l.stock) }]);
+            }
+            if (chartStacked && stackedChartData) {
+                const locationNames = @json($locations->pluck('name'));
+                const stackedSeries = locationIds.map(function (locId, i) {
+                    return {
+                        name: locationNames[i],
+                        data: stackedChartData.map(p => p[locId] || 0)
+                    };
+                });
+                chartStacked.updateOptions({
+                    xaxis: { categories: stackedChartData.map(p => p.name) }
+                });
+                chartStacked.updateSeries(stackedSeries);
+            }
+        }
+
         function initCharts() {
             const locationChartData = JSON.parse(document.getElementById('locationChartData').textContent || '[]');
             const stackedChartData = JSON.parse(document.getElementById('stackedChartData').textContent || '[]');
             const locationNames = @json($locations->pluck('name'));
 
-            new ApexCharts(document.getElementById('locationStockChart'), {
+            chartLocation = new ApexCharts(document.getElementById('locationStockChart'), {
                 chart  : { type: 'bar', height: 380, toolbar: { show: false } },
                 plotOptions: {
                     bar: {
@@ -219,7 +267,8 @@
                     yaxis: { lines: { show: false } },
                     padding: { top: -15, right: 10, bottom: -10, left: 10 }
                 }
-            }).render();
+            });
+            chartLocation.render();
 
             const stackedSeries = locationIds.map(function (locId, i) {
                 return {
@@ -228,7 +277,7 @@
                 };
             });
 
-            new ApexCharts(document.getElementById('stackedStockChart'), {
+            chartStacked = new ApexCharts(document.getElementById('stackedStockChart'), {
                 chart  : { type: 'bar', height: 380, stacked: true, toolbar: { show: false } },
                 series : stackedSeries,
                 xaxis  : {
@@ -261,7 +310,8 @@
                     padding: { top: -15, right: 10, bottom: -10, left: 10 }
                 },
                 tooltip: { y: { formatter: function(val) { return val + ' Units'; } } }
-            }).render();
+            });
+            chartStacked.render();
         }
 
         function initDatePickers() {
@@ -287,12 +337,23 @@
         });
         updateFilterButtonsVisibility();
 
+        function reloadStockTable() {
+            if (window.showAjaxLoader) {
+                $('.loader-status').text('Filtering Stock Report...');
+                window.showAjaxLoader();
+            }
+            if (table) {
+                table.ajax.reload(null, false);
+            }
+        }
+
         $(document).on('click', '#applyFiltersBtn', function () {
-            table.ajax.reload();
+            reloadStockTable();
         });
 
         $(document).on('click', '#clearFiltersBtn', function() {
             $('#filterCategory').val('').trigger('change.select2');
+            $('#filterLocation').val('').trigger('change.select2');
             $('#filterStock').val('').trigger('change.select2');
             $('#filterAge').val('').trigger('change.select2');
             $('#filterAgeCustom').val('');
@@ -301,16 +362,7 @@
             $('#filterForm .flatpickr').each(function () {
                 if (this._flatpickr) this._flatpickr.clear();
             });
-            updateFilterButtonsVisibility();
-            table.ajax.reload();
-        });
-
-        $(document).on('change', '#filterCategory, #filterStock, #filterAge, #filterAgeCustom, #sortBy', function () {
-            table.ajax.reload();
-        });
-
-        $(document).on('change', 'input[name="from_date"], input[name="to_date"]', function () {
-            table.ajax.reload();
+            reloadStockTable();
         });
 
         $(document).on('click', '#exportExcelBtn', function() {

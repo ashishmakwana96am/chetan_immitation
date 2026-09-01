@@ -224,6 +224,7 @@
                         <small class="product-sku-display text-muted"></small>
                         <div class="variant-select-container mt-2"></div>
                         <div class="size-select-container"></div>
+                        <div class="batch-select-container"></div>
                     </div>
                 </div>
             </td>
@@ -345,7 +346,7 @@ $(document).ready(function () {
         return sizeHtml;
     }
 
-    function addItemRow(product, selectedVariantId = null, qty = 1, pairType = 'single', customSizeValue = null, prependRow = true) {
+    function addItemRow(product, selectedVariantId = null, qty = 1, pairType = 'single', customSizeValue = null, prependRow = true, selectedPurchasePrice = null, selectedBatchId = null) {
         let initialVariantId = null;
 
         if (product.type !== 'variable' && !(product.pair_product && product.custom_sizes && product.custom_sizes.length) && hasDuplicate(product.id, null)) {
@@ -366,18 +367,37 @@ $(document).ready(function () {
         const row = $(html);
         row.data('product', product);
         row.data('product-id', product.id);
+        if (selectedPurchasePrice !== null && selectedPurchasePrice !== undefined) {
+            row.data('selected-purchase-price', parseFloat(selectedPurchasePrice));
+        }
+        if (selectedBatchId !== null && selectedBatchId !== undefined) {
+            row.data('selected-batch-id', selectedBatchId);
+        }
         row.find('.product-name-display').text(product.name);
         row.find('.product-sku-display').text(product.barcode ? 'Barcode: ' + product.barcode : '');
         row.find('.item-qty').val(qty);
         setProductImage(row.find('.product-image-container'), product);
 
         if (product.type === 'variable' && product.variants && product.variants.length) {
+            const activeLocId = $('#fromLocation').val();
             let options = `<option value="" disabled ${!selectedVariantId ? 'selected' : ''}>-- Select Variant --</option>`;
             product.variants.forEach(function (variant) {
                 const selected = selectedVariantId && selectedVariantId == variant.id ? 'selected' : '';
                 const price = variant.purchase_price != null ? variant.purchase_price : 0;
-                const label = `${variant.attr_name}: ${variant.value_name} (${symbol}${price})`;
-                options += `<option value="${variant.id}" ${selected}>${label}</option>`;
+
+                let vStock = 0;
+                if (activeLocId && product.stock_by_location) {
+                    const locData = product.stock_by_location[activeLocId] || product.stock_by_location[String(activeLocId)] || product.stock_by_location[Number(activeLocId)];
+                    if (locData && locData.variants) {
+                        const vVal = locData.variants[variant.id] !== undefined ? locData.variants[variant.id] : locData.variants[String(variant.id)];
+                        vStock = parseInt(vVal) || 0;
+                    }
+                }
+                const isDisabled = (vStock <= 0 && !selected) ? 'disabled' : '';
+                const stockLabel = (activeLocId && vStock <= 0) ? ' (Out of stock)' : '';
+
+                const label = `${variant.attr_name}: ${variant.value_name} (${symbol}${price})${stockLabel}`;
+                options += `<option value="${variant.id}" ${selected} ${isDisabled}>${label}</option>`;
             });
             row.find('.variant-select-container').html(`<select class="form-select form-select-sm variant-select mt-2 no-select2">${options}</select>`);
             const currentVarVal = row.find('.variant-select').val() || null;
@@ -454,21 +474,115 @@ $(document).ready(function () {
         }).fail(function () {
             row.find('.stock-info-display').removeClass('bg-label-success bg-label-secondary').addClass('bg-label-danger').text('N/A');
         });
+
+        loadTransferProductBatches(row, row.data('selected-batch-id'), row.data('selected-purchase-price'));
+    }
+
+    function loadTransferProductBatches(row, selectedBatchId = null, selectedPrice = null) {
+        const product = row.data('product');
+        const variantId = row.attr('data-variant-id') || row.data('variant-id') || row.find('.variant-select').val() || '';
+        const locationId = $('#fromLocation').val();
+        const batchContainer = row.find('.batch-select-container');
+
+        if (selectedBatchId === null || selectedBatchId === undefined) {
+            selectedBatchId = row.data('selected-batch-id') || null;
+        }
+        if (selectedPrice === null || selectedPrice === undefined) {
+            selectedPrice = row.data('selected-purchase-price') !== undefined ? row.data('selected-purchase-price') : null;
+        }
+
+        if (!product || !locationId) {
+            batchContainer.empty();
+            updateRowPrice(row);
+            return;
+        }
+
+        $.get('{{ route("admin.sales.product-batches") }}', {
+            product_id: product.id,
+            product_variant_id: variantId,
+            location_id: locationId
+        }, function(res) {
+            if (res.status === 'success' && res.batches && res.batches.length > 0) {
+                row.data('batches', res.batches);
+                let html = '<div class="d-flex align-items-center gap-1 mt-1"><span class="badge bg-label-info text-nowrap" style="font-size: 0.7rem;">Purchase Price:</span><select class="form-select form-select-sm batch-select no-select2" style="font-size: 0.78rem; padding-top: 2px; padding-bottom: 2px;">';
+                
+                let foundSelected = false;
+                res.batches.forEach(b => {
+                    let sel = false;
+                    if (selectedBatchId && b.purchase_item_id == selectedBatchId) {
+                        sel = true;
+                    } else if (!foundSelected && selectedPrice !== null && selectedPrice !== undefined && Math.abs(parseFloat(b.purchase_price) - parseFloat(selectedPrice)) < 0.001) {
+                        sel = true;
+                    }
+                    if (sel) foundSelected = true;
+
+                    const bStock = parseInt(b.available_qty) || 0;
+                    const isDisabled = (bStock <= 0 && !sel) ? 'disabled' : '';
+                    const stockTag = bStock > 0 ? '' : ' (Out of stock)';
+
+                    html += `<option value="${b.purchase_price}" data-purchase-item-id="${b.purchase_item_id || ''}" data-purchase-price="${b.purchase_price}" data-available-qty="${b.available_qty}" ${sel ? 'selected' : ''} ${isDisabled}>${b.label}${stockTag}</option>`;
+                });
+
+                if (!foundSelected && selectedPrice !== null && selectedPrice !== undefined && parseFloat(selectedPrice) > 0) {
+                    const formatted = symbol + ' ' + formatPrice(selectedPrice);
+                    html += `<option value="${selectedPrice}" data-purchase-price="${selectedPrice}" data-available-qty="0" selected disabled>${formatted} (Out of stock)</option>`;
+                }
+
+                html += '</select></div>';
+                batchContainer.html(html);
+
+                const selOpt = batchContainer.find('.batch-select option:selected');
+                if (selOpt.length) {
+                    const pVal = selOpt.attr('data-purchase-price') !== undefined ? selOpt.attr('data-purchase-price') : selOpt.val();
+                    if (pVal !== undefined && pVal !== null && pVal !== '') {
+                        row.data('selected-purchase-price', parseFloat(pVal));
+                    }
+                    const bId = selOpt.attr('data-purchase-item-id');
+                    if (bId) row.data('selected-batch-id', bId);
+
+                }
+
+                updateRowPrice(row);
+            } else {
+                row.data('batches', []);
+                let targetPrice = (selectedPrice !== null && selectedPrice !== undefined)
+                    ? parseFloat(selectedPrice)
+                    : (product.purchase_price ? parseFloat(product.purchase_price) : 0);
+                const defPrice = symbol + ' ' + formatPrice(targetPrice);
+                let html = '<div class="d-flex align-items-center gap-1 mt-1"><span class="badge bg-label-info text-nowrap" style="font-size: 0.7rem;">Purchase Price:</span><select class="form-select form-select-sm batch-select no-select2" style="font-size: 0.78rem; padding-top: 2px; padding-bottom: 2px;">';
+                html += `<option value="${targetPrice}" data-purchase-price="${targetPrice}" data-available-qty="0" selected>${defPrice}</option>`;
+                html += '</select></div>';
+                batchContainer.html(html);
+
+                row.data('selected-purchase-price', targetPrice);
+                updateRowAvailableStockDisplay(row);
+                updateRowPrice(row);
+            }
+        }).fail(function() {
+            row.data('batches', []);
+            batchContainer.empty();
+            updateRowPrice(row);
+        });
     }
 
     function updateRowAvailableStockDisplay(row) {
         const qtyPcs = parseInt(row.data('available-pcs') || 0);
         const product = row.data('product');
+        const variantId = row.attr('data-variant-id') || row.data('variant-id') || row.find('.variant-select').val() || null;
+        const customSizeValue = parseFloat(row.data('custom-size-value')) || parseFloat(row.find('.custom-size-value-input').val()) || 0;
 
         let stockText = qtyPcs + ' Pcs';
         let displayQty = qtyPcs;
 
         if (product && product.pair_product) {
-            let pairSize = 2;
-            if (product.custom_sizes && Array.isArray(product.custom_sizes) && product.custom_sizes.length > 0) {
-                const sizes = product.custom_sizes.map(s => typeof s === 'object' && s !== null ? parseFloat(s.size) : parseFloat(s)).filter(Boolean);
+            const effectiveSizes = getEffectiveCustomSizes(product, variantId);
+            let pairSize = customSizeValue > 0 ? customSizeValue : 0;
+            if (!pairSize && effectiveSizes && effectiveSizes.length > 0) {
+                const sizes = effectiveSizes.map(s => typeof s === 'object' && s !== null ? parseFloat(s.size) : parseFloat(s)).filter(s => s > 0);
                 if (sizes.length > 0) pairSize = Math.max(...sizes);
             }
+            if (!pairSize) pairSize = 2;
+
             const pairsCount = Math.floor(qtyPcs / pairSize);
             const remPcs = qtyPcs % pairSize;
             let parts = [];
@@ -478,7 +592,7 @@ $(document).ready(function () {
             displayQty = pairsCount;
         }
 
-        row.data('available', displayQty);
+        row.data('available', qtyPcs);
         row.find('.stock-info-display')
             .html('Stock: ' + stockText)
             .removeClass('bg-label-secondary bg-label-warning bg-label-danger bg-label-success')
@@ -489,12 +603,31 @@ $(document).ready(function () {
         const product = row.data('product');
         if (!product) return 0;
         let basePrice = 0;
-        const variantId = row.find('.variant-select').val() || null;
-        if (variantId && product.variants) {
-            const variant = product.variants.find(v => String(v.id) === String(variantId));
-            if (variant) basePrice = parseFloat(variant.purchase_price || 0);
-        } else {
-            basePrice = parseFloat(product.purchase_price || 0);
+
+        const variantId = row.find('.variant-select').val() || row.attr('data-variant-id') || row.data('variant-id') || null;
+
+        const batchSelect = row.find('.batch-select');
+        if (batchSelect.length) {
+            const selOpt = batchSelect.find('option:selected');
+            if (selOpt.length) {
+                const optPrice = selOpt.attr('data-purchase-price') !== undefined ? selOpt.attr('data-purchase-price') : selOpt.val();
+                if (optPrice !== undefined && optPrice !== null && optPrice !== '') {
+                    basePrice = parseFloat(optPrice) || 0;
+                }
+            }
+        }
+
+        if (basePrice === 0 && row.data('selected-purchase-price') !== undefined) {
+            basePrice = parseFloat(row.data('selected-purchase-price')) || 0;
+        }
+
+        if (basePrice === 0) {
+            if (variantId && product.variants) {
+                const variant = product.variants.find(v => String(v.id) === String(variantId));
+                if (variant) basePrice = parseFloat(variant.purchase_price || 0);
+            } else {
+                basePrice = parseFloat(product.purchase_price || 0);
+            }
         }
 
         let multiplier = 1.0;
@@ -731,6 +864,34 @@ $(document).ready(function () {
         updateRowPrice(row);
     });
 
+    $(document).on('change', '.batch-select', function() {
+        const row = $(this).closest('.item-row');
+        const selOpt = $(this).find('option:selected');
+        if (selOpt.length) {
+            const pVal = selOpt.attr('data-purchase-price') !== undefined ? selOpt.attr('data-purchase-price') : selOpt.val();
+            if (pVal !== undefined && pVal !== null && pVal !== '') {
+                row.data('selected-purchase-price', parseFloat(pVal));
+            }
+            const bId = selOpt.attr('data-purchase-item-id');
+            if (bId) {
+                row.data('selected-batch-id', bId);
+            }
+            const availAttr = selOpt.attr('data-available-qty');
+            if (availAttr !== undefined && availAttr !== false) {
+                row.data('available-pcs', parseInt(availAttr) || 0);
+                updateRowAvailableStockDisplay(row);
+            }
+        }
+        updateRowPrice(row);
+        updateSummary();
+    });
+
+    $('#fromLocation').on('change', function() {
+        $('.item-row').each(function() {
+            refreshRowStock($(this));
+        });
+    });
+
     $(document).on('input', '.item-qty', updateSummary);
     $(document).on('click', '.remove-item-btn', function () {
         $(this).closest('.item-row').remove();
@@ -757,10 +918,10 @@ $(document).ready(function () {
                     matchedVariant = product.variants[0];
                 }
                 if (matchedVariant) {
-                    addItemRow(product, matchedVariant.id, item.quantity, item.pair_type, item.custom_size_value, false);
+                    addItemRow(product, matchedVariant.id, item.quantity, item.pair_type, item.custom_size_value, false, item.purchase_price, item.purchase_item_id);
                 }
             } else {
-                addItemRow(product, null, item.quantity, item.pair_type, item.custom_size_value, false);
+                addItemRow(product, null, item.quantity, item.pair_type, item.custom_size_value, false, item.purchase_price, item.purchase_item_id);
             }
         });
     }
@@ -832,8 +993,13 @@ $(document).ready(function () {
                 valid = false;
                 return false;
             }
-            const available = parseInt(row.data('available') || 0);
-            if (qty > available) {
+            const pairType = row.find('.pair-type-input').val() || 'single';
+            const customSizeVal = parseFloat(row.find('.custom-size-value-input').val()) || 0;
+            const multiplier = (customSizeVal > 0) ? customSizeVal : (pairType === 'pair' ? 2.0 : 1.0);
+            const neededPcs = Math.round(qty * multiplier);
+            const availPcs = parseInt(row.data('available-pcs') || row.data('available') || 0);
+
+            if (neededPcs > availPcs) {
                 toastr.error('Transfer quantity cannot be greater than available source stock.');
                 valid = false;
                 return false;
@@ -847,6 +1013,26 @@ $(document).ready(function () {
                     return false;
                 }
                 hiddenContainer.append(`<input type="hidden" name="items[${submitIdx}][custom_size_value]" value="${customSizeValue}">`);
+            }
+
+            const batchSel = row.find('.batch-select');
+            let selPrice = null;
+            let selItemId = null;
+            if (batchSel.length) {
+                const selOpt = batchSel.find('option:selected');
+                if (selOpt.length) {
+                    selPrice = selOpt.attr('data-purchase-price') !== undefined ? selOpt.attr('data-purchase-price') : selOpt.val();
+                    selItemId = selOpt.attr('data-purchase-item-id');
+                }
+            }
+            if ((selPrice === null || selPrice === undefined || selPrice === '') && row.data('selected-purchase-price') !== undefined) {
+                selPrice = row.data('selected-purchase-price');
+            }
+            if (selPrice !== null && selPrice !== undefined && selPrice !== '') {
+                hiddenContainer.append(`<input type="hidden" name="items[${submitIdx}][purchase_price]" value="${selPrice}">`);
+            }
+            if (selItemId) {
+                hiddenContainer.append(`<input type="hidden" name="items[${submitIdx}][purchase_item_id]" value="${selItemId}">`);
             }
 
             hiddenContainer.append(`<input type="hidden" name="items[${submitIdx}][product_id]" value="${product.id}">`);
@@ -932,8 +1118,34 @@ $(document).ready(function () {
 
     $(document).on('change', 'select#fromLocation', function () {
         syncDestinationOptions();
+        const sourceLocId = $('#fromLocation').val();
         $('#itemsBody .item-row').each(function () {
-            refreshRowStock($(this));
+            const row = $(this);
+            const product = row.data('product');
+            if (product && product.type === 'variable' && product.variants) {
+                const currentVarId = row.find('.variant-select').val();
+                let options = `<option value="" disabled ${!currentVarId ? 'selected' : ''}>-- Select Variant --</option>`;
+                product.variants.forEach(function (variant) {
+                    const selected = currentVarId && currentVarId == variant.id ? 'selected' : '';
+                    const price = variant.purchase_price != null ? variant.purchase_price : 0;
+
+                    let vStock = 0;
+                    if (sourceLocId && product.stock_by_location) {
+                        const locData = product.stock_by_location[sourceLocId] || product.stock_by_location[String(sourceLocId)] || product.stock_by_location[Number(sourceLocId)];
+                        if (locData && locData.variants) {
+                            const vVal = locData.variants[variant.id] !== undefined ? locData.variants[variant.id] : locData.variants[String(variant.id)];
+                            vStock = parseInt(vVal) || 0;
+                        }
+                    }
+                    const isDisabled = (vStock <= 0 && !selected) ? 'disabled' : '';
+                    const stockLabel = (sourceLocId && vStock <= 0) ? ' (Out of stock)' : '';
+
+                    const label = `${variant.attr_name}: ${variant.value_name} (${symbol}${price})${stockLabel}`;
+                    options += `<option value="${variant.id}" ${selected} ${isDisabled}>${label}</option>`;
+                });
+                row.find('.variant-select-container').html(`<select class="form-select form-select-sm variant-select mt-2 no-select2">${options}</select>`);
+            }
+            refreshRowStock(row);
         });
     });
 
