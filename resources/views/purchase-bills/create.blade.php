@@ -452,8 +452,10 @@ $(document).ready(function () {
                     titleText += `\n- ${item.location_name}: ${item.quantity}`;
                 });
             }
-            row.data('available-pcs', qty);
-            updateRowAvailableStockDisplay(row);
+            if (!row.find('.batch-select option:selected').length) {
+                row.data('available-pcs', qty);
+                updateRowAvailableStockDisplay(row);
+            }
             row.find('.stock-info-display').attr('title', titleText).css('cursor', 'help');
         }).fail(function () {
             row.find('.stock-info-display').removeClass('bg-label-success bg-label-secondary').addClass('bg-label-danger').text('N/A');

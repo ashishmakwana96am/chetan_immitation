@@ -2067,7 +2067,13 @@ class ReportController extends Controller
                     END
                 ) as qty_sold,
                 SUM(order_items.total) as total_revenue,
-                SUM(COALESCE(order_items.purchase_price, order_items.quantity * product_variants.purchase_price, order_items.quantity * products.purchase_price, 0)) as total_cost
+                SUM(
+                    order_items.quantity * CASE 
+                        WHEN order_items.custom_size_value IS NOT NULL AND order_items.custom_size_value > 0 THEN order_items.custom_size_value
+                        WHEN products.pair_product = 1 AND (order_items.pair_type = "pair" OR order_items.pair_type IS NULL) THEN 2.0
+                        ELSE 1.0
+                    END * COALESCE(order_items.purchase_price, product_variants.purchase_price, products.purchase_price, 0)
+                ) as total_cost
             ')
             ->groupBy('order_items.product_id', 'products.name', 'products.barcode')
             ->orderByDesc('order_items.product_id')
@@ -2201,7 +2207,13 @@ class ReportController extends Controller
                     END
                 ) as qty_sold,
                 SUM(order_items.total) as total_revenue,
-                SUM(COALESCE(order_items.purchase_price, order_items.quantity * product_variants.purchase_price, order_items.quantity * products.purchase_price, 0)) as total_cost
+                SUM(
+                    order_items.quantity * CASE 
+                        WHEN order_items.custom_size_value IS NOT NULL AND order_items.custom_size_value > 0 THEN order_items.custom_size_value
+                        WHEN products.pair_product = 1 AND (order_items.pair_type = "pair" OR order_items.pair_type IS NULL) THEN 2.0
+                        ELSE 1.0
+                    END * COALESCE(order_items.purchase_price, product_variants.purchase_price, products.purchase_price, 0)
+                ) as total_cost
             ')
             ->groupBy('order_items.product_id', 'products.name', 'products.barcode');
 

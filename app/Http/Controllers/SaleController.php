@@ -504,12 +504,22 @@ class SaleController extends Controller
                     $unitPurchasePrice
                 );
 
+                $productObj = \App\Models\Product::find($itemData['product_id']);
                 $purchasePrice = $batchAlloc['total_cost'];
-                if ($unitPurchasePrice > 0 && $physicalQty > 1 && abs($purchasePrice - $unitPurchasePrice) < 0.01) {
-                    $purchasePrice = round($physicalQty * $unitPurchasePrice, 2);
-                }
                 if ($purchasePrice <= 0 && $unitPurchasePrice > 0) {
-                    $purchasePrice = round($physicalQty * $unitPurchasePrice, 2);
+                    $purchasePrice = (float) $unitPurchasePrice;
+                }
+                
+                if ($productObj && $productObj->pair_product && !empty($productObj->custom_sizes)) {
+                    $maxSize = (float) (collect($productObj->custom_sizes)->pluck('size')->map(fn($s) => (float)$s)->max() ?: 1.0);
+                    if ($maxSize > 0) {
+                        $soldSize = ($customSizeVal !== null && $customSizeVal > 0) ? $customSizeVal : 2.0;
+                        $purchasePrice = round(($purchasePrice / $maxSize) * $soldSize * $qty, 2);
+                    } else {
+                        $purchasePrice = round($purchasePrice * $qty, 2);
+                    }
+                } else {
+                    $purchasePrice = round($purchasePrice * $qty, 2);
                 }
                 $purchaseItemId = $batchAlloc['primary_purchase_item_id'];
 
@@ -1184,12 +1194,22 @@ class SaleController extends Controller
                         (int) $sale->id
                     );
 
+                    $productObj = \App\Models\Product::find($itemData['product_id']);
                     $purchasePrice = $batchAlloc['total_cost'];
-                    if ($unitPurchasePrice > 0 && $physicalQty > 1 && abs($purchasePrice - $unitPurchasePrice) < 0.01) {
-                        $purchasePrice = round($physicalQty * $unitPurchasePrice, 2);
-                    }
                     if ($purchasePrice <= 0 && $unitPurchasePrice > 0) {
-                        $purchasePrice = round($physicalQty * $unitPurchasePrice, 2);
+                        $purchasePrice = (float) $unitPurchasePrice;
+                    }
+
+                    if ($productObj && $productObj->pair_product && !empty($productObj->custom_sizes)) {
+                        $maxSize = (float) (collect($productObj->custom_sizes)->pluck('size')->map(fn($s) => (float)$s)->max() ?: 1.0);
+                        if ($maxSize > 0) {
+                            $soldSize = ($customSizeVal !== null && $customSizeVal > 0) ? $customSizeVal : 2.0;
+                            $purchasePrice = round(($purchasePrice / $maxSize) * $soldSize * $qty, 2);
+                        } else {
+                            $purchasePrice = round($purchasePrice * $qty, 2);
+                        }
+                    } else {
+                        $purchasePrice = round($purchasePrice * $qty, 2);
                     }
                     $purchaseItemId = $batchAlloc['primary_purchase_item_id'];
 
