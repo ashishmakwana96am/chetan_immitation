@@ -311,7 +311,7 @@ class DashboardController extends Controller
 
             $monthlySales = $this->getMonthlySales($locationId);
             $recentSales = Order::with(['customer'])->where('order_type', 'sale')->where('location_id', $locationId)->whereIn('status', $approvedStatuses)->latest()->take(5)->get();
-            $lowStock = $lowStockInventories->pluck('product')->filter()->unique('id')->values();
+            $lowStock = $lowStockInventories;
             $topProducts = OrderItem::with('product.primaryImage')->whereHas('order', fn($q) => $q->where('order_type', 'sale')->where('location_id', $locationId)->whereIn('status', $approvedStatuses))->selectRaw('product_id, SUM(quantity) as total_qty, SUM(total) as total_revenue')->groupBy('product_id')->orderByDesc('total_qty')->take(5)->get();
 
             Product::clearPreloadedVariantStock();
