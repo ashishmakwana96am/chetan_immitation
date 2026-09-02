@@ -3057,7 +3057,7 @@ class ReportController extends Controller
 
                     $vPurchasePrice = (float) $v->purchase_price;
                     $vSalePrice = (float) $v->sale_price;
-                    $vMrpPrice = (float) (($v->mrp ?? 0) > 0 ? $v->mrp : $vSalePrice);
+                    $vMrpPrice = (float) (($v->mrp ?? 0) > 0 ? $v->mrp : $mrpPrice);
                     $vEffectiveTotal = $product->pair_product ? ($vTotal / $pairSize) : (float) $vTotal;
 
                     $attrName = $v->attributeValue->attribute->name ?? '';
