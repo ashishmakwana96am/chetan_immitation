@@ -24,6 +24,7 @@ use PhpOffice\PhpSpreadsheet\Writer\Xlsx;
 use PhpOffice\PhpSpreadsheet\Style\Alignment;
 use PhpOffice\PhpSpreadsheet\Style\Border;
 use PhpOffice\PhpSpreadsheet\Style\Fill;
+use Illuminate\Support\Facades\DB;
 
 class LedgerController extends Controller
 {
@@ -135,11 +136,19 @@ class LedgerController extends Controller
             ? Location::where('id', $user->location_id)->get()
             : Location::where('status', 1)->orderBy('name')->get();
 
-        $purchasesByLocation = $purchases->groupBy('location_id');
-
         $branchSummary = [];
         foreach ($branchLocations as $loc) {
-            $locPurchases = $purchasesByLocation->get($loc->id, collect());
+            $locAllowedPurchaseIds = DB::table('purchase_allocations')
+                ->join('purchase_items', 'purchase_items.id', '=', 'purchase_allocations.purchase_item_id')
+                ->where('purchase_allocations.location_id', $loc->id)
+                ->pluck('purchase_items.purchase_id')
+                ->unique();
+
+            $locPurchases = $purchases->whereIn('id', $locAllowedPurchaseIds);
+            if ($locPurchases->isEmpty() && $loc->is_default) {
+                $locPurchases = $purchases->filter(fn($p) => in_array($p->id, $locAllowedPurchaseIds->toArray()) || (int)$p->location_id === (int)$loc->id || empty($p->location_id));
+            }
+
             $locTotal = (float) $locPurchases->sum('total_amount');
             $locPaid  = (float) $locPurchases->sum('paid_amount');
 

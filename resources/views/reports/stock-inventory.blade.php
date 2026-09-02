@@ -93,8 +93,11 @@
                 if (res.purchase_total !== undefined) {
                     $('#statTotalPurchaseValueDisplay').text(res.purchase_total);
                 }
-                if (res.inward_total !== undefined) {
-                    $('#statTotalInwardValDisplay').text(res.inward_total);
+                if (res.direct_purchase_total !== undefined) {
+                    $('#statTotalDirectPurchaseValDisplay').text(res.direct_purchase_total);
+                }
+                if (res.transfer_in_total !== undefined) {
+                    $('#statTotalTransferInValDisplay').text(res.transfer_in_total);
                 }
                 if (res.return_total !== undefined) {
                     $('#statTotalReturnValDisplay').text(res.return_total);

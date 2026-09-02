@@ -816,15 +816,24 @@ class AccountingController extends Controller
             ? Location::where('id', $user->location_id)->get()
             : Location::where('status', 1)->orderBy('name')->get();
 
-        $purchasesByLocation = $purchases->groupBy('location_id');
-
         $branchSummary = [];
         foreach ($branchLocations as $loc) {
             $locPurchase = 0.0;
             $locPayment = 0.0;
             $locOutstanding = 0.0;
 
-            $locGrouped = $purchasesByLocation->get($loc->id, collect())->groupBy(fn ($purchase) => $purchase->supplier_id ?? 0);
+            $locAllowedPurchaseIds = \Illuminate\Support\Facades\DB::table('purchase_allocations')
+                ->join('purchase_items', 'purchase_items.id', '=', 'purchase_allocations.purchase_item_id')
+                ->where('purchase_allocations.location_id', $loc->id)
+                ->pluck('purchase_items.purchase_id')
+                ->unique();
+
+            $locPurchases = $purchases->whereIn('id', $locAllowedPurchaseIds);
+            if ($locPurchases->isEmpty() && $loc->is_default) {
+                $locPurchases = $purchases->filter(fn($p) => in_array($p->id, $locAllowedPurchaseIds->toArray()) || (int)$p->location_id === (int)$loc->id || empty($p->location_id));
+            }
+
+            $locGrouped = $locPurchases->groupBy(fn ($purchase) => $purchase->supplier_id ?? 0);
             foreach ($locGrouped as $items) {
                 $sumTotal = 0.0;
                 $sumPaid = 0.0;

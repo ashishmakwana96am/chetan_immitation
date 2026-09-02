@@ -952,6 +952,8 @@ class ReportController extends Controller
             'qty_total' => $totals['qty_total'],
             'purchase_total' => format_price($totals['purchase_total']),
             'mrp_total' => format_price($totals['mrp_total']),
+            'direct_purchase_total' => format_price($totals['direct_purchase_total'] ?? 0),
+            'transfer_in_total' => format_price($totals['transfer_in_total'] ?? 0),
             'inward_total' => format_price($totals['inward_total'] ?? 0),
             'return_total' => format_price($totals['return_total'] ?? 0),
             'sales_cost_total' => format_price($totals['sales_cost_total'] ?? 0),
@@ -986,6 +988,17 @@ class ReportController extends Controller
             ->with('variants')
             ->select('id', 'name', 'barcode', 'type', 'pair_product', 'custom_sizes', 'purchase_price', 'sale_price', 'mrp')
             ->get();
+
+        $purchasesQuery = Purchase::where('status', Purchase::STATUS_APPROVE);
+        if ($locationId) {
+            $allowedPurchaseIds = DB::table('purchase_allocations')
+                ->join('purchase_items', 'purchase_items.id', '=', 'purchase_allocations.purchase_item_id')
+                ->where('purchase_allocations.location_id', $locationId)
+                ->pluck('purchase_items.purchase_id')
+                ->unique();
+            $purchasesQuery->whereIn('id', $allowedPurchaseIds);
+        }
+        $exactDirectPurchaseTotal = (float) $purchasesQuery->sum('total_amount');
 
         $productIds = $products->pluck('id');
 
@@ -1057,10 +1070,14 @@ class ReportController extends Controller
         foreach ($locations as $location) {
             $locationPairTotals[$location->id] = 0;
             $locationLooseTotals[$location->id] = 0;
-        }        $totalPairUnits = 0;
+        }
+
+        $totalPairUnits = 0;
         $totalLoosePcs = 0;
         $totalPurchaseValue = 0.0;
         $totalMrpValue = 0.0;
+        $totalDirectPurchaseVal = 0.0;
+        $totalTransferInVal = 0.0;
         $totalInwardVal = 0.0;
         $totalReturnVal = 0.0;
         $totalSalesCostVal = 0.0;
@@ -1068,14 +1085,29 @@ class ReportController extends Controller
         foreach ($products as $product) {
             $invRows = $invByProduct->get($product->id, collect());
 
-            // Accumulate gross Inward, Return and Sales cost for breakdown report when filtered by location
+            // Accumulate gross Direct Purchase, Transfer In, Transfer Out and Sales cost for breakdown report
             $pTransfersIn = $transfersGrouped->get($product->id, collect());
             $pAllocationsIn = $allocationsGrouped->get($product->id, collect());
+            $pDirectPurchases = $purchasesGrouped->get($product->id, collect());
+
             foreach ($pTransfersIn as $ti) {
-                $totalInwardVal += ((float)$ti->quantity * (float)$ti->purchase_price);
+                $val = ((float)$ti->quantity * (float)$ti->purchase_price);
+                $totalTransferInVal += $val;
+                $totalInwardVal += $val;
             }
-            foreach ($pAllocationsIn as $ai) {
-                $totalInwardVal += ((float)$ai->quantity * (float)$ai->purchase_price);
+
+            if ($pAllocationsIn->isNotEmpty()) {
+                foreach ($pAllocationsIn as $ai) {
+                    $val = ((float)$ai->quantity * (float)$ai->purchase_price);
+                    $totalDirectPurchaseVal += $val;
+                    $totalInwardVal += $val;
+                }
+            } elseif (!$locationId) {
+                foreach ($pDirectPurchases as $dp) {
+                    $val = ((float)$dp->quantity * (float)$dp->purchase_price);
+                    $totalDirectPurchaseVal += $val;
+                    $totalInwardVal += $val;
+                }
             }
 
             $pTransfersOut = $transfersOutwardGrouped->get($product->id, collect());
@@ -1229,7 +1261,24 @@ class ReportController extends Controller
             $totalMrpValue += $effectiveQty * $unitMrpPrice;
         }
 
-        $totalPurchaseValue = max(0, $totalInwardVal - $totalReturnVal - $totalSalesCostVal);
+        $batchPurchaseValue = $totalPurchaseValue;
+
+        $targetLocation = $locationId ? $locations->firstWhere('id', $locationId) : null;
+        $isDefaultLoc = $targetLocation ? (bool) $targetLocation->is_default : false;
+
+        $totalDirectPurchaseVal = $exactDirectPurchaseTotal;
+        $totalInwardVal = $totalDirectPurchaseVal + $totalTransferInVal;
+
+        if ($locationId) {
+            $totalPurchaseValue = max(0, $totalInwardVal - $totalReturnVal - $totalSalesCostVal);
+        } else {
+            $allBranchSum = 0.0;
+            foreach ($locations as $loc) {
+                $locRes = $this->computeStockTotals($productQuery, $locations, (int)$loc->id);
+                $allBranchSum += (float) ($locRes['purchase_total'] ?? 0);
+            }
+            $totalPurchaseValue = $allBranchSum;
+        }
 
         $formatPairsPcs = function ($pairs, $pcs) {
             $parts = [];
@@ -1252,6 +1301,8 @@ class ReportController extends Controller
             'qty_total'             => $formatPairsPcs($totalPairUnits, $totalLoosePcs),
             'purchase_total'        => $totalPurchaseValue,
             'mrp_total'             => $totalMrpValue,
+            'direct_purchase_total' => $totalDirectPurchaseVal,
+            'transfer_in_total'     => $totalTransferInVal,
             'inward_total'          => $totalInwardVal,
             'return_total'          => $totalReturnVal,
             'sales_cost_total'      => $totalSalesCostVal,
