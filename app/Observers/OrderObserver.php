@@ -75,6 +75,9 @@ class OrderObserver
             return;
         }
 
+        $oldOrderNo = $order->getOriginal('order_no') ?? $order->order_no;
+        $newOrderNo = $order->order_no;
+
         $oldStatus = (int) $order->getOriginal('payment_status');
         $newStatus = (int) $order->payment_status;
 
@@ -89,7 +92,7 @@ class OrderObserver
                 (float) $order->paid_online_amount,
                 (float) $order->final_amount,
                 $order->payment_method,
-                $order->order_no,
+                $newOrderNo,
                 $order->user_id ?? $order->created_by
             );
 
@@ -99,7 +102,7 @@ class OrderObserver
                 (float) $order->paid_online_amount,
                 (float) $order->final_amount,
                 $order->payment_method,
-                $order->order_no,
+                $newOrderNo,
                 $order->user_id ?? $order->created_by,
                 null,
                 (bool) $order->use_credit_balance
@@ -117,7 +120,7 @@ class OrderObserver
                 (float) $order->getOriginal('paid_online_amount'),
                 $order->getOriginal('payment_method'),
                 (float) $order->getOriginal('final_amount'),
-                $order->order_no
+                $oldOrderNo
             );
 
             $this->reverseCustomerWalletForSale(
@@ -126,7 +129,7 @@ class OrderObserver
                 (float) $order->getOriginal('paid_online_amount'),
                 $order->getOriginal('payment_method'),
                 (float) $order->getOriginal('final_amount'),
-                $order->order_no
+                $oldOrderNo
             );
             return;
         }
@@ -141,54 +144,10 @@ class OrderObserver
                 || $order->wasChanged('paid_online_amount')
                 || $order->wasChanged('payment_status')
                 || $order->wasChanged('use_credit_balance')
+                || $order->wasChanged('order_no')
             ) {
-                // Reverse the previously recorded allocation, then credit the new one.
-                $this->removeSaleBalance(
-                    (int) $order->getOriginal('location_id'),
-                    (float) $order->getOriginal('paid_cash_amount'),
-                    (float) $order->getOriginal('paid_online_amount'),
-                    $order->getOriginal('payment_method'),
-                    (float) $order->getOriginal('final_amount'),
-                    $order->order_no,
-                    true
-                );
-
-                $this->reverseCustomerWalletForSale(
-                    $order->getOriginal('customer_id'),
-                    (float) $order->getOriginal('paid_cash_amount'),
-                    (float) $order->getOriginal('paid_online_amount'),
-                    $order->getOriginal('payment_method'),
-                    (float) $order->getOriginal('final_amount'),
-                    $order->order_no,
-                    true
-                );
-
-                $oldAmt = (float) $order->getOriginal('final_amount');
-                $newAmt = (float) $order->final_amount;
-                $editDesc = 'Balance updated for Sale #' . $order->order_no . ' (Old: ' . format_price($oldAmt) . ' → New: ' . format_price($newAmt) . ')';
-
-                $this->creditBalance(
-                    $order->location_id,
-                    (float) $order->paid_cash_amount,
-                    (float) $order->paid_online_amount,
-                    (float) $order->final_amount,
-                    $order->payment_method,
-                    $order->order_no,
-                    $order->user_id ?? $order->created_by,
-                    $editDesc
-                );
-
-                $this->debitCustomerWalletForSale(
-                    $order->customer_id,
-                    (float) $order->paid_cash_amount,
-                    (float) $order->paid_online_amount,
-                    (float) $order->final_amount,
-                    $order->payment_method,
-                    $order->order_no,
-                    $order->user_id ?? $order->created_by,
-                    $editDesc,
-                    (bool) $order->use_credit_balance
-                );
+                $this->updateSaleBalance($order, $oldOrderNo, $newOrderNo);
+                $this->updateCustomerWalletForSale($order, $oldOrderNo, $newOrderNo);
             }
         }
     }
@@ -211,13 +170,15 @@ class OrderObserver
             return;
         }
 
+        $orderNo = $order->getOriginal('order_no') ?? $order->order_no;
+
         $this->removeSaleBalance(
             (int) $order->location_id,
             (float) $order->paid_cash_amount,
             (float) $order->paid_online_amount,
             $order->payment_method,
             (float) $order->final_amount,
-            $order->order_no
+            $orderNo
         );
 
         $this->reverseCustomerWalletForSale(
@@ -226,13 +187,119 @@ class OrderObserver
             (float) $order->paid_online_amount,
             $order->payment_method,
             (float) $order->final_amount,
-            $order->order_no
+            $orderNo
         );
     }
 
-    // ─────────────────────────────────────────────
-    // Helpers
-    // ─────────────────────────────────────────────
+    /**
+     * Update existing location balance transactions in-place when a sale is updated.
+     */
+    private function updateSaleBalance(Order $order, string $oldOrderNo, string $newOrderNo): void
+    {
+        $oldLocationId = (int) $order->getOriginal('location_id');
+        $newLocationId = (int) $order->location_id;
+        $userId = $order->user_id ?? $order->created_by;
+
+        $newCash = (float) $order->paid_cash_amount;
+        $newOnline = (float) $order->paid_online_amount;
+        $newFinal = (float) $order->final_amount;
+        $newMethod = $order->payment_method;
+
+        $desired = [];
+        if ($newCash <= 0 && $newOnline <= 0) {
+            if ($newFinal > 0) {
+                $desired[] = [
+                    'balance_type' => $this->resolveBalanceType($newMethod),
+                    'amount'       => $newFinal,
+                    'notes'        => 'Sale #' . $newOrderNo,
+                ];
+            }
+        } else {
+            if ($newCash > 0) {
+                $desired[] = [
+                    'balance_type' => LocationBalanceTransaction::BALANCE_TYPE_CASH,
+                    'amount'       => $newCash,
+                    'notes'        => 'Sale #' . $newOrderNo . ' (Cash)',
+                ];
+            }
+            if ($newOnline > 0) {
+                $desired[] = [
+                    'balance_type' => LocationBalanceTransaction::BALANCE_TYPE_BANK,
+                    'amount'       => $newOnline,
+                    'notes'        => 'Sale #' . $newOrderNo . ' (Online)',
+                ];
+            }
+        }
+
+        $existingTxs = LocationBalanceTransaction::where(function ($q) use ($oldOrderNo, $newOrderNo) {
+            $q->where('notes', 'LIKE', '%Sale #' . $oldOrderNo . '%')
+              ->orWhere('notes', 'LIKE', '%Sale #' . $newOrderNo . '%');
+        })->orderBy('id', 'asc')->get();
+
+        $desiredCount = count($desired);
+        $existingCount = $existingTxs->count();
+
+        DB::transaction(function () use ($desired, $existingTxs, $newLocationId, $userId, $desiredCount, $existingCount) {
+            for ($i = 0; $i < $desiredCount; $i++) {
+                $item = $desired[$i];
+                if ($i < $existingCount) {
+                    
+                    $tx = $existingTxs[$i];
+                    $oldNotes = $tx->notes;
+                    $oldAmt = (float) $tx->amount;
+
+                    $tx->update([
+                        'location_id'  => $newLocationId,
+                        'balance_type' => $item['balance_type'],
+                        'type'         => LocationBalanceTransaction::TYPE_CREDIT,
+                        'amount'       => $item['amount'],
+                        'notes'        => $item['notes'],
+                    ]);
+
+                    ActivityLogger::log(
+                        'Accounting',
+                        'update',
+                        $tx,
+                        ['notes' => $oldNotes, 'amount' => $oldAmt],
+                        ['notes' => $item['notes'], 'amount' => $item['amount']],
+                        'Balance updated for ' . $item['notes'] . ' (₹ ' . number_format($item['amount'], 2) . ')'
+                    );
+                } else {
+                    $tx = LocationBalanceTransaction::create([
+                        'location_id'  => $newLocationId,
+                        'balance_type' => $item['balance_type'],
+                        'type'         => LocationBalanceTransaction::TYPE_CREDIT,
+                        'amount'       => $item['amount'],
+                        'balance_after'=> 0,
+                        'notes'        => $item['notes'],
+                        'created_by'   => LocationBalanceTransaction::getFallbackUserId($userId),
+                    ]);
+
+                    ActivityLogger::log(
+                        'Accounting',
+                        'create',
+                        $tx,
+                        null,
+                        ['notes' => $item['notes'], 'amount' => $item['amount']],
+                        'Balance credited for ' . $item['notes'] . ' (₹ ' . number_format($item['amount'], 2) . ')'
+                    );
+                }
+            }
+
+            for ($i = $desiredCount; $i < $existingCount; $i++) {
+                $existingTxs[$i]->delete();
+            }
+        });
+
+        if ($oldLocationId) {
+            LocationBalanceTransaction::syncLocationBalance($oldLocationId, LocationBalanceTransaction::BALANCE_TYPE_CASH);
+            LocationBalanceTransaction::syncLocationBalance($oldLocationId, LocationBalanceTransaction::BALANCE_TYPE_BANK);
+        }
+        if ($newLocationId && $newLocationId !== $oldLocationId) {
+            LocationBalanceTransaction::syncLocationBalance($newLocationId, LocationBalanceTransaction::BALANCE_TYPE_CASH);
+            LocationBalanceTransaction::syncLocationBalance($newLocationId, LocationBalanceTransaction::BALANCE_TYPE_BANK);
+        }
+    }
 
     /**
      * Credit cash/bank balance for a paid sale. Uses the explicit cash/online
@@ -267,27 +334,19 @@ class OrderObserver
      * Reverse a previously credited sale (cancellation, deletion, or edit that
      * changes the allocation). Mirrors creditBalance's split/legacy handling.
      */
-    private function removeSaleBalance(int $locationId, float $cashAmount, float $onlineAmount, ?string $paymentMethod, float $finalAmount, string $orderNo, bool $isUpdateReversal = false): void
+    private function removeSaleBalance(?int $locationId, float $cashAmount, float $onlineAmount, ?string $paymentMethod, float $finalAmount, string $orderNo, bool $isUpdateReversal = false): void
     {
         if (!$locationId) {
             return;
         }
 
-        if ($cashAmount <= 0 && $onlineAmount <= 0) {
-            if ($finalAmount <= 0) {
-                return;
-            }
-
-            $this->applyBalanceChange($locationId, $this->resolveBalanceType($paymentMethod), $finalAmount, LocationBalanceTransaction::TYPE_DEBIT, 'Sale #' . $orderNo, null, true, $isUpdateReversal);
-            return;
+        $txs = LocationBalanceTransaction::where('notes', 'LIKE', '%Sale #' . $orderNo . '%')->get();
+        foreach ($txs as $tx) {
+            $tx->delete();
         }
 
-        if ($cashAmount > 0) {
-            $this->applyBalanceChange($locationId, LocationBalanceTransaction::BALANCE_TYPE_CASH, $cashAmount, LocationBalanceTransaction::TYPE_DEBIT, 'Sale #' . $orderNo . ' (Cash)', null, true, $isUpdateReversal);
-        }
-        if ($onlineAmount > 0) {
-            $this->applyBalanceChange($locationId, LocationBalanceTransaction::BALANCE_TYPE_BANK, $onlineAmount, LocationBalanceTransaction::TYPE_DEBIT, 'Sale #' . $orderNo . ' (Online)', null, true, $isUpdateReversal);
-        }
+        LocationBalanceTransaction::syncLocationBalance($locationId, LocationBalanceTransaction::BALANCE_TYPE_CASH);
+        LocationBalanceTransaction::syncLocationBalance($locationId, LocationBalanceTransaction::BALANCE_TYPE_BANK);
     }
 
     /**
@@ -374,9 +433,79 @@ class OrderObserver
     // a PENDING sale never touches the wallet.
     // ─────────────────────────────────────────────
 
+    private function updateCustomerWalletForSale(Order $order, string $oldOrderNo, string $newOrderNo): void
+    {
+        $oldCustId = $order->getOriginal('customer_id');
+        $newCustId = $order->customer_id;
+        $userId = $order->user_id ?? $order->created_by;
+
+        $existingCustTxs = CustomerBalanceTransaction::where(function ($q) use ($oldOrderNo, $newOrderNo) {
+            $q->where('notes', 'LIKE', '%Sale #' . $oldOrderNo . '%')
+              ->orWhere('notes', 'LIKE', '%Sale #' . $newOrderNo . '%');
+        })->orderBy('id', 'asc')->get();
+
+        $customer = $newCustId ? Customer::find($newCustId) : null;
+        $isCreditCust = $customer && $customer->is_credit_customer && (bool) $order->use_credit_balance;
+
+        $newFinal = (float) $order->final_amount;
+        $newOnline = (float) $order->paid_online_amount;
+        $newMethod = $order->payment_method;
+
+        if ($isCreditCust) {
+            $totalAvail = max(0.0, (float) $customer->balance);
+            if ((int) $oldCustId === (int) $newCustId) {
+                $totalAvail += (float) $existingCustTxs->sum('amount');
+            }
+            $toDebit = min($newFinal, $totalAvail);
+        } else {
+            $toDebit = 0.0;
+        }
+
+        if ($toDebit > 0 && $customer) {
+            $onlineMethods = ['online', 'upi', 'razorpay', 'bank_transfer', 'bank transfer'];
+            $isOnline = in_array(strtolower($newMethod ?? ''), $onlineMethods, true) || $newOnline > 0;
+            $source = $isOnline ? CustomerBalanceTransaction::SOURCE_BANK : CustomerBalanceTransaction::SOURCE_CASH;
+            $label = $isOnline ? ' (Online)' : ' (Cash)';
+            $notes = 'Sale #' . $newOrderNo . $label;
+
+            DB::transaction(function () use ($existingCustTxs, $newCustId, $source, $toDebit, $notes, $userId, $customer) {
+                $oldBalance = (float) $customer->balance;
+                if ($existingCustTxs->isNotEmpty()) {
+                    $tx = $existingCustTxs->first();
+                    $tx->update([
+                        'customer_id'   => $newCustId,
+                        'source'        => $source,
+                        'type'          => CustomerBalanceTransaction::TYPE_DEBIT,
+                        'amount'        => $toDebit,
+                        'notes'         => $notes,
+                    ]);
+
+                    for ($i = 1; $i < $existingCustTxs->count(); $i++) {
+                        $existingCustTxs[$i]->delete();
+                    }
+                } else {
+                    CustomerBalanceTransaction::create([
+                        'customer_id'   => $newCustId,
+                        'source'        => $source,
+                        'type'          => CustomerBalanceTransaction::TYPE_DEBIT,
+                        'amount'        => $toDebit,
+                        'balance_after' => max(0.0, $oldBalance - $toDebit),
+                        'notes'         => $notes,
+                        'created_by'    => CustomerBalanceTransaction::getFallbackUserId($userId),
+                    ]);
+                }
+            });
+        } else {
+            if ($existingCustTxs->isNotEmpty()) {
+                foreach ($existingCustTxs as $tx) {
+                    $tx->delete();
+                }
+            }
+        }
+    }
+
     /**
      * Debit a credit customer's wallet by the amount actually paid on a sale.
-     * No-op for walk-in sales or non-credit customers.
      */
     private function debitCustomerWalletForSale(?int $customerId, float $cashAmount, float $onlineAmount, float $finalAmount, ?string $paymentMethod, string $orderNo, ?int $userId, ?string $customLogDescription = null, bool $useCreditBalance = true): void
     {
