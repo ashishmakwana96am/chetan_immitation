@@ -524,6 +524,11 @@ $(document).ready(function () {
                     const bId = selOpt.attr('data-purchase-item-id');
                     if (bId) row.data('selected-batch-id', bId);
 
+                    const availAttr = selOpt.attr('data-available-qty');
+                    if (availAttr !== undefined && availAttr !== false) {
+                        row.data('available-pcs', parseInt(availAttr) || 0);
+                        updateRowAvailableStockDisplay(row);
+                    }
                 }
 
                 updateRowPrice(row);

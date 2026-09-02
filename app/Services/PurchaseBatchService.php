@@ -5,6 +5,7 @@ namespace App\Services;
 use App\Models\Order;
 use App\Models\Product;
 use App\Models\ProductVariant;
+use App\Models\PurchaseBill;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Schema;
 use Illuminate\Database\Schema\Blueprint;
@@ -69,12 +70,17 @@ class PurchaseBatchService
         }
 
         // 1. Get total live physical stock from inventories
-        $liveStockQuery = DB::table('inventories')
-            ->where('product_id', $productId)
-            ->where('location_id', $locationId)
-            ->whereNull('deleted_at');
+        if ($product && $product->type === 'variable' && $productVariantId) {
+            $variantStockMap = $product->getVariantStock($locationId);
+            $totalLiveStock = (int) max(0, $variantStockMap['variants'][$productVariantId] ?? 0);
+        } else {
+            $liveStockQuery = DB::table('inventories')
+                ->where('product_id', $productId)
+                ->where('location_id', $locationId)
+                ->whereNull('deleted_at');
 
-        $totalLiveStock = (int) $liveStockQuery->sum('quantity');
+            $totalLiveStock = (int) $liveStockQuery->sum('quantity');
+        }
 
         if ($totalLiveStock <= 0) {
             DB::table('purchase_batch_stocks')
@@ -88,8 +94,15 @@ class PurchaseBatchService
         // 2. Fetch all purchase items and transfer items for this product
         $purchaseItems = DB::table('purchase_items')
             ->join('purchases', 'purchases.id', '=', 'purchase_items.purchase_id')
+            ->leftJoin('purchase_allocations', 'purchase_items.id', '=', 'purchase_allocations.purchase_item_id')
             ->where('purchase_items.product_id', $productId)
-            ->where('purchases.location_id', $locationId)
+            ->where(function($q) use ($locationId) {
+                $q->where('purchase_allocations.location_id', $locationId)
+                  ->orWhere(function($sub) use ($locationId) {
+                      $sub->where('purchases.location_id', $locationId)
+                          ->whereNull('purchase_allocations.id');
+                  });
+            })
             ->whereNull('purchase_items.deleted_at')
             ->whereNull('purchases.deleted_at')
             ->whereIn('purchases.status', [1, 2])
@@ -97,11 +110,12 @@ class PurchaseBatchService
             ->select(
                 DB::raw("'purchase' as batch_type"),
                 'purchase_items.id as purchase_item_id',
-                'purchase_items.quantity',
+                DB::raw('COALESCE(purchase_allocations.quantity, purchase_items.quantity) as quantity'),
                 'purchase_items.purchase_price',
                 'purchase_items.custom_size_value',
-                'purchase_items.created_at'
+                'purchases.created_at'
             )
+            ->distinct()
             ->get();
 
         $transferItems = DB::table('purchase_bill_items')
@@ -172,6 +186,7 @@ class PurchaseBatchService
                 ->whereNull('order_items.deleted_at')
                 ->whereNull('orders.deleted_at')
                 ->where('orders.status', Order::STATUS_APPROVE)
+                ->when($productVariantId, fn($q) => $q->where('order_items.product_variant_id', $productVariantId), fn($q) => $q->whereNull('order_items.product_variant_id'))
                 ->whereRaw('ABS(ROUND(order_items.purchase_price / NULLIF(order_items.quantity * CASE 
                     WHEN order_items.custom_size_value IS NOT NULL AND order_items.custom_size_value > 0 THEN order_items.custom_size_value
                     WHEN order_items.pair_type = "pair" THEN 2.0
@@ -184,7 +199,23 @@ class PurchaseBatchService
                 ELSE 1.0
             END'));
 
-            $remainingQty = max(0, $allocatedQty - $soldQty);
+            $transferredOutQuery = DB::table('purchase_bill_items')
+                ->join('purchase_bills', 'purchase_bills.id', '=', 'purchase_bill_items.purchase_bill_id')
+                ->where('purchase_bill_items.product_id', $productId)
+                ->where('purchase_bills.from_location_id', $locationId)
+                ->whereNull('purchase_bill_items.deleted_at')
+                ->whereNull('purchase_bills.deleted_at')
+                ->where('purchase_bills.status', PurchaseBill::STATUS_ACCEPTED)
+                ->when($productVariantId, fn($q) => $q->where('purchase_bill_items.product_variant_id', $productVariantId), fn($q) => $q->whereNull('purchase_bill_items.product_variant_id'))
+                ->whereRaw('ABS(ROUND(purchase_bill_items.purchase_price, 2) - ?) < 0.05', [(float)$item->purchase_price]);
+
+            $transferredOutQty = (float) $transferredOutQuery->sum(DB::raw('purchase_bill_items.quantity * CASE 
+                WHEN purchase_bill_items.custom_size_value IS NOT NULL AND purchase_bill_items.custom_size_value > 0 THEN purchase_bill_items.custom_size_value
+                WHEN purchase_bill_items.pair_type = "pair" THEN 2.0
+                ELSE 1.0
+            END'));
+
+            $remainingQty = max(0, $allocatedQty - $soldQty - $transferredOutQty);
 
             if (!isset($groupedByPrice[$priceKey])) {
                 $groupedByPrice[$priceKey] = [
@@ -195,6 +226,13 @@ class PurchaseBatchService
             }
             $groupedByPrice[$priceKey]['available_qty'] += (int) $remainingQty;
         }
+
+        // Reset existing batch stock quantities to 0 before waterfall allocation
+        DB::table('purchase_batch_stocks')
+            ->where('location_id', $locationId)
+            ->where('product_id', $productId)
+            ->when($productVariantId, fn($q) => $q->where('product_variant_id', $productVariantId), fn($q) => $q->whereNull('product_variant_id'))
+            ->update(['quantity' => 0, 'updated_at' => now()]);
 
         // 4. Waterfall allocation against totalLiveStock
         $remainingLive = $totalLiveStock;
@@ -283,17 +321,6 @@ class PurchaseBatchService
             return array_values($batches);
         }
 
-        // Check if batch records exist for this location and product; if not, auto-sync once!
-        $count = DB::table('purchase_batch_stocks')
-            ->where('location_id', $locationId)
-            ->where('product_id', $productId)
-            ->when($productVariantId, fn($q) => $q->where('product_variant_id', $productVariantId), fn($q) => $q->whereNull('product_variant_id'))
-            ->count();
-
-        if ($count === 0) {
-            self::syncProductBatchStocks($locationId, $productId, $productVariantId);
-        }
-
         // Query active batch stocks for this location where quantity > 0
         $rows = DB::table('purchase_batch_stocks')
             ->where('location_id', $locationId)
@@ -302,6 +329,18 @@ class PurchaseBatchService
             ->where('quantity', '>', 0)
             ->orderBy('id', 'desc')
             ->get();
+
+        if ($rows->isEmpty()) {
+            self::syncProductBatchStocks($locationId, $productId, $productVariantId);
+
+            $rows = DB::table('purchase_batch_stocks')
+                ->where('location_id', $locationId)
+                ->where('product_id', $productId)
+                ->when($productVariantId, fn($q) => $q->where('product_variant_id', $productVariantId), fn($q) => $q->whereNull('product_variant_id'))
+                ->where('quantity', '>', 0)
+                ->orderBy('id', 'desc')
+                ->get();
+        }
 
         $batches = [];
         foreach ($rows as $b) {
