@@ -28,7 +28,6 @@ class RecalculateLocationBalances extends Command
                         ->orderBy('id', 'asc')
                         ->get();
 
-                    // Check active orders and purchases to exclude ghost/soft-deleted records
                     $purchasesToCheck = [];
                     $ordersToCheck = [];
 
@@ -73,7 +72,6 @@ class RecalculateLocationBalances extends Command
                         }
 
                         if ($isGhost) {
-                            // Soft-delete the ghost transaction
                             $tx->delete();
                             continue;
                         }
