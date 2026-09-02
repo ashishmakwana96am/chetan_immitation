@@ -486,9 +486,48 @@ class SaleController extends Controller
                 $itemTotal = $subtotal - $discAmount;
                 $totalAmount += $itemTotal;
 
+                $pairType = $itemData['pair_type'] ?? 'single';
+                $customSizeVal = (isset($itemData['custom_size_value']) && $itemData['custom_size_value'] !== '') ? (float) $itemData['custom_size_value'] : null;
+                $physicalQty = ($customSizeVal !== null && $customSizeVal > 0) ? ($qty * $customSizeVal) : ($pairType === 'pair' ? ($qty * 2.0) : (float) $qty);
+
+                $purchaseItemId = !empty($itemData['purchase_item_id']) ? (int) $itemData['purchase_item_id'] : null;
+                $unitPurchasePrice = (isset($itemData['purchase_price']) && is_numeric($itemData['purchase_price']) && (float)$itemData['purchase_price'] > 0)
+                    ? (float) $itemData['purchase_price']
+                    : ($purchaseItemId ? (float) (\App\Models\PurchaseItem::where('id', $purchaseItemId)->value('purchase_price') ?? \App\Models\PurchaseBillItem::where('id', $purchaseItemId)->value('purchase_price')) : null);
+
+                $batchAlloc = \App\Services\PurchaseBatchService::calculateTotalCostPrice(
+                    (int) $itemData['product_id'],
+                    !empty($itemData['product_variant_id']) ? (int) $itemData['product_variant_id'] : null,
+                    (int) $request->location_id,
+                    $physicalQty,
+                    $purchaseItemId,
+                    $unitPurchasePrice
+                );
+
+                $productObj = \App\Models\Product::find($itemData['product_id']);
+                $purchasePrice = $batchAlloc['total_cost'];
+                if ($purchasePrice <= 0 && $unitPurchasePrice > 0) {
+                    $purchasePrice = (float) $unitPurchasePrice;
+                }
+                
+                if ($productObj && $productObj->pair_product && !empty($productObj->custom_sizes)) {
+                    $maxSize = (float) (collect($productObj->custom_sizes)->pluck('size')->map(fn($s) => (float)$s)->max() ?: 1.0);
+                    if ($maxSize > 0) {
+                        $soldSize = ($customSizeVal !== null && $customSizeVal > 0) ? $customSizeVal : 2.0;
+                        $purchasePrice = round(($purchasePrice / $maxSize) * $soldSize * $qty, 2);
+                    } else {
+                        $purchasePrice = round($purchasePrice * $qty, 2);
+                    }
+                } else {
+                    $purchasePrice = round($purchasePrice * $qty, 2);
+                }
+                $purchaseItemId = $batchAlloc['primary_purchase_item_id'];
+
                 $itemsData[] = [
                     'product_id' => $itemData['product_id'],
                     'product_variant_id' => $itemData['product_variant_id'] ?? null,
+                    'purchase_item_id' => $purchaseItemId,
+                    'purchase_price' => $purchasePrice,
                     'pair_type' => $itemData['pair_type'] ?? 'single',
                     'custom_size_value' => (isset($itemData['custom_size_value']) && $itemData['custom_size_value'] !== '') ? (float) $itemData['custom_size_value'] : null,
                     'mrp' => $mrp,
@@ -606,6 +645,8 @@ class SaleController extends Controller
                     'order_id' => $order->id,
                     'product_id' => $item['product_id'],
                     'product_variant_id' => $item['product_variant_id'],
+                    'purchase_item_id' => $item['purchase_item_id'],
+                    'purchase_price' => $item['purchase_price'],
                     'pair_type' => $item['pair_type'],
                     'custom_size_value' => $item['custom_size_value'],
                     'mrp' => $item['mrp'],
@@ -620,6 +661,8 @@ class SaleController extends Controller
                 if ($isApprove) {
                     $stockDeduct = (int) round($item['quantity'] * $this->stockMultiplierFor((int) $item['product_id'], $item['pair_type'], $item['custom_size_value']));
                     $this->logInventoryChange((int) $item['product_id'], (int) $request->location_id, -$stockDeduct, 'Stock deducted for new sale #' . $order->order_no);
+                    $unitPrice = $stockDeduct > 0 ? ((float)$item['purchase_price'] / $stockDeduct) : (float)$item['purchase_price'];
+                    \App\Services\PurchaseBatchService::deductBatchStock((int)$request->location_id, (int)$item['product_id'], !empty($item['product_variant_id']) ? (int)$item['product_variant_id'] : null, $unitPrice, (float)$stockDeduct);
                 }
             }
         });
@@ -669,6 +712,8 @@ class SaleController extends Controller
                 foreach ($sale->items as $item) {
                     $stockRestore = (int) round($item->quantity * $this->stockMultiplierFor((int) $item->product_id, $item->pair_type, $item->custom_size_value));
                     $this->logInventoryChange((int) $item->product_id, (int) $sale->location_id, $stockRestore, 'Stock restored for deleted sale #' . $sale->order_no);
+                    $unitPrice = $stockRestore > 0 ? ((float)$item->purchase_price / $stockRestore) : (float)$item->purchase_price;
+                    \App\Services\PurchaseBatchService::addBatchStock((int)$sale->location_id, (int)$item->product_id, !empty($item->product_variant_id) ? (int)$item->product_variant_id : null, $item->purchase_item_id, $unitPrice, (float)$stockRestore);
                 }
             }
 
@@ -1096,6 +1141,8 @@ class SaleController extends Controller
                         $multiplier = $this->stockMultiplierFor((int) $old['product_id'], $old['pair_type'], $old['custom_size_value'] ? (float) $old['custom_size_value'] : null);
                         $stockRestore = (int) round($old['quantity'] * $multiplier);
                         $this->logInventoryChange((int) $old['product_id'], $oldLocationId, $stockRestore, 'Stock restored for edited sale #' . $sale->order_no);
+                        $oldUnitPrice = $stockRestore > 0 ? ((float)($old['purchase_price'] ?? 0) / $stockRestore) : (float)($old['purchase_price'] ?? 0);
+                        \App\Services\PurchaseBatchService::addBatchStock($oldLocationId, (int)$old['product_id'], !empty($old['product_variant_id']) ? (int)$old['product_variant_id'] : null, $old['purchase_item_id'] ?? null, $oldUnitPrice, (float)$stockRestore);
                     }
                 }
 
@@ -1128,9 +1175,49 @@ class SaleController extends Controller
                     $itemTotal = $subtotal - $discAmount;
                     $totalAmount += $itemTotal;
 
+                    $pairType = $itemData['pair_type'] ?? 'single';
+                    $customSizeVal = (isset($itemData['custom_size_value']) && $itemData['custom_size_value'] !== '') ? (float) $itemData['custom_size_value'] : null;
+                    $physicalQty = ($customSizeVal !== null && $customSizeVal > 0) ? ($qty * $customSizeVal) : ($pairType === 'pair' ? ($qty * 2.0) : (float) $qty);
+
+                    $purchaseItemId = !empty($itemData['purchase_item_id']) ? (int) $itemData['purchase_item_id'] : null;
+                    $unitPurchasePrice = (isset($itemData['purchase_price']) && is_numeric($itemData['purchase_price']) && (float)$itemData['purchase_price'] > 0)
+                        ? (float) $itemData['purchase_price']
+                        : ($purchaseItemId ? (float) (\App\Models\PurchaseItem::where('id', $purchaseItemId)->value('purchase_price') ?? \App\Models\PurchaseBillItem::where('id', $purchaseItemId)->value('purchase_price')) : null);
+
+                    $batchAlloc = \App\Services\PurchaseBatchService::calculateTotalCostPrice(
+                        (int) $itemData['product_id'],
+                        !empty($itemData['product_variant_id']) ? (int) $itemData['product_variant_id'] : null,
+                        (int) $request->location_id,
+                        $physicalQty,
+                        $purchaseItemId,
+                        $unitPurchasePrice,
+                        (int) $sale->id
+                    );
+
+                    $productObj = \App\Models\Product::find($itemData['product_id']);
+                    $purchasePrice = $batchAlloc['total_cost'];
+                    if ($purchasePrice <= 0 && $unitPurchasePrice > 0) {
+                        $purchasePrice = (float) $unitPurchasePrice;
+                    }
+
+                    if ($productObj && $productObj->pair_product && !empty($productObj->custom_sizes)) {
+                        $maxSize = (float) (collect($productObj->custom_sizes)->pluck('size')->map(fn($s) => (float)$s)->max() ?: 1.0);
+                        if ($maxSize > 0) {
+                            $soldSize = ($customSizeVal !== null && $customSizeVal > 0) ? $customSizeVal : 2.0;
+                            $purchasePrice = round(($purchasePrice / $maxSize) * $soldSize * $qty, 2);
+                        } else {
+                            $purchasePrice = round($purchasePrice * $qty, 2);
+                        }
+                    } else {
+                        $purchasePrice = round($purchasePrice * $qty, 2);
+                    }
+                    $purchaseItemId = $batchAlloc['primary_purchase_item_id'];
+
                     $itemsData[] = [
                         'product_id' => $itemData['product_id'],
                         'product_variant_id' => $itemData['product_variant_id'] ?? null,
+                        'purchase_item_id' => $purchaseItemId,
+                        'purchase_price' => $purchasePrice,
                         'pair_type' => $itemData['pair_type'] ?? 'single',
                         'custom_size_value' => (isset($itemData['custom_size_value']) && $itemData['custom_size_value'] !== '') ? (float) $itemData['custom_size_value'] : null,
                         'mrp' => $mrp,
@@ -1276,6 +1363,8 @@ class SaleController extends Controller
                         'order_id' => $sale->id,
                         'product_id' => $item['product_id'],
                         'product_variant_id' => $item['product_variant_id'],
+                        'purchase_item_id' => $item['purchase_item_id'],
+                        'purchase_price' => $item['purchase_price'],
                         'pair_type' => $item['pair_type'],
                         'custom_size_value' => $item['custom_size_value'],
                         'mrp' => $item['mrp'],
@@ -1290,6 +1379,8 @@ class SaleController extends Controller
                     if ($isApprove) {
                         $stockDeduct = (int) round($item['quantity'] * $this->stockMultiplierFor((int) $item['product_id'], $item['pair_type'], $item['custom_size_value']));
                         $this->logInventoryChange((int) $item['product_id'], (int) $request->location_id, -$stockDeduct, 'Stock deducted for updated sale #' . $sale->order_no);
+                        $unitPrice = $stockDeduct > 0 ? ((float)$item['purchase_price'] / $stockDeduct) : (float)$item['purchase_price'];
+                        \App\Services\PurchaseBatchService::deductBatchStock((int)$request->location_id, (int)$item['product_id'], !empty($item['product_variant_id']) ? (int)$item['product_variant_id'] : null, $unitPrice, (float)$stockDeduct);
                     }
                 }
 
@@ -1436,6 +1527,8 @@ class SaleController extends Controller
                             foreach ($sale->items as $item) {
                                 $stockDeduct = (int) round($item->quantity * $this->stockMultiplierFor((int) $item->product_id, $item->pair_type, $item->custom_size_value));
                                 $this->logInventoryChange((int) $item->product_id, (int) $sale->location_id, -$stockDeduct, 'Stock deducted for sale #' . $sale->order_no . ' status change');
+                                $unitPrice = $stockDeduct > 0 ? ((float)$item->purchase_price / $stockDeduct) : (float)$item->purchase_price;
+                                \App\Services\PurchaseBatchService::deductBatchStock((int)$sale->location_id, (int)$item->product_id, !empty($item->product_variant_id) ? (int)$item->product_variant_id : null, $unitPrice, (float)$stockDeduct);
                             }
                         }
                         // Transition from Deducted to Restored group: restore stock
@@ -1444,6 +1537,8 @@ class SaleController extends Controller
                             foreach ($sale->items as $item) {
                                 $stockRestore = (int) round($item->quantity * $this->stockMultiplierFor((int) $item->product_id, $item->pair_type, $item->custom_size_value));
                                 $this->logInventoryChange((int) $item->product_id, (int) $sale->location_id, $stockRestore, 'Stock restored for sale #' . $sale->order_no . ' status change');
+                                $unitPrice = $stockRestore > 0 ? ((float)$item->purchase_price / $stockRestore) : (float)$item->purchase_price;
+                                \App\Services\PurchaseBatchService::addBatchStock((int)$sale->location_id, (int)$item->product_id, !empty($item->product_variant_id) ? (int)$item->product_variant_id : null, $item->purchase_item_id, $unitPrice, (float)$stockRestore);
                             }
                         }
 
@@ -2316,6 +2411,7 @@ class SaleController extends Controller
 
     private function getAllMappedProductsForSales()
     {
+        Cache::store('file')->forget('all_mapped_products_sales');
         return Cache::store('file')->remember('all_mapped_products_sales', 1800, function () {
             $products = Product::with([
                 'variants.attributeValue.attribute',
@@ -2364,9 +2460,23 @@ class SaleController extends Controller
                 if ($p->type === 'variable') {
                     $variantStock = $p->getVariantStock();
                     foreach ($variantStock as $locId => $locData) {
+                        $vData = $locData['variants'] ?? [];
+                        $allVarZero = true;
+                        foreach ($vData as $vId => $vStk) {
+                            if ($vStk > 0) { $allVarZero = false; break; }
+                        }
+                        if ($allVarZero) {
+                            $invQty = (int) ($p->inventories->firstWhere('location_id', $locId)->quantity ?? 0);
+                            $fallbackQty = max($invQty, (int) ($locData['parent'] ?? 0));
+                            if ($fallbackQty > 0) {
+                                foreach ($vData as $vId => $vStk) {
+                                    $vData[$vId] = $fallbackQty;
+                                }
+                            }
+                        }
                         $stockByLocation[$locId] = [
                             'parent'   => $locData['parent'],
-                            'variants' => $locData['variants'],
+                            'variants' => $vData,
                         ];
                     }
                 } else {
@@ -2383,5 +2493,24 @@ class SaleController extends Controller
 
             return $allProducts;
         });
+    }
+
+    public function getProductBatches(\Illuminate\Http\Request $request)
+    {
+        $productId = (int) $request->input('product_id');
+        $variantId = $request->filled('product_variant_id') ? (int) $request->input('product_variant_id') : null;
+        $locationId = $request->filled('location_id') ? (int) $request->input('location_id') : null;
+        $excludeOrderId = $request->filled('exclude_order_id') ? (int) $request->input('exclude_order_id') : null;
+
+        if (!$productId) {
+            return response()->json(['status' => 'error', 'batches' => []]);
+        }
+
+        $batches = \App\Services\PurchaseBatchService::getAvailableBatches($productId, $variantId, $locationId, $excludeOrderId);
+
+        return response()->json([
+            'status' => 'success',
+            'batches' => $batches
+        ]);
     }
 }

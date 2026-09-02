@@ -253,8 +253,8 @@
                                          <td colspan="4" class="text-end fw-semibold">Items Total</td>
                                         <td class="fw-bold text-primary text-nowrap" id="itemsTotal">{{ format_price($order->final_amount) }}</td>
                                         <td></td>
-                                    </tr>
-                                </tfoot>
+                                     </tr>
+                                 </tfoot>
                             </table>
                         </div>
                         <div id="noItemsMsg" class="text-center text-muted py-4">No items added yet.</div>
@@ -471,6 +471,7 @@
                         </div>
                         <div class="variant-select-container"></div>
                         <div class="pair-type-container mt-1"></div>
+                        <div class="batch-select-container mt-1"></div>
                     </div>
                 </div>
                 <input type="hidden" name="items[__INDEX__][product_id]" class="product-id-input" value="">
@@ -841,7 +842,53 @@ $(document).ready(function () {
         return sizeHtml;
     }
 
-    function addItemRow(product, selectedVariantId = null, qty = 1, price = null, discountType = 'percentage', discountValue = 0, pairType = 'single', customSizeValue = null, prependRow = true, existingMrp = null) {
+    function loadProductBatches(row, selectedBatchId = null) {
+        const product = row.data('product');
+        if (!product) return;
+
+        const variantId = row.attr('data-variant-id') || row.data('variant-id') || row.find('.variant-select').val() || null;
+        const locationId = $('#locationSelect').val() || $('input[name="location_id"]').val() || null;
+        const container = row.find('.batch-select-container');
+
+        container.html('<small class="text-muted"><i class="ti ti-loader spinner-border spinner-border-sm me-1"></i>Loading...</small>');
+
+        $.get('{{ route("admin.sales.product-batches") }}', {
+            product_id: product.id,
+            product_variant_id: variantId,
+            location_id: locationId
+        }, function(res) {
+            if (res.status === 'success' && res.batches && res.batches.length > 0) {
+                let html = '<div class="d-flex align-items-center gap-1 mt-1"><span class="badge bg-label-info text-nowrap" style="font-size: 0.7rem;">Purchase Price:</span><select class="form-select form-select-sm batch-select no-select2" style="font-size: 0.78rem; padding-top: 2px; padding-bottom: 2px;">';
+                res.batches.forEach(b => {
+                    const sel = (selectedBatchId && selectedBatchId == b.purchase_item_id) ? 'selected' : '';
+                    html += `<option value="${b.purchase_item_id}" data-purchase-price="${b.purchase_price}" data-available-qty="${b.available_qty}" ${sel}>${b.label}</option>`;
+                });
+                html += '</select></div>';
+                container.html(html);
+
+                const selOpt = container.find('.batch-select option:selected');
+                if (selOpt.length) {
+                    const availAttr = selOpt.attr('data-available-qty');
+                    if (availAttr !== undefined && availAttr !== false) {
+                        row.data('available-pcs', parseInt(availAttr) || 0);
+                    }
+                }
+                updateStockInfo(row);
+            } else {
+                const defPrice = symbol + ' ' + (product.purchase_price ? formatPrice(product.purchase_price) : '0.00');
+                let html = '<div class="d-flex align-items-center gap-1 mt-1"><span class="badge bg-label-info text-nowrap" style="font-size: 0.7rem;">Purchase Price:</span><select class="form-select form-select-sm batch-select no-select2" style="font-size: 0.78rem; padding-top: 2px; padding-bottom: 2px;">';
+                html += `<option value="" data-purchase-price="${product.purchase_price || 0}" data-available-qty="0" selected>${defPrice}</option>`;
+                html += '</select></div>';
+                container.html(html);
+
+                updateStockInfo(row);
+            }
+        }).fail(function() {
+            container.empty();
+        });
+    }
+
+    function addItemRow(product, selectedVariantId = null, qty = 1, price = null, discountType = 'percentage', discountValue = 0, pairType = 'single', customSizeValue = null, prependRow = true, existingMrp = null, purchaseItemId = null) {
         const template = document.getElementById('itemRowTemplate').innerHTML
             .replaceAll('__INDEX__', itemIndex);
 
@@ -863,6 +910,7 @@ $(document).ready(function () {
 
         if (product.type === 'variable') {
             // Build variant select dropdown
+            const activeLocId = getLocationId();
             let selectHtml = `<select class="form-select form-select-sm variant-select mt-2 no-select2">`;
             selectHtml += `<option value="" disabled ${!selectedVariantId ? 'selected' : ''}>-- Select Variant --</option>`;
             product.variants.forEach(v => {
@@ -870,7 +918,18 @@ $(document).ready(function () {
                 const optMrp = v.mrp != null ? v.mrp : (product.mrp != null ? product.mrp : 0);
                 const optPurchasePrice = v.purchase_price != null ? v.purchase_price : 0;
                 const selected = selectedVariantId && selectedVariantId == v.id ? 'selected' : '';
-                selectHtml += `<option value="${v.id}" data-price="${optPrice}" data-mrp="${optMrp}" data-purchase-price="${optPurchasePrice}" ${selected}>${v.attr_name}: ${v.value_name} (${symbol}${optPrice})</option>`;
+
+                let vStock = 0;
+                if (activeLocId && product.stock_by_location) {
+                    const locData = product.stock_by_location[activeLocId] || product.stock_by_location[String(activeLocId)] || product.stock_by_location[Number(activeLocId)];
+                    if (locData && locData.variants) {
+                        const vVal = locData.variants[v.id] !== undefined ? locData.variants[v.id] : locData.variants[String(v.id)];
+                        vStock = parseInt(vVal) || 0;
+                    }
+                }
+                const isDisabled = (vStock <= 0 && !selected) ? 'disabled' : '';
+                const stockLabel = (activeLocId && vStock <= 0) ? ' (Out of stock)' : '';
+                selectHtml += `<option value="${v.id}" data-price="${optPrice}" data-mrp="${optMrp}" data-purchase-price="${optPurchasePrice}" data-stock="${vStock}" ${selected} ${isDisabled}>${v.attr_name}: ${v.value_name} (${symbol}${optPrice})${stockLabel}</option>`;
             });
             selectHtml += `</select>`;
             row.find('.variant-select-container').html(selectHtml);
@@ -941,6 +1000,7 @@ $(document).ready(function () {
 
         updateRowTotal(row);
         updateStockInfo(row);
+        loadProductBatches(row, purchaseItemId);
 
         itemIndex++;
         updateSummary();
@@ -1048,6 +1108,13 @@ $(document).ready(function () {
         updateSummary();
     });
 
+    $(document).on('change', '.batch-select', function () {
+        const row = $(this).closest('.item-row');
+        updateStockInfo(row);
+        updateRowTotal(row);
+        updateSummary();
+    });
+
     // -------------------------------------------------------
     // Remove Item Row
     // -------------------------------------------------------
@@ -1142,16 +1209,49 @@ $(document).ready(function () {
         return $('#locationSelect').val() || $('input[name="location_id"]').val() || '';
     }
 
-    $(document).on('change', '#locationSelect', function () {
-        $('#itemsBody .item-row').each(function () { updateStockInfo($(this)); });
-    });    function updateStockInfo(row) {
+    $(document).on('change', '#locationSelect, select[name="location_id"]', function () {
+        const activeLocId = getLocationId();
+        $('#itemsBody .item-row').each(function () {
+            const row = $(this);
+            const product = row.data('product');
+            if (product && product.type === 'variable' && product.variants) {
+                const currentVarId = row.find('.variant-select').val();
+                let selectHtml = `<select class="form-select form-select-sm variant-select mt-2 no-select2">`;
+                selectHtml += `<option value="" disabled ${!currentVarId ? 'selected' : ''}>-- Select Variant --</option>`;
+                product.variants.forEach(v => {
+                    const optPrice = v.sale_price != null ? v.sale_price : 0;
+                    const optMrp = v.mrp != null ? v.mrp : (product.mrp != null ? product.mrp : 0);
+                    const optPurchasePrice = v.purchase_price != null ? v.purchase_price : 0;
+                    const selected = currentVarId && currentVarId == v.id ? 'selected' : '';
+
+                    let vStock = 0;
+                    if (activeLocId && product.stock_by_location) {
+                        const locData = product.stock_by_location[activeLocId] || product.stock_by_location[String(activeLocId)] || product.stock_by_location[Number(activeLocId)];
+                        if (locData && locData.variants) {
+                            const vVal = locData.variants[v.id] !== undefined ? locData.variants[v.id] : locData.variants[String(v.id)];
+                            vStock = parseInt(vVal) || 0;
+                        }
+                    }
+                    const isDisabled = (activeLocId && vStock <= 0 && !selected) ? 'disabled' : '';
+                    const stockLabel = (activeLocId && vStock <= 0) ? ' (Out of stock)' : '';
+                    selectHtml += `<option value="${v.id}" data-price="${optPrice}" data-mrp="${optMrp}" data-purchase-price="${optPurchasePrice}" data-stock="${vStock}" ${selected} ${isDisabled}>${v.attr_name}: ${v.value_name} (${symbol}${optPrice})${stockLabel}</option>`;
+                });
+                selectHtml += `</select>`;
+                row.find('.variant-select-container').html(selectHtml);
+            }
+            loadProductBatches(row);
+            updateStockInfo(row);
+        });
+    });
+
+    function updateStockInfo(row) {
         const productId  = row.find('.product-id-input').val();
         const locationId = getLocationId();
         const stockDisplay = row.find('.stock-display');
-        const variantId = row.attr('data-variant-id') || row.data('variant-id');
+        const variantId = row.attr('data-variant-id') || row.data('variant-id') || row.find('.variant-select').val() || null;
         const product = row.data('product');
         const isPair = row.find('.pair-type-input').val() === 'pair';
-        const customSizeValue = parseFloat(row.find('.custom-size-value-input').val()) || 0;
+        const customSizeValue = parseFloat(row.find('.custom-size-value-input').val()) || parseFloat(row.data('custom-size-value')) || 0;
         if (!productId || !product) { stockDisplay.text('').removeAttr('title').css('cursor', '').hide(); return; }
 
         const stockByLocation = product.stock_by_location || {};
@@ -1169,20 +1269,20 @@ $(document).ready(function () {
             }
             return Math.ceil(parseFloat(raw) || 0);
         }
-        function displayQtyAt(locId) {
-            const raw = rawQtyAt(locId);
-            if (product.pair_product && customSizeValue > 0) {
-                return Math.floor(raw / customSizeValue);
-            }
-            return raw;
-        }
 
         let qty = 0;
         let breakdownText = 'Stock Breakdown:\n';
         let hasStock = false;
 
         if (locationId) {
-            qty = rawQtyAt(locationId);
+            const batchSelOpt = row.find('.batch-select option:selected');
+            if (batchSelOpt.length && batchSelOpt.attr('data-available-qty') !== undefined) {
+                qty = parseInt(batchSelOpt.attr('data-available-qty')) || 0;
+            } else if (row.data('available-pcs') !== undefined && row.data('available-pcs') !== null) {
+                qty = parseInt(row.data('available-pcs')) || 0;
+            } else {
+                qty = rawQtyAt(locationId);
+            }
         } else {
             Object.keys(stockByLocation).forEach(locId => {
                 qty += rawQtyAt(locId);
@@ -1194,7 +1294,23 @@ $(document).ready(function () {
             const loc = locations.find(l => l.id == locId);
             const locName = loc ? loc.name : 'Unknown';
             if (lQty > 0) {
-                breakdownText += `- ${locName}: ${lQty} Pcs\n`;
+                let lDisplay = lQty + ' Pcs';
+                if (product.pair_product) {
+                    const effectiveSizes = getEffectiveCustomSizes(product, variantId);
+                    let pairSize = customSizeValue > 0 ? customSizeValue : 0;
+                    if (!pairSize && effectiveSizes && effectiveSizes.length > 0) {
+                        const sizes = effectiveSizes.map(s => typeof s === 'object' && s !== null ? parseFloat(s.size) : parseFloat(s)).filter(s => s > 0);
+                        if (sizes.length > 0) pairSize = Math.max(...sizes);
+                    }
+                    if (!pairSize) pairSize = 1;
+                    const pCnt = Math.floor(lQty / pairSize);
+                    const rPcs = lQty % pairSize;
+                    let pArr = [];
+                    if (pCnt > 0) pArr.push(pCnt + (pCnt > 1 ? ' Pairs' : ' Pair'));
+                    if (rPcs > 0) pArr.push(rPcs + ' Pcs');
+                    lDisplay = pArr.length > 0 ? pArr.join(' ') : '0 Pcs';
+                }
+                breakdownText += `- ${locName}: ${lDisplay}\n`;
                 hasStock = true;
             }
         });
@@ -1830,8 +1946,14 @@ $(document).ready(function () {
             const discountType = row.find('.item-discount-type').val() || 'flat';
             const discountValue = parseFloat(row.find('.item-discount-value').val()) || 0;
 
+            const batchSelect = row.find('.batch-select');
+            const purchaseItemId = batchSelect.length ? (batchSelect.val() || '') : '';
+            const purchasePrice = batchSelect.length ? (batchSelect.find('option:selected').data('purchase-price') || '') : '';
+
             hiddenContainer.append(`<input type="hidden" name="items[${submitIdx}][product_id]" value="${product.id}">`);
             hiddenContainer.append(`<input type="hidden" name="items[${submitIdx}][product_variant_id]" value="${variantId}">`);
+            hiddenContainer.append(`<input type="hidden" name="items[${submitIdx}][purchase_item_id]" value="${purchaseItemId}">`);
+            hiddenContainer.append(`<input type="hidden" name="items[${submitIdx}][purchase_price]" value="${purchasePrice}">`);
             hiddenContainer.append(`<input type="hidden" name="items[${submitIdx}][pair_type]" value="${row.find('.pair-type-input').val() || 'single'}">`);
             hiddenContainer.append(`<input type="hidden" name="items[${submitIdx}][custom_size_value]" value="${row.find('.custom-size-value-input').val() || ''}">`);
             hiddenContainer.append(`<input type="hidden" name="items[${submitIdx}][mrp]" value="${mrp}">`);

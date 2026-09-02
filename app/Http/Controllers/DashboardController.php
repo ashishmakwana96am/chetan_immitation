@@ -33,6 +33,7 @@ class DashboardController extends Controller
 
     public function index()
     {
+        self::clearDashboardCaches();
         $user = auth()->user();
 
         if ($user->hasRole('super-admin')) {
@@ -131,35 +132,11 @@ class DashboardController extends Controller
             $totalCashBalance = (float) \App\Models\LocationBalance::whereHas('location', fn($q) => $q->where('status', 1))->sum('cash_balance');
             $totalBankBalance = (float) \App\Models\LocationBalance::whereHas('location', fn($q) => $q->where('status', 1))->sum('bank_balance');
 
-            $products = Product::whereHas('inventories', fn($q) => $q->where('quantity', '>', 0))->with(['inventories', 'category'])->get();
-            $totalStockUnits = 0;
-            $totalStockPairs = 0;
-            $totalStockLoosePcs = 0;
-            $totalStockPurchaseValue = (float) Purchase::where('status', Purchase::STATUS_APPROVE)->sum('total_amount');
-            $totalStockMrpValue = 0.0;
+            $stockTotals = \App\Http\Controllers\ReportController::calculateStockTotalsForDashboard(null);
 
-            foreach ($products as $p) {
-                $salePrice = (float) $p->sale_price;
-                $mrpPrice = (float) (($p->mrp ?? 0) > 0 ? $p->mrp : $salePrice);
-
-                $sizes = collect($p->custom_sizes ?? [])->pluck('size')->map(fn($s) => (float) $s)->filter(fn($s) => $s > 0);
-                $pairSize = ($p->pair_product && $sizes->count() > 0) ? (float) $sizes->max() : 1.0;
-                if ($pairSize <= 0)
-                    $pairSize = 1.0;
-
-                $pTotalPcs = (int) $p->inventories->sum('quantity');
-                $effectiveQty = $p->pair_product ? ($pTotalPcs / $pairSize) : (float) $pTotalPcs;
-
-                $totalStockUnits += $pTotalPcs;
-                $totalStockMrpValue += ($effectiveQty * $mrpPrice);
-
-                if ($p->pair_product && $pTotalPcs > 0) {
-                    $totalStockPairs += (int) floor($pTotalPcs / $pairSize);
-                    $totalStockLoosePcs += (int) ($pTotalPcs % $pairSize);
-                } elseif (!$p->pair_product) {
-                    $totalStockLoosePcs += $pTotalPcs;
-                }
-            }
+            $totalStockPairs = $stockTotals['total_pairs'] ?? 0;
+            $totalStockLoosePcs = $stockTotals['total_loose'] ?? 0;
+            $totalStockUnits = $totalStockPairs + $totalStockLoosePcs;
 
             $stockParts = [];
             if ($totalStockPairs > 0) {
@@ -176,8 +153,8 @@ class DashboardController extends Controller
                 'total_loose_pcs' => $totalStockLoosePcs,
                 'stock_display' => $stockDisplay,
                 'stock_parts' => $stockParts,
-                'total_purchase_value' => $totalStockPurchaseValue,
-                'total_mrp_value' => $totalStockMrpValue,
+                'total_purchase_value' => (float) ($stockTotals['purchase_total'] ?? 0.0),
+                'total_mrp_value' => (float) ($stockTotals['mrp_total'] ?? 0.0),
             ];
 
             $monthlySales = $this->getMonthlySales();
@@ -304,154 +281,11 @@ class DashboardController extends Controller
             $allProducts = Product::whereHas('inventories', fn($q) => $q->where('location_id', $locationId)->where('quantity', '>', 0))->with(['category', 'primaryImage', 'inventories'])->get();
             $lowStockInventories = Inventory::where('location_id', $locationId)->where('quantity', '<=', 10)->where('quantity', '>', 0)->with(['product.category', 'product.primaryImage'])->orderBy('quantity')->take(10)->get();
 
-            $currentLocation = Location::find($locationId);
-            $isDefaultLocation = $currentLocation && (bool) $currentLocation->is_default;
+            $stockTotals = \App\Http\Controllers\ReportController::calculateStockTotalsForDashboard($locationId);
 
-            $totalStockPurchaseValue = 0.0;
-            $totalStockMrpValue = 0.0;
-
-            if ($isDefaultLocation) {
-                $totalPurchases = (float) Purchase::where('status', Purchase::STATUS_APPROVE)->sum('total_amount');
-
-                // Transfers out of default location to other branches
-                $outgoingBills = \App\Models\PurchaseBill::with(['items.product', 'items.variant'])
-                    ->where('from_location_id', $locationId)
-                    ->where('status', \App\Models\PurchaseBill::STATUS_ACCEPTED)
-                    ->get();
-                $outgoingPurchaseValue = 0.0;
-                foreach ($outgoingBills as $bill) {
-                    [$billAmount] = $this->purchaseBillTotals($bill);
-                    $outgoingPurchaseValue += $billAmount;
-                }
-
-                // Transfers in from other branches to default location
-                $incomingBills = \App\Models\PurchaseBill::with(['items.product', 'items.variant'])
-                    ->where('to_location_id', $locationId)
-                    ->where('status', \App\Models\PurchaseBill::STATUS_ACCEPTED)
-                    ->get();
-                $incomingPurchaseValue = 0.0;
-                foreach ($incomingBills as $bill) {
-                    [$billAmount] = $this->purchaseBillTotals($bill);
-                    $incomingPurchaseValue += $billAmount;
-                }
-
-                // Sales made directly from default location
-                $soldPurchaseValue = (float) \App\Models\OrderItem::query()
-                    ->join('orders', 'orders.id', '=', 'order_items.order_id')
-                    ->leftJoin('products', 'products.id', '=', 'order_items.product_id')
-                    ->leftJoin('product_variants', 'product_variants.id', '=', 'order_items.product_variant_id')
-                    ->whereNull('orders.deleted_at')
-                    ->where('orders.location_id', $locationId)
-                    ->where('orders.order_type', 'sale')
-                    ->whereIn('orders.status', [Order::STATUS_APPROVE, Order::STATUS_SHIPPED, Order::STATUS_OUT_FOR_DELIVERY, Order::STATUS_DELIVERED])
-                    ->whereIn('orders.payment_status', [Order::PAYMENT_STATUS_PAID, Order::PAYMENT_STATUS_PARTIAL])
-                    ->selectRaw('SUM(order_items.quantity * COALESCE(product_variants.purchase_price, products.purchase_price, 0)) as total_cost')
-                    ->value('total_cost');
-
-                // Formula: Total Purchase - Outgoing Transfer + Incoming Transfer - Sales
-                $totalStockPurchaseValue = max(0.0, $totalPurchases - $outgoingPurchaseValue + $incomingPurchaseValue - $soldPurchaseValue);
-
-                $defaultProducts = Product::whereHas('inventories', fn($q) => $q->where('location_id', $locationId)->where('quantity', '>', 0))->with(['inventories'])->get();
-
-                foreach ($defaultProducts as $p) {
-                    $salePrice = (float) $p->sale_price;
-                    $mrpPrice = (float) (($p->mrp ?? 0) > 0 ? $p->mrp : $salePrice);
-
-                    $sizes = collect($p->custom_sizes ?? [])->pluck('size')->map(fn($s) => (float) $s)->filter(fn($s) => $s > 0);
-                    $pairSize = ($p->pair_product && $sizes->count() > 0) ? (float) $sizes->max() : 1.0;
-                    if ($pairSize <= 0)
-                        $pairSize = 1.0;
-
-                    $inventory = $p->inventories->firstWhere('location_id', $locationId);
-                    $pTotalPcs = (int) ($inventory ? $inventory->quantity : 0);
-                    $effectiveQty = $p->pair_product ? ($pTotalPcs / $pairSize) : (float) $pTotalPcs;
-                    $totalStockMrpValue += ($effectiveQty * $mrpPrice);
-                }
-            } else {
-                $incomingBills = \App\Models\PurchaseBill::with(['items.product', 'items.variant'])
-                    ->where('to_location_id', $locationId)
-                    ->where('status', \App\Models\PurchaseBill::STATUS_ACCEPTED)
-                    ->get();
-
-                $incomingPurchaseValue = 0.0;
-                $incomingMrpValue = 0.0;
-                foreach ($incomingBills as $bill) {
-                    [$billAmount, $billMrp] = $this->purchaseBillTotals($bill);
-                    $incomingPurchaseValue += $billAmount;
-                    $incomingMrpValue += $billMrp;
-                }
-
-                $outgoingBills = \App\Models\PurchaseBill::with(['items.product', 'items.variant'])
-                    ->where('from_location_id', $locationId)
-                    ->where('status', \App\Models\PurchaseBill::STATUS_ACCEPTED)
-                    ->get();
-
-                $outgoingPurchaseValue = 0.0;
-                $outgoingMrpValue = 0.0;
-                foreach ($outgoingBills as $bill) {
-                    [$billAmount, $billMrp] = $this->purchaseBillTotals($bill);
-                    $outgoingPurchaseValue += $billAmount;
-                    $outgoingMrpValue += $billMrp;
-                }
-
-                $soldPurchaseValue = (float) \App\Models\OrderItem::query()
-                    ->join('orders', 'orders.id', '=', 'order_items.order_id')
-                    ->leftJoin('products', 'products.id', '=', 'order_items.product_id')
-                    ->leftJoin('product_variants', 'product_variants.id', '=', 'order_items.product_variant_id')
-                    ->whereNull('orders.deleted_at')
-                    ->where('orders.location_id', $locationId)
-                    ->where('orders.order_type', 'sale')
-                    ->whereIn('orders.status', [Order::STATUS_APPROVE, Order::STATUS_SHIPPED, Order::STATUS_OUT_FOR_DELIVERY, Order::STATUS_DELIVERED])
-                    ->whereIn('orders.payment_status', [Order::PAYMENT_STATUS_PAID, Order::PAYMENT_STATUS_PARTIAL])
-                    ->selectRaw('SUM(order_items.quantity * COALESCE(product_variants.purchase_price, products.purchase_price, 0)) as total_cost')
-                    ->value('total_cost');
-
-                $soldOrderItems = \App\Models\OrderItem::with(['product', 'variant'])
-                    ->whereHas('order', function ($q) use ($locationId) {
-                        $q
-                            ->where('location_id', $locationId)
-                            ->where('order_type', 'sale')
-                            ->whereIn('status', [Order::STATUS_APPROVE, Order::STATUS_SHIPPED, Order::STATUS_OUT_FOR_DELIVERY, Order::STATUS_DELIVERED])
-                            ->whereIn('payment_status', [Order::PAYMENT_STATUS_PAID, Order::PAYMENT_STATUS_PARTIAL]);
-                    })
-                    ->get();
-
-                $soldMrpValue = 0.0;
-                foreach ($soldOrderItems as $sItem) {
-                    $p = $sItem->product;
-                    if (!$p)
-                        continue;
-                    $multiplier = $this->stockMultiplierFor($p, $sItem->pair_type, $sItem->custom_size_value);
-                    $quantity = (int) $sItem->quantity;
-                    $soldMrpValue += $this->mrpForOrderItem($sItem, $multiplier) * $quantity;
-                }
-
-                $totalStockPurchaseValue = max(0.0, $incomingPurchaseValue - $outgoingPurchaseValue - $soldPurchaseValue);
-                $totalStockMrpValue = max(0.0, $incomingMrpValue - $outgoingMrpValue - $soldMrpValue);
-            }
-
-            $totalStockPairs = 0;
-            $totalStockLoosePcs = 0;
-            $totalStockUnits = 0;
-
-            foreach ($allProducts as $p) {
-                $sizes = collect($p->custom_sizes ?? [])->pluck('size')->map(fn($s) => (float) $s)->filter(fn($s) => $s > 0);
-                $pairSize = ($p->pair_product && $sizes->count() > 0) ? (float) $sizes->max() : 1.0;
-                if ($pairSize <= 0)
-                    $pairSize = 1.0;
-
-                $inventory = $p->inventories->firstWhere('location_id', $locationId);
-                $pTotalPcs = (int) ($inventory ? $inventory->quantity : 0);
-
-                $totalStockUnits += $pTotalPcs;
-
-                if ($p->pair_product && $pTotalPcs > 0) {
-                    $totalStockPairs += (int) floor($pTotalPcs / $pairSize);
-                    $totalStockLoosePcs += (int) ($pTotalPcs % $pairSize);
-                } elseif (!$p->pair_product) {
-                    $totalStockLoosePcs += $pTotalPcs;
-                }
-            }
+            $totalStockPairs = $stockTotals['location_pair_totals'][$locationId] ?? ($stockTotals['total_pairs'] ?? 0);
+            $totalStockLoosePcs = $stockTotals['location_loose_totals'][$locationId] ?? ($stockTotals['total_loose'] ?? 0);
+            $totalStockUnits = $totalStockPairs + $totalStockLoosePcs;
 
             $stockParts = [];
             if ($totalStockPairs > 0) {
@@ -469,8 +303,8 @@ class DashboardController extends Controller
                 'total_loose_pcs' => $totalStockLoosePcs,
                 'stock_display' => $stockDisplay,
                 'stock_parts' => $stockParts,
-                'total_purchase_value' => $totalStockPurchaseValue,
-                'total_mrp_value' => $totalStockMrpValue,
+                'total_purchase_value' => (float) ($stockTotals['purchase_total'] ?? 0.0),
+                'total_mrp_value' => (float) ($stockTotals['mrp_total'] ?? 0.0),
                 'out_of_stock' => Inventory::where('location_id', $locationId)->where('quantity', 0)->count(),
                 'low_stock' => $lowStockInventories->where('quantity', '>', 0)->count(),
             ];

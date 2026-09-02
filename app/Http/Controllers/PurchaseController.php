@@ -247,6 +247,7 @@ class PurchaseController extends Controller
             'items.*.product_variant_id' => ['nullable', 'exists:product_variants,id'],
             'items.*.quantity'       => ['required', 'integer', 'min:1'],
             'items.*.purchase_price' => ['required', 'numeric', 'min:0.01'],
+            'items.*.mrp'            => ['nullable', 'numeric', 'min:0'],
             'items.*.custom_size_value' => ['nullable', 'numeric', 'min:0.01'],
             'items.*.discount_type'  => ['nullable', 'string', 'in:flat,percentage'],
             'items.*.discount_value' => ['nullable', 'numeric', 'min:0'],
@@ -318,6 +319,7 @@ class PurchaseController extends Controller
                     'product_variant_id' => $itemData['product_variant_id'] ?? null,
                     'custom_size_value'  => $customSizeValue,
                     'purchase_price'     => $price,
+                    'mrp'                => isset($itemData['mrp']) && (float)$itemData['mrp'] > 0 ? (float)$itemData['mrp'] : null,
                     'discount_type'      => $discType,
                     'discount_value'     => $discVal,
                     'discount_amount'    => $discAmount,
@@ -439,6 +441,12 @@ class PurchaseController extends Controller
                     'location_id'      => $defaultLocation->id,
                     'quantity'         => $item['quantity'],
                 ]);
+
+                $productObj = \App\Models\Product::find($item['product_id']);
+                $itemMultiplier = \App\Services\PurchaseBatchService::multiplierForProduct($productObj, $item['pair_type'] ?? null, $item['custom_size_value'] ?? null);
+                $batchStockQty = (float) $item['quantity'] * $itemMultiplier;
+
+                \App\Services\PurchaseBatchService::addBatchStock($defaultLocation->id, (int)$item['product_id'], !empty($item['product_variant_id']) ? (int)$item['product_variant_id'] : null, $createdItem->id, (float)$item['purchase_price'], (float)$batchStockQty);
             }
 
             if ($invoice->status == 2) {
@@ -778,6 +786,12 @@ class PurchaseController extends Controller
                     'location_id'      => $defaultLocation->id,
                     'quantity'         => $item['quantity'],
                 ]);
+
+                $productObj = \App\Models\Product::find($item['product_id']);
+                $itemMultiplier = \App\Services\PurchaseBatchService::multiplierForProduct($productObj, $item['pair_type'] ?? null, $item['custom_size_value'] ?? null);
+                $batchStockQty = (float) $item['quantity'] * $itemMultiplier;
+
+                \App\Services\PurchaseBatchService::addBatchStock((int)$defaultLocation->id, (int)$item['product_id'], !empty($item['product_variant_id']) ? (int)$item['product_variant_id'] : null, $createdItem->id, (float)$item['purchase_price'], (float)$batchStockQty);
             }
 
             if ($newStatus == Purchase::STATUS_APPROVE) {
@@ -901,6 +915,11 @@ class PurchaseController extends Controller
             \App\Models\SupplierAdvancePayment::restoreAdvanceForPurchase($purchase);
 
             if ($purchase->status == Purchase::STATUS_APPROVE) {
+                foreach ($purchase->items as $pItem) {
+                    $itemMultiplier = \App\Services\PurchaseBatchService::multiplierForProduct($pItem->product, $pItem->pair_type ?? null, $pItem->custom_size_value ?? null);
+                    $batchStockQty = (float) $pItem->quantity * $itemMultiplier;
+                    \App\Services\PurchaseBatchService::deductBatchStock((int)$purchase->location_id, (int)$pItem->product_id, !empty($pItem->product_variant_id) ? (int)$pItem->product_variant_id : null, (float)$pItem->purchase_price, (float)$batchStockQty);
+                }
                 PurchaseStockService::reverse($purchase, 'deletion');
             }
 
