@@ -28,8 +28,56 @@ class RecalculateLocationBalances extends Command
                         ->orderBy('id', 'asc')
                         ->get();
 
+                    // Check active orders and purchases to exclude ghost/soft-deleted records
+                    $purchasesToCheck = [];
+                    $ordersToCheck = [];
+
+                    foreach ($transactions as $tx) {
+                        $notes = $tx->notes ?? '';
+                        if (preg_match('/Purchase\s+#([^\s\[\]]+)/i', $notes, $matches)) {
+                            $purchasesToCheck[$matches[1]] = true;
+                        } elseif (preg_match('/\[Inv:\s*([^\]]+)\]/i', $notes, $matches)) {
+                            $purchasesToCheck[trim($matches[1])] = true;
+                        }
+                        if (preg_match('/Sale\s+#([^\s\[\]]+)/i', $notes, $matches)) {
+                            $ordersToCheck[$matches[1]] = true;
+                        }
+                    }
+
+                    $existingPurchases = !empty($purchasesToCheck)
+                        ? \App\Models\Purchase::whereIn('invoice_no', array_keys($purchasesToCheck))->pluck('invoice_no')->flip()
+                        : collect();
+
+                    $existingOrders = !empty($ordersToCheck)
+                        ? \App\Models\Order::whereIn('order_no', array_keys($ordersToCheck))->pluck('order_no')->flip()
+                        : collect();
+
                     $runningBalance = 0.0;
                     foreach ($transactions as $tx) {
+                        $notes = $tx->notes ?? '';
+                        $isGhost = false;
+
+                        if (preg_match('/Purchase\s+#([^\s\[\]]+)/i', $notes, $matches)) {
+                            if (!$existingPurchases->has($matches[1])) {
+                                $isGhost = true;
+                            }
+                        } elseif (preg_match('/\[Inv:\s*([^\]]+)\]/i', $notes, $matches)) {
+                            if (!$existingPurchases->has(trim($matches[1]))) {
+                                $isGhost = true;
+                            }
+                        }
+                        if (preg_match('/Sale\s+#([^\s\[\]]+)/i', $notes, $matches)) {
+                            if (!$existingOrders->has($matches[1])) {
+                                $isGhost = true;
+                            }
+                        }
+
+                        if ($isGhost) {
+                            // Soft-delete the ghost transaction
+                            $tx->delete();
+                            continue;
+                        }
+
                         $amt = (float) $tx->amount;
                         if ($tx->type === LocationBalanceTransaction::TYPE_CREDIT) {
                             $runningBalance += $amt;
