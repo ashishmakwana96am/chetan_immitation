@@ -270,7 +270,7 @@ class ReportController extends Controller
 
         $user = auth()->user();
         $isRestricted = $user->location_id && !$user->hasRole('super-admin');
-        $locationId = $isRestricted ? $user->location_id : null;
+        $locationId = $isRestricted ? $user->location_id : ($request->query('location_id') ? (int)$request->query('location_id') : null);
 
         $fromDate = $request->query('from_date');
         $toDate = $request->query('to_date');
@@ -617,7 +617,8 @@ class ReportController extends Controller
 
                 $parentLocStock = [];
                 $hasVariantStock = false;
-                foreach ($locations as $location) {
+                $targetLocations = $locationId ? $locations->where('id', $locationId) : $locations;
+                foreach ($targetLocations as $location) {
                     $locVariantSum = array_sum($variantStock[$location->id]['variants'] ?? []);
                     $locParent = (int) ($variantStock[$location->id]['parent'] ?? 0);
                     if ($locVariantSum > 0) {
@@ -630,7 +631,7 @@ class ReportController extends Controller
                 $parentTotal = array_sum($parentLocStock);
 
                 if ($parentTotal <= 0) {
-                    foreach ($locations as $location) {
+                    foreach ($targetLocations as $location) {
                         $inventory = $product->inventories->firstWhere('location_id', $location->id);
                         $parentLocStock[$location->id] = $inventory ? (int) $inventory->quantity : 0;
                     }
@@ -692,7 +693,8 @@ class ReportController extends Controller
                 $mrpValue = $parentMrpVal;
             } else {
                 $stock = [];
-                foreach ($locations as $location) {
+                $targetLocations = $locationId ? $locations->where('id', $locationId) : $locations;
+                foreach ($targetLocations as $location) {
                     $inventory = $product->inventories->firstWhere('location_id', $location->id);
                     $stock[$location->id] = $inventory ? $inventory->quantity : 0;
                 }
@@ -724,6 +726,16 @@ class ReportController extends Controller
 
                 $pAllBatches = $pTransfers->concat($pAllocations)->sortBy('created_at')->values();
 
+                $pTransferredOut = DB::table('purchase_bill_items')
+                    ->join('purchase_bills', 'purchase_bills.id', '=', 'purchase_bill_items.purchase_bill_id')
+                    ->where('purchase_bill_items.product_id', $product->id)
+                    ->whereNull('purchase_bill_items.deleted_at')
+                    ->whereNull('purchase_bills.deleted_at')
+                    ->where('purchase_bills.status', 2)
+                    ->when($locationId, fn($q) => $q->where('purchase_bills.from_location_id', $locationId))
+                    ->select('purchase_bill_items.id', 'purchase_bill_items.quantity', 'purchase_bill_items.purchase_price')
+                    ->get();
+
                 $pSoldItems = DB::table('order_items')
                     ->join('orders', 'orders.id', '=', 'order_items.order_id')
                     ->where('order_items.product_id', $product->id)
@@ -736,6 +748,8 @@ class ReportController extends Controller
                     ->orderBy('orders.id', 'asc')
                     ->get();
 
+                $pAllOutward = $pSoldItems->concat($pTransferredOut);
+
                 $batches = [];
                 foreach ($pAllBatches as $t) {
                     $batches[] = [
@@ -745,7 +759,7 @@ class ReportController extends Controller
                     ];
                 }
 
-                foreach ($pSoldItems as $sale) {
+                foreach ($pAllOutward as $sale) {
                     $sQty = (float)$sale->quantity;
                     $sPrice = (float)$sale->purchase_price;
 
@@ -938,6 +952,9 @@ class ReportController extends Controller
             'qty_total' => $totals['qty_total'],
             'purchase_total' => format_price($totals['purchase_total']),
             'mrp_total' => format_price($totals['mrp_total']),
+            'inward_total' => format_price($totals['inward_total'] ?? 0),
+            'return_total' => format_price($totals['return_total'] ?? 0),
+            'sales_cost_total' => format_price($totals['sales_cost_total'] ?? 0),
             'product_count' => number_format($productCount),
             'soldout_count' => number_format($soldoutCount),
             'location_chart_data' => $locationChartData,
@@ -1013,6 +1030,17 @@ class ReportController extends Controller
             ->get()
             ->groupBy('product_id');
 
+        $transfersOutwardGrouped = DB::table('purchase_bill_items')
+            ->join('purchase_bills', 'purchase_bills.id', '=', 'purchase_bill_items.purchase_bill_id')
+            ->whereIn('purchase_bill_items.product_id', $productIds)
+            ->whereNull('purchase_bill_items.deleted_at')
+            ->whereNull('purchase_bills.deleted_at')
+            ->where('purchase_bills.status', 2)
+            ->when($locationId, fn($q) => $q->where('purchase_bills.from_location_id', $locationId))
+            ->select('purchase_bill_items.product_id', 'purchase_bill_items.id', 'purchase_bill_items.quantity', 'purchase_bill_items.purchase_price')
+            ->get()
+            ->groupBy('product_id');
+
         $purchasesGrouped = DB::table('purchase_items')
             ->join('purchases', 'purchases.id', '=', 'purchase_items.purchase_id')
             ->whereIn('purchase_items.product_id', $productIds)
@@ -1029,15 +1057,36 @@ class ReportController extends Controller
         foreach ($locations as $location) {
             $locationPairTotals[$location->id] = 0;
             $locationLooseTotals[$location->id] = 0;
-        }
-
-        $totalPairUnits = 0;
+        }        $totalPairUnits = 0;
         $totalLoosePcs = 0;
         $totalPurchaseValue = 0.0;
         $totalMrpValue = 0.0;
+        $totalInwardVal = 0.0;
+        $totalReturnVal = 0.0;
+        $totalSalesCostVal = 0.0;
 
         foreach ($products as $product) {
             $invRows = $invByProduct->get($product->id, collect());
+
+            // Accumulate gross Inward, Return and Sales cost for breakdown report when filtered by location
+            $pTransfersIn = $transfersGrouped->get($product->id, collect());
+            $pAllocationsIn = $allocationsGrouped->get($product->id, collect());
+            foreach ($pTransfersIn as $ti) {
+                $totalInwardVal += ((float)$ti->quantity * (float)$ti->purchase_price);
+            }
+            foreach ($pAllocationsIn as $ai) {
+                $totalInwardVal += ((float)$ai->quantity * (float)$ai->purchase_price);
+            }
+
+            $pTransfersOut = $transfersOutwardGrouped->get($product->id, collect());
+            foreach ($pTransfersOut as $to) {
+                $totalReturnVal += ((float)$to->quantity * (float)$to->purchase_price);
+            }
+
+            $pSold = $soldItemsGrouped->get($product->id, collect());
+            foreach ($pSold as $si) {
+                $totalSalesCostVal += (float)$si->purchase_price;
+            }
 
             // 1. Per-location Pair/Pcs totals for breakdown chart
             foreach ($locations as $location) {
@@ -1083,8 +1132,10 @@ class ReportController extends Controller
 
             $allBatchesList = $transfers->concat($allocations)->sortBy('created_at')->values();
 
-            // Fetch sales from this location
+            // Fetch sales and outward transfers from this location
             $soldItems = $soldItemsGrouped->get($product->id, collect());
+            $transfersOutward = $transfersOutwardGrouped->get($product->id, collect());
+            $allOutwardItems = $soldItems->concat($transfersOutward);
 
             $batches = [];
             foreach ($allBatchesList as $t) {
@@ -1095,8 +1146,8 @@ class ReportController extends Controller
                 ];
             }
 
-            // Deduct sales from batches (matching sale purchase_price or FIFO)
-            foreach ($soldItems as $sale) {
+            // Deduct outward stock from batches (matching purchase_price or FIFO)
+            foreach ($allOutwardItems as $sale) {
                 $sQty = (float)$sale->quantity;
                 $sPrice = (float)$sale->purchase_price;
 
@@ -1178,6 +1229,8 @@ class ReportController extends Controller
             $totalMrpValue += $effectiveQty * $unitMrpPrice;
         }
 
+        $totalPurchaseValue = max(0, $totalInwardVal - $totalReturnVal - $totalSalesCostVal);
+
         $formatPairsPcs = function ($pairs, $pcs) {
             $parts = [];
             if ($pairs > 0) {
@@ -1195,14 +1248,17 @@ class ReportController extends Controller
         }
 
         return [
-            'location_totals' => $locationTotals,
-            'qty_total' => $formatPairsPcs($totalPairUnits, $totalLoosePcs),
-            'purchase_total' => $totalPurchaseValue,
-            'mrp_total' => $totalMrpValue,
-            'location_pair_totals' => $locationPairTotals,
+            'location_totals'       => $locationTotals,
+            'qty_total'             => $formatPairsPcs($totalPairUnits, $totalLoosePcs),
+            'purchase_total'        => $totalPurchaseValue,
+            'mrp_total'             => $totalMrpValue,
+            'inward_total'          => $totalInwardVal,
+            'return_total'          => $totalReturnVal,
+            'sales_cost_total'      => $totalSalesCostVal,
+            'location_pair_totals'  => $locationPairTotals,
             'location_loose_totals' => $locationLooseTotals,
-            'total_pairs' => $totalPairUnits,
-            'total_loose' => $totalLoosePcs,
+            'total_pairs'           => $totalPairUnits,
+            'total_loose'           => $totalLoosePcs,
         ];
     }
 

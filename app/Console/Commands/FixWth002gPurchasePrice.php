@@ -151,13 +151,26 @@ class FixWth002gPurchasePrice extends Command
             } else {
                 DB::table('purchase_bill_items')
                     ->where('id', $pe['id'])
-                    ->update([
-                        'purchase_price' => $pe['unit_price'],
-                    ]);
+                    ->update(['purchase_price' => $pe['unit_price']]);
             }
         }
 
-        $this->info("Successfully updated order_items and purchase_bill_items using strict chronological FIFO batch consumption.");
+        $st51Bill = DB::table('purchase_bills')->where('transfer_no', 'like', '%ST-51%')->orWhere('transfer_no', 'like', '%ST-051%')->first();
+        if ($st51Bill) {
+            DB::table('purchase_bill_items')
+                ->where('purchase_bill_id', $st51Bill->id)
+                ->whereIn('product_id', $wthProductIds)
+                ->update(['purchase_price' => 1485.00]);
+        }
+
+        foreach ($wthProductIds as $pid) {
+            $locations = DB::table('locations')->pluck('id');
+            foreach ($locations as $locId) {
+                \App\Services\PurchaseBatchService::syncProductBatchStocks((int)$locId, (int)$pid, null);
+            }
+        }
+
+        $this->info("Successfully updated order_items, purchase_bill_items and synced batch stocks using strict chronological FIFO batch consumption.");
         return 0;
     }
 }

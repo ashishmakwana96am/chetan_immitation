@@ -36,6 +36,11 @@
                     <div>
                         <span class="text-muted small">Total Purchase Value</span>
                         <h4 class="mb-0 mt-1 text-primary" id="statTotalPurchaseValueDisplay">{{ $totalPurchaseValueDisplay }}</h4>
+                        <!-- <div class="mt-2 pt-1 border-top" style="font-size: 0.78rem;">
+                            <div><span class="text-muted">Total Inward:</span> <strong class="text-success" id="statTotalInwardValDisplay">₹ 0.00</strong></div>
+                            <div><span class="text-muted">Total Return:</span> <strong class="text-danger" id="statTotalReturnValDisplay">₹ 0.00</strong></div>
+                            <div><span class="text-muted">Sales Cost:</span> <strong class="text-warning" id="statTotalSalesCostValDisplay">₹ 0.00</strong></div>
+                        </div> -->
                     </div>
                     <span class="badge bg-label-warning rounded p-2"><i class="ti ti-currency-rupee ti-sm"></i></span>
                 </div>

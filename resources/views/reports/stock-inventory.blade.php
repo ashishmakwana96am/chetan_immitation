@@ -93,6 +93,15 @@
                 if (res.purchase_total !== undefined) {
                     $('#statTotalPurchaseValueDisplay').text(res.purchase_total);
                 }
+                if (res.inward_total !== undefined) {
+                    $('#statTotalInwardValDisplay').text(res.inward_total);
+                }
+                if (res.return_total !== undefined) {
+                    $('#statTotalReturnValDisplay').text(res.return_total);
+                }
+                if (res.sales_cost_total !== undefined) {
+                    $('#statTotalSalesCostValDisplay').text(res.sales_cost_total);
+                }
                 if (res.mrp_total !== undefined) {
                     $('#statTotalMrpValueDisplay').text(res.mrp_total);
                 }
