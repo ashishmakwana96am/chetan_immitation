@@ -49,7 +49,7 @@ class RecalculateLocationBalances extends Command
                         : collect();
 
                     $existingOrders = !empty($ordersToCheck)
-                        ? \App\Models\Order::whereIn('order_no', array_keys($ordersToCheck))->pluck('order_no')->flip()
+                        ? \App\Models\Order::whereIn('order_no', array_keys($ordersToCheck))->where('location_id', $loc->id)->pluck('order_no')->flip()
                         : collect();
 
                     $runningBalance = 0.0;
