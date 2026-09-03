@@ -140,14 +140,7 @@ class PurchaseBatchService
         $items = $purchaseItems->merge($transferItems)->sortByDesc('created_at')->values();
 
         if ($items->isEmpty()) {
-            $defaultPrice = 0.0;
-            if ($productVariantId) {
-                $defaultPrice = (float) (ProductVariant::where('id', $productVariantId)->value('purchase_price') ?? 0);
-            }
-            if ($defaultPrice <= 0) {
-                $defaultPrice = (float) (Product::where('id', $productId)->value('purchase_price') ?? 0);
-            }
-
+            $defaultPrice = self::resolveFallbackPurchasePrice($productId, $productVariantId);
             self::upsertBatchRecord($locationId, $productId, $productVariantId, null, $defaultPrice, $totalLiveStock);
             return;
         }
@@ -236,6 +229,8 @@ class PurchaseBatchService
 
         // 4. Waterfall allocation against totalLiveStock
         $remainingLive = $totalLiveStock;
+        $lastBatchRecorded = null;
+
         foreach ($groupedByPrice as $priceKey => $b) {
             if ($remainingLive <= 0) {
                 self::upsertBatchRecord($locationId, $productId, $productVariantId, $b['purchase_item_id'], $b['purchase_price'], 0);
@@ -246,10 +241,66 @@ class PurchaseBatchService
             if ($batchQty > 0) {
                 self::upsertBatchRecord($locationId, $productId, $productVariantId, $b['purchase_item_id'], $b['purchase_price'], $batchQty);
                 $remainingLive -= $batchQty;
+                $lastBatchRecorded = $b;
             } else {
                 self::upsertBatchRecord($locationId, $productId, $productVariantId, $b['purchase_item_id'], $b['purchase_price'], 0);
             }
         }
+
+        // 5. If remainingLive > 0 after allocated batches, assign remaining physical stock to fallback/last batch
+        if ($remainingLive > 0) {
+            if ($lastBatchRecorded) {
+                $existingQty = DB::table('purchase_batch_stocks')
+                    ->where('location_id', $locationId)
+                    ->where('product_id', $productId)
+                    ->when($productVariantId, fn($q) => $q->where('product_variant_id', $productVariantId), fn($q) => $q->whereNull('product_variant_id'))
+                    ->where('purchase_price', number_format($lastBatchRecorded['purchase_price'], 2, '.', ''))
+                    ->value('quantity') ?? 0;
+
+                self::upsertBatchRecord(
+                    $locationId,
+                    $productId,
+                    $productVariantId,
+                    $lastBatchRecorded['purchase_item_id'],
+                    $lastBatchRecorded['purchase_price'],
+                    $existingQty + $remainingLive
+                );
+            } else {
+                $fallbackPrice = self::resolveFallbackPurchasePrice($productId, $productVariantId);
+                self::upsertBatchRecord($locationId, $productId, $productVariantId, null, $fallbackPrice, $remainingLive);
+            }
+        }
+
+        // Clean up zero quantity zero price batch stock records
+        DB::table('purchase_batch_stocks')
+            ->where('location_id', $locationId)
+            ->where('product_id', $productId)
+            ->when($productVariantId, fn($q) => $q->where('product_variant_id', $productVariantId), fn($q) => $q->whereNull('product_variant_id'))
+            ->where('purchase_price', 0)
+            ->where('quantity', 0)
+            ->delete();
+    }
+
+    /**
+     * Resolve reliable fallback purchase price for a product/variant.
+     */
+    public static function resolveFallbackPurchasePrice(int $productId, ?int $productVariantId = null): float
+    {
+        if ($productVariantId) {
+            $vPrice = (float) (ProductVariant::where('id', $productVariantId)->value('purchase_price') ?? 0);
+            if ($vPrice > 0) return $vPrice;
+        }
+
+        $pPrice = (float) (Product::where('id', $productId)->value('purchase_price') ?? 0);
+        if ($pPrice > 0) return $pPrice;
+
+        $piPrice = (float) (DB::table('purchase_items')->where('product_id', $productId)->where('purchase_price', '>', 0)->value('purchase_price') ?? 0);
+        if ($piPrice > 0) return $piPrice;
+
+        $pbiPrice = (float) (DB::table('purchase_bill_items')->where('product_id', $productId)->where('purchase_price', '>', 0)->value('purchase_price') ?? 0);
+        if ($pbiPrice > 0) return $pbiPrice;
+
+        return 0.0;
     }
 
     /**

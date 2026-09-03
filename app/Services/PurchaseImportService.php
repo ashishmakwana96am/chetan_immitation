@@ -234,9 +234,25 @@ class PurchaseImportService
                 $summary['purchases_created']++;
                 $summary['purchase_ids'][] = $purchase->id;
 
-                // Purchase item quantity is entered as a pair-count for pair
-                // products (e.g. 6 pairs) and a plain piece-count otherwise —
-                // same convention as everywhere else stock is displayed.
+                $summary['purchase_details'][] = [
+                    'purchase_id' => $purchase->id,
+                    'purchase_no' => $purchase->invoice_no,
+                    'supplier'     => $supplierName,
+                    'total_amount' => $totalAmount,
+                    'paid_amount'  => $paidAmount,
+                    'items'        => collect($items)->map(function ($itemData) {
+                        return [
+                            'product_id'   => $itemData['product']->id,
+                            'product_name' => $itemData['product']->name,
+                            'barcode'      => $itemData['product']->barcode ?? null,
+                            'variant_id'   => $itemData['product_variant_id'],
+                            'quantity'     => $itemData['quantity'],
+                            'price'        => $itemData['price'],
+                            'total'        => $itemData['total'],
+                        ];
+                    })->values()->toArray(),
+                ];
+
                 $pairQty = 0;
                 $pcsQty = 0;
                 foreach ($items as $itemData) {

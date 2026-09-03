@@ -176,7 +176,7 @@ class PurchaseController extends Controller
 
             return [
                 'index'          => $start + $index + 1,
-                'invoice_no'     => '<code>' . e($invoice->invoice_no) . '</code>',
+                'invoice_no'     => '<code>' . e($invoice->invoice_no) . '</code>' . ($invoice->is_gst ? ' <span class="badge bg-label-success ms-1 fs-tiny" style="font-size: 0.65rem;">GST</span>' : ''),
                 'raw_invoice_no' => $invoice->invoice_no,
                 'supplier'       => e($invoice->supplier->name ?? '-'),
                 'status'         => $statusBadge,
@@ -286,172 +286,209 @@ class PurchaseController extends Controller
 
         try {
             DB::transaction(function () use ($request, $defaultLocation) {
-            $itemsTotal = 0.0;
-            $itemsData = [];
+                $itemsTotal = 0.0;
+                $itemsData = [];
 
-            foreach ($request->items as $itemData) {
-                $qty = (int)$itemData['quantity'];
-                $price = (float)$itemData['purchase_price'];
-                $subtotal = $qty * $price;
+                foreach ($request->items as $itemData) {
+                    $qty = (int)$itemData['quantity'];
+                    $price = (float)$itemData['purchase_price'];
+                    $subtotal = $qty * $price;
 
-                $discVal = (float)($itemData['discount_value'] ?? 0);
-                $discType = $itemData['discount_type'] ?? 'flat';
+                    $discVal = (float)($itemData['discount_value'] ?? 0);
+                    $discType = $itemData['discount_type'] ?? 'flat';
 
-                $discAmount = 0.0;
-                if ($discType === 'flat') {
-                    $discAmount = $discVal;
-                } else if ($discType === 'percentage') {
-                    $discAmount = $subtotal * ($discVal / 100);
+                    $discAmount = 0.0;
+                    if ($discType === 'flat') {
+                        $discAmount = $discVal;
+                    } else if ($discType === 'percentage') {
+                        $discAmount = $subtotal * ($discVal / 100);
+                    }
+
+                    if ($discAmount > $subtotal) {
+                        $discAmount = $subtotal;
+                    }
+
+                    $itemTotal = $subtotal - $discAmount;
+                    $itemsTotal += $itemTotal;
+
+                    $product = Product::find($itemData['product_id']);
+                    $customSizeValue = $this->resolveCustomSizeValue($product, $itemData);
+
+                    $itemsData[] = [
+                        'product_id'         => $itemData['product_id'],
+                        'product_variant_id' => $itemData['product_variant_id'] ?? null,
+                        'custom_size_value'  => $customSizeValue,
+                        'purchase_price'     => $price,
+                        'mrp'                => isset($itemData['mrp']) && (float)$itemData['mrp'] > 0 ? (float)$itemData['mrp'] : null,
+                        'discount_type'      => $discType,
+                        'discount_value'     => $discVal,
+                        'discount_amount'    => $discAmount,
+                        'quantity'           => $qty,
+                        'total'              => $itemTotal,
+                    ];
                 }
 
-                if ($discAmount > $subtotal) {
-                    $discAmount = $subtotal;
+                $orderDiscVal = (float)($request->discount_value ?? 0);
+                $orderDiscType = $orderDiscVal > 0 ? ($request->discount_type ?? 'flat') : null;
+
+                $orderDiscountAmount = 0.0;
+                if ($orderDiscVal > 0) {
+                    if ($orderDiscType === 'flat') {
+                        $orderDiscountAmount = $orderDiscVal;
+                    } else if ($orderDiscType === 'percentage') {
+                        $orderDiscountAmount = $itemsTotal * ($orderDiscVal / 100);
+                    }
                 }
 
-                $itemTotal = $subtotal - $discAmount;
-                $itemsTotal += $itemTotal;
+                if ($orderDiscountAmount > $itemsTotal) {
+                    $orderDiscountAmount = $itemsTotal;
+                }
 
-                $product = Product::find($itemData['product_id']);
-                $customSizeValue = $this->resolveCustomSizeValue($product, $itemData);
+                $finalAmount = $itemsTotal - $orderDiscountAmount;
 
-                $itemsData[] = [
-                    'product_id'         => $itemData['product_id'],
-                    'product_variant_id' => $itemData['product_variant_id'] ?? null,
-                    'custom_size_value'  => $customSizeValue,
-                    'purchase_price'     => $price,
-                    'mrp'                => isset($itemData['mrp']) && (float)$itemData['mrp'] > 0 ? (float)$itemData['mrp'] : null,
-                    'discount_type'      => $discType,
-                    'discount_value'     => $discVal,
-                    'discount_amount'    => $discAmount,
-                    'quantity'           => $qty,
-                    'total'              => $itemTotal,
+                $isGst = $request->boolean('is_gst');
+                $taxAmount = 0.0;
+                $invoicePrefix = 'PS';
+
+                if ($isGst) {
+                    $invoicePrefix = 'GP';
+                    $gstRate = (float) \App\Models\Setting::getValue('purchase_gst_rate', 3);
+                    $taxAmount = $finalAmount * ($gstRate / 100);
+                }
+
+                $grandTotal = round($finalAmount + $taxAmount);
+
+                [$paymentStatus, $paidAmount] = $this->resolvePaymentStatus(
+                    (int) ($request->payment_status ?? Purchase::PAYMENT_STATUS_PENDING),
+                    $grandTotal,
+                    (float) ($request->paid_amount ?? 0)
+                );
+
+                $targetAmountToDeduct = max($paidAmount, $grandTotal);
+
+                $invoice = Purchase::withoutEvents(function () use ($request, $invoicePrefix, $isGst, $taxAmount, $grandTotal, $orderDiscType, $orderDiscVal, $orderDiscountAmount, $paymentStatus, $paidAmount) {
+                    return Purchase::create([
+                        'supplier_id'     => $request->supplier_id,
+                        'invoice_no'      => generate_invoice_no($invoicePrefix, Purchase::class),
+                        'is_gst'          => $isGst,
+                        'tax_amount'      => $taxAmount,
+                        'total_amount'    => $grandTotal,
+                        'discount_type'   => $orderDiscType,
+                        'discount_value'  => $orderDiscVal,
+                        'discount_amount' => $orderDiscountAmount,
+                        'status'          => $request->status ?? 2,
+                        'payment_status'  => $paymentStatus,
+                        'payment_method'  => $request->payment_method ?? 'cash',
+                        'paid_amount'     => $paidAmount,
+                        'created_by'      => auth()->id(),
+                    ]);
+                });
+
+                $dateInput = $request->input('created_at') ?: $request->input('purchase_date');
+                if ($dateInput && (auth()->user()->hasRole('super-admin') || auth()->user()->can('edit past date records'))) {
+                    $timeStr = now()->format('H:i:s');
+                    try {
+                        $pDate = \Carbon\Carbon::createFromFormat('Y-m-d H:i:s', trim($dateInput) . ' ' . $timeStr);
+                    } catch (\Throwable $e) {
+                        $pDate = \Carbon\Carbon::parse(trim($dateInput) . ' ' . $timeStr);
+                    }
+                    \Illuminate\Support\Facades\DB::table('purchases')->where('id', $invoice->id)->update(['created_at' => $pDate->toDateTimeString()]);
+                }
+
+                $advDeducted = \App\Models\SupplierAdvancePayment::adjustAdvanceForPurchase($invoice, $targetAmountToDeduct);
+                $remDirect = max(0.0, round($paidAmount - $advDeducted, 2));
+
+                if ($remDirect > 0) {
+                    PurchasePayment::create([
+                        'purchase_id' => $invoice->id,
+                        'amount'      => $remDirect,
+                        'created_by'  => auth()->id(),
+                    ]);
+                }
+
+                $finalPaid = round($advDeducted + $remDirect, 2);
+                $finalStatus = ($finalPaid >= $grandTotal)
+                    ? Purchase::PAYMENT_STATUS_PAID
+                    : ($finalPaid > 0 ? Purchase::PAYMENT_STATUS_PARTIAL : Purchase::PAYMENT_STATUS_PENDING);
+
+                if ($invoice->paid_amount != $finalPaid || $invoice->payment_status != $finalStatus) {
+                    Purchase::withoutEvents(fn () => $invoice->update([
+                        'paid_amount'    => min($finalPaid, $grandTotal),
+                        'payment_status' => $finalStatus,
+                    ]));
+                    $invoice->paid_amount = min($finalPaid, $grandTotal);
+                    $invoice->payment_status = $finalStatus;
+                }
+
+                (new \App\Observers\PurchaseObserver())->created($invoice);
+
+                foreach ($itemsData as $item) {
+                    $createdItem = PurchaseItem::create([
+                        'purchase_id'        => $invoice->id,
+                        'product_id'         => $item['product_id'],
+                        'product_variant_id' => $item['product_variant_id'],
+                        'custom_size_value'  => $item['custom_size_value'],
+                        'purchase_price'     => $item['purchase_price'],
+                        'discount_type'      => $item['discount_type'],
+                        'discount_value'     => $item['discount_value'],
+                        'discount_amount'    => $item['discount_amount'],
+                        'quantity'           => $item['quantity'],
+                        'total'              => $item['total'],
+                    ]);
+
+                    PurchaseAllocation::create([
+                        'purchase_item_id' => $createdItem->id,
+                        'location_id'      => $defaultLocation->id,
+                        'quantity'         => $item['quantity'],
+                    ]);
+
+                    $productObj = \App\Models\Product::find($item['product_id']);
+                    $itemMultiplier = \App\Services\PurchaseBatchService::multiplierForProduct($productObj, $item['pair_type'] ?? null, $item['custom_size_value'] ?? null);
+                    $batchStockQty = (float) $item['quantity'] * $itemMultiplier;
+
+                    \App\Services\PurchaseBatchService::addBatchStock($defaultLocation->id, (int)$item['product_id'], !empty($item['product_variant_id']) ? (int)$item['product_variant_id'] : null, $createdItem->id, (float)$item['purchase_price'], (float)$batchStockQty);
+                }
+
+                
+                $itemsSnapshot = collect($itemsData)->map(function ($item) {
+                    $prod = \App\Models\Product::find($item['product_id']);
+                    return [
+                        'product_id'         => $item['product_id'],
+                        'product_name'       => $prod?->name,
+                        'barcode'            => $prod?->barcode,
+                        'product_variant_id' => $item['product_variant_id'],
+                        'quantity'           => $item['quantity'],
+                        'price'              => (float) $item['purchase_price'],
+                    ];
+                })->values()->all();
+
+                $fieldsSnapshot = [
+                    'invoice_no'      => $invoice->invoice_no,
+                    'supplier_id'     => $invoice->supplier_id,
+                    'is_gst'          => $invoice->is_gst,
+                    'tax_amount'      => $invoice->tax_amount,
+                    'total_amount'    => $invoice->total_amount,
+                    'discount_type'   => $invoice->discount_type,
+                    'discount_value'  => $invoice->discount_value,
+                    'discount_amount' => $invoice->discount_amount,
+                    'status'          => $invoice->status,
+                    'payment_status'  => $invoice->payment_status,
+                    'payment_method'  => $invoice->payment_method,
+                    'paid_amount'     => $invoice->paid_amount,
                 ];
-            }
 
-            $orderDiscVal = (float)($request->discount_value ?? 0);
-            $orderDiscType = $orderDiscVal > 0 ? ($request->discount_type ?? 'flat') : null;
+                ActivityLogger::log(
+                    'Purchase',
+                    'create',
+                    $invoice,
+                    null,
+                    ['fields' => $fieldsSnapshot, 'items' => $itemsSnapshot],
+                    'Purchase #' . $invoice->invoice_no . ' created'
+                );
 
-            $orderDiscountAmount = 0.0;
-            if ($orderDiscVal > 0) {
-                if ($orderDiscType === 'flat') {
-                    $orderDiscountAmount = $orderDiscVal;
-                } else if ($orderDiscType === 'percentage') {
-                    $orderDiscountAmount = $itemsTotal * ($orderDiscVal / 100);
+                if ($invoice->status == 2) {
+                    $this->approveInvoice($invoice);
                 }
-            }
-
-            if ($orderDiscountAmount > $itemsTotal) {
-                $orderDiscountAmount = $itemsTotal;
-            }
-
-            $finalAmount = $itemsTotal - $orderDiscountAmount;
-
-            $isGst = $request->boolean('is_gst');
-            $taxAmount = 0.0;
-            $invoicePrefix = 'PS';
-
-            if ($isGst) {
-                $invoicePrefix = 'GP';
-                $gstRate = (float) \App\Models\Setting::getValue('purchase_gst_rate', 3);
-                $taxAmount = $finalAmount * ($gstRate / 100);
-            }
-
-            $grandTotal = round($finalAmount + $taxAmount);
-
-            [$paymentStatus, $paidAmount] = $this->resolvePaymentStatus(
-                (int) ($request->payment_status ?? Purchase::PAYMENT_STATUS_PENDING),
-                $grandTotal,
-                (float) ($request->paid_amount ?? 0)
-            );
-
-            $targetAmountToDeduct = max($paidAmount, $grandTotal);
-
-            $invoice = Purchase::withoutEvents(function () use ($request, $invoicePrefix, $isGst, $taxAmount, $grandTotal, $orderDiscType, $orderDiscVal, $orderDiscountAmount, $paymentStatus, $paidAmount) {
-                return Purchase::create([
-                    'supplier_id'     => $request->supplier_id,
-                    'invoice_no'      => generate_invoice_no($invoicePrefix, Purchase::class),
-                    'is_gst'          => $isGst,
-                    'tax_amount'      => $taxAmount,
-                    'total_amount'    => $grandTotal,
-                    'discount_type'   => $orderDiscType,
-                    'discount_value'  => $orderDiscVal,
-                    'discount_amount' => $orderDiscountAmount,
-                    'status'          => $request->status ?? 2,
-                    'payment_status'  => $paymentStatus,
-                    'payment_method'  => $request->payment_method ?? 'cash',
-                    'paid_amount'     => $paidAmount,
-                    'created_by'      => auth()->id(),
-                ]);
-            });
-
-            $dateInput = $request->input('created_at') ?: $request->input('purchase_date');
-            if ($dateInput && (auth()->user()->hasRole('super-admin') || auth()->user()->can('edit past date records'))) {
-                $timeStr = now()->format('H:i:s');
-                try {
-                    $pDate = \Carbon\Carbon::createFromFormat('Y-m-d H:i:s', trim($dateInput) . ' ' . $timeStr);
-                } catch (\Throwable $e) {
-                    $pDate = \Carbon\Carbon::parse(trim($dateInput) . ' ' . $timeStr);
-                }
-                \Illuminate\Support\Facades\DB::table('purchases')->where('id', $invoice->id)->update(['created_at' => $pDate->toDateTimeString()]);
-            }
-
-            $advDeducted = \App\Models\SupplierAdvancePayment::adjustAdvanceForPurchase($invoice, $targetAmountToDeduct);
-            $remDirect = max(0.0, round($paidAmount - $advDeducted, 2));
-
-            if ($remDirect > 0) {
-                PurchasePayment::create([
-                    'purchase_id' => $invoice->id,
-                    'amount'      => $remDirect,
-                    'created_by'  => auth()->id(),
-                ]);
-            }
-
-            $finalPaid = round($advDeducted + $remDirect, 2);
-            $finalStatus = ($finalPaid >= $grandTotal)
-                ? Purchase::PAYMENT_STATUS_PAID
-                : ($finalPaid > 0 ? Purchase::PAYMENT_STATUS_PARTIAL : Purchase::PAYMENT_STATUS_PENDING);
-
-            if ($invoice->paid_amount != $finalPaid || $invoice->payment_status != $finalStatus) {
-                Purchase::withoutEvents(fn () => $invoice->update([
-                    'paid_amount'    => min($finalPaid, $grandTotal),
-                    'payment_status' => $finalStatus,
-                ]));
-                $invoice->paid_amount = min($finalPaid, $grandTotal);
-                $invoice->payment_status = $finalStatus;
-            }
-
-            (new \App\Observers\PurchaseObserver())->created($invoice);
-
-            foreach ($itemsData as $item) {
-                $createdItem = PurchaseItem::create([
-                    'purchase_id'        => $invoice->id,
-                    'product_id'         => $item['product_id'],
-                    'product_variant_id' => $item['product_variant_id'],
-                    'custom_size_value'  => $item['custom_size_value'],
-                    'purchase_price'     => $item['purchase_price'],
-                    'discount_type'      => $item['discount_type'],
-                    'discount_value'     => $item['discount_value'],
-                    'discount_amount'    => $item['discount_amount'],
-                    'quantity'           => $item['quantity'],
-                    'total'              => $item['total'],
-                ]);
-
-                PurchaseAllocation::create([
-                    'purchase_item_id' => $createdItem->id,
-                    'location_id'      => $defaultLocation->id,
-                    'quantity'         => $item['quantity'],
-                ]);
-
-                $productObj = \App\Models\Product::find($item['product_id']);
-                $itemMultiplier = \App\Services\PurchaseBatchService::multiplierForProduct($productObj, $item['pair_type'] ?? null, $item['custom_size_value'] ?? null);
-                $batchStockQty = (float) $item['quantity'] * $itemMultiplier;
-
-                \App\Services\PurchaseBatchService::addBatchStock($defaultLocation->id, (int)$item['product_id'], !empty($item['product_variant_id']) ? (int)$item['product_variant_id'] : null, $createdItem->id, (float)$item['purchase_price'], (float)$batchStockQty);
-            }
-
-            if ($invoice->status == 2) {
-                $this->approveInvoice($invoice);
-            }
             });
         } catch (\RuntimeException $e) {
             return response()->json(['status' => 'error', 'message' => $e->getMessage()], 422);
@@ -577,6 +614,8 @@ class PurchaseController extends Controller
             $oldItemsSnapshot = $purchase->items->map(function ($item) {
                 return [
                     'product_id'         => $item->product_id,
+                    'product_name'       => $item->product?->name,
+                    'barcode'            => $item->product?->barcode,
                     'product_variant_id' => $item->product_variant_id,
                     'quantity'           => $item->quantity,
                     'price'              => (float) $item->purchase_price,
@@ -683,7 +722,11 @@ class PurchaseController extends Controller
                 'paid_amount'     => $paidAmount,
             ];
 
-            if ($purchase->is_gst !== $isGst) {
+            $oldInvoiceNo = $purchase->invoice_no;
+            $oldPaid = (float) $purchase->paid_amount;
+            $oldMethod = $purchase->payment_method;
+
+            if ((bool) $purchase->is_gst !== (bool) $isGst) {
                 $updateData['invoice_no'] = generate_invoice_no($invoicePrefix, Purchase::class);
             }
 
@@ -763,7 +806,7 @@ class PurchaseController extends Controller
                 'payment_status' => $finalStatus,
             ]);
 
-            (new \App\Observers\PurchaseObserver())->updated($purchase);
+            (new \App\Observers\PurchaseObserver())->updatePurchaseBalance($oldPaid, $oldMethod, $purchase, $oldInvoiceNo);
 
             $purchase->items()->delete();
 
@@ -794,13 +837,12 @@ class PurchaseController extends Controller
                 \App\Services\PurchaseBatchService::addBatchStock((int)$defaultLocation->id, (int)$item['product_id'], !empty($item['product_variant_id']) ? (int)$item['product_variant_id'] : null, $createdItem->id, (float)$item['purchase_price'], (float)$batchStockQty);
             }
 
-            if ($newStatus == Purchase::STATUS_APPROVE) {
-                $this->approveInvoice($purchase);
-            }
-
             $newItemsSnapshot = collect($itemsData)->map(function ($item) {
+                $prod = \App\Models\Product::find($item['product_id']);
                 return [
                     'product_id'         => $item['product_id'],
+                    'product_name'       => $prod?->name,
+                    'barcode'            => $prod?->barcode,
                     'product_variant_id' => $item['product_variant_id'],
                     'quantity'           => $item['quantity'],
                     'price'              => (float) $item['purchase_price'],
@@ -815,6 +857,11 @@ class PurchaseController extends Controller
                 ['fields' => $updateData, 'items' => $newItemsSnapshot],
                 'Purchase #' . $purchase->invoice_no . ' updated'
             );
+
+            if ($newStatus == Purchase::STATUS_APPROVE) {
+                $this->approveInvoice($purchase);
+            }
+
             });
         } catch (\RuntimeException $e) {
             return response()->json(['status' => 'error', 'message' => $e->getMessage()], 422);
@@ -910,6 +957,27 @@ class PurchaseController extends Controller
         }
 
         $originalInvoiceNo = $purchase->invoice_no;
+        $purchase->load(['items.product']);
+        $oldItemsSnapshot = $purchase->items->map(function ($item) {
+            return [
+                'product_id'         => $item->product_id,
+                'product_name'       => $item->product?->name,
+                'barcode'            => $item->product?->barcode,
+                'product_variant_id' => $item->product_variant_id,
+                'quantity'           => $item->quantity,
+                'price'              => (float) $item->purchase_price,
+            ];
+        })->values()->all();
+
+        $oldFieldsSnapshot = [
+            'invoice_no'     => $originalInvoiceNo,
+            'supplier_id'    => $purchase->supplier_id,
+            'total_amount'   => (float) $purchase->total_amount,
+            'paid_amount'    => (float) $purchase->paid_amount,
+            'status'         => $purchase->status,
+            'payment_status' => $purchase->payment_status,
+            'payment_method' => $purchase->payment_method,
+        ];
 
         DB::transaction(function () use ($purchase) {
             \App\Models\SupplierAdvancePayment::restoreAdvanceForPurchase($purchase);
@@ -937,9 +1005,9 @@ class PurchaseController extends Controller
             'Purchase',
             'delete',
             $purchase,
-            ['invoice_no' => $originalInvoiceNo],
+            ['fields' => $oldFieldsSnapshot, 'items' => $oldItemsSnapshot],
             null,
-            'Purchase ' . $originalInvoiceNo . ' deleted'
+            'Purchase #' . $originalInvoiceNo . ' deleted'
         );
 
         return response()->json([

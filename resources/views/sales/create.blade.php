@@ -119,8 +119,19 @@
         padding: 3px 14px; font-size: .8rem; font-weight: 600; border: none; cursor: pointer;
         background: #fff; color: #B4771E; transition: background .15s, color .15s;
     }
-    .size-toggle .size-btn + .size-btn { border-left: 1.5px solid #B4771E; }
-    .size-toggle .size-btn.active { background: #B4771E; color: #fff; }
+    
+    .batch-select-hidden {
+        position: absolute !important;
+        width: 1px !important;
+        height: 1px !important;
+        padding: 0 !important;
+        margin: -1px !important;
+        overflow: hidden !important;
+        clip: rect(0, 0, 0, 0) !important;
+        white-space: nowrap !important;
+        border: 0 !important;
+        opacity: 0 !important;
+    }
 </style>
 @endsection
 
@@ -758,7 +769,7 @@ $(document).ready(function () {
         return sizeHtml;
     }
 
-    function loadProductBatches(row, selectedBatchId = null) {
+    function loadProductBatches(row, selectedBatchId = null, autoFocusOnMultiple = true) {
         const product = row.data('product');
         if (!product) return;
 
@@ -766,41 +777,88 @@ $(document).ready(function () {
         const locationId = $('#locationSelect').val() || $('input[name="location_id"]').val() || null;
         const container = row.find('.batch-select-container');
 
-        container.html('<small class="text-muted"><i class="ti ti-loader spinner-border spinner-border-sm me-1"></i>Loading...</small>');
-
         $.get('{{ route("admin.sales.product-batches") }}', {
             product_id: product.id,
             product_variant_id: variantId,
             location_id: locationId
         }, function(res) {
-            if (res.status === 'success' && res.batches && res.batches.length > 0) {
-                let html = '<div class="d-flex align-items-center gap-1 mt-1"><span class="badge bg-label-info text-nowrap" style="font-size: 0.7rem;">Purchase Price:</span><select class="form-select form-select-sm batch-select no-select2" style="font-size: 0.78rem; padding-top: 2px; padding-bottom: 2px;">';
-                res.batches.forEach(b => {
-                    const sel = (selectedBatchId && selectedBatchId == b.purchase_item_id) ? 'selected' : '';
-                    html += `<option value="${b.purchase_item_id}" data-purchase-price="${b.purchase_price}" data-available-qty="${b.available_qty}" ${sel}>${b.label}</option>`;
-                });
-                html += '</select></div>';
-                container.html(html);
+            const batches = (res.status === 'success' && res.batches && res.batches.length > 0) ? res.batches : [];
 
-                const selOpt = container.find('.batch-select option:selected');
-                if (selOpt.length) {
-                    const availAttr = selOpt.attr('data-available-qty');
-                    if (availAttr !== undefined && availAttr !== false) {
-                        row.data('available-pcs', parseInt(availAttr) || 0);
+            if (batches.length > 0) {
+                console.log('Batches found:', batches);
+                if (batches.length === 1) {
+                    console.log('Only one batch found:', batches[0]);
+                    const b = batches[0];
+                    let html = `<select class="batch-select batch-select-hidden no-select2">
+                        <option value="${b.purchase_item_id}" data-purchase-price="${b.purchase_price}" data-available-qty="${b.available_qty}" selected>Batch 1</option>
+                    </select>`;
+                    container.html(html);
+
+                    row.data('available-pcs', parseInt(b.available_qty) || 0);
+                    row.data('purchase-price', parseFloat(b.purchase_price) || 0);
+                    updateStockInfo(row);
+                    updateRowTotal(row);
+
+                    if (autoFocusOnMultiple) {
+                        $('#productSearchInput').val('').focus();
+                    }
+                } else {
+                    console.log('Multiple batches found:', batches);
+                    let html = `<select class="batch-select batch-select-hidden no-select2" data-required="1">`;
+                    let hasSelected = false;
+
+                    let optionsHtml = '';
+                    batches.forEach((b, idx) => {
+                        const isSel = (selectedBatchId && selectedBatchId == b.purchase_item_id);
+                        if (isSel) hasSelected = true;
+                        optionsHtml += `<option value="${b.purchase_item_id}" data-purchase-price="${b.purchase_price}" data-available-qty="${b.available_qty}" ${isSel ? 'selected' : ''}>Batch ${idx + 1}</option>`;
+                    });
+
+                    if (!hasSelected) {
+                        html += `<option value="" disabled selected>-- Select Batch --</option>`;
+                    }
+                    html += optionsHtml + `</select>`;
+                    container.html(html);
+
+                    const selOpt = container.find('.batch-select option:selected');
+                    if (hasSelected && selOpt.length && selOpt.val()) {
+                        row.data('available-pcs', parseInt(selOpt.attr('data-available-qty')) || 0);
+                        row.data('purchase-price', parseFloat(selOpt.attr('data-purchase-price')) || 0);
+                    }
+                    updateStockInfo(row);
+                    updateRowTotal(row);
+
+                    if (!hasSelected && autoFocusOnMultiple) {
+                        setTimeout(() => {
+                            row.find('.batch-select').focus();
+                        }, 50);
                     }
                 }
-                updateStockInfo(row);
             } else {
-                const defPrice = symbol + ' ' + (product.purchase_price ? formatPrice(product.purchase_price) : '0.00');
-                let html = '<div class="d-flex align-items-center gap-1 mt-1"><span class="badge bg-label-info text-nowrap" style="font-size: 0.7rem;">Purchase Price:</span><select class="form-select form-select-sm batch-select no-select2" style="font-size: 0.78rem; padding-top: 2px; padding-bottom: 2px;">';
-                html += `<option value="" data-purchase-price="${product.purchase_price || 0}" data-available-qty="0" selected>${defPrice}</option>`;
-                html += '</select></div>';
+                console.log('No batches found for product:', product.id);
+                const defaultPurchasePrice = product.purchase_price || 0;
+                let html = `<select class="batch-select batch-select-hidden no-select2">
+                    <option value="" data-purchase-price="${defaultPurchasePrice}" data-available-qty="0" selected>Default</option>
+                </select>`;
                 container.html(html);
 
+                row.data('purchase-price', parseFloat(defaultPurchasePrice) || 0);
                 updateStockInfo(row);
+                updateRowTotal(row);
+
+                if (autoFocusOnMultiple) {
+                    $('#productSearchInput').val('').focus();
+                }
             }
         }).fail(function() {
-            container.empty();
+            const defaultPurchasePrice = product.purchase_price || 0;
+            let html = `<select class="batch-select batch-select-hidden no-select2">
+                <option value="" data-purchase-price="${defaultPurchasePrice}" data-available-qty="0" selected>Default</option>
+            </select>`;
+            container.html(html);
+            row.data('purchase-price', parseFloat(defaultPurchasePrice) || 0);
+            updateStockInfo(row);
+            updateRowTotal(row);
         });
     }
 
@@ -1025,12 +1083,34 @@ $(document).ready(function () {
         const row = $(this).closest('.item-row');
         const selOpt = $(this).find('option:selected');
         const availAttr = selOpt.attr('data-available-qty');
+        const purchasePriceAttr = selOpt.attr('data-purchase-price');
         if (selOpt.length && availAttr !== undefined && availAttr !== false) {
             row.data('available-pcs', parseInt(availAttr) || 0);
             updateStockInfo(row);
         }
+        if (selOpt.length && purchasePriceAttr !== undefined && purchasePriceAttr !== false) {
+            row.data('purchase-price', parseFloat(purchasePriceAttr) || 0);
+        }
+        $(this).removeClass('is-invalid');
         updateRowTotal(row);
         updateSummary();
+    });
+
+    $(document).on('keydown', '.batch-select', function (e) {
+        if (e.key === 'Enter' || e.keyCode === 13) {
+            e.preventDefault();
+            const select = $(this);
+            
+            if (!select.val()) {
+                const firstValid = select.find('option:not([disabled])').first();
+                if (firstValid.length) {
+                    select.val(firstValid.val()).trigger('change');
+                }
+            } else {
+                select.trigger('change');
+            }
+            $('#productSearchInput').val('').focus();
+        }
     });
 
     // -------------------------------------------------------
@@ -1690,6 +1770,22 @@ $(document).ready(function () {
         });
         if (sizeMissing) {
             return 'Please select a size for each pair product before saving.';
+        }
+
+        let batchMissing = false;
+        $('.item-row').each(function () {
+            const row = $(this);
+            const batchSelect = row.find('.batch-select');
+            if (batchSelect.length > 0) {
+                const validOptions = batchSelect.find('option:not([disabled])');
+                if (validOptions.length > 1 && (!batchSelect.val() || batchSelect.val() === '')) {
+                    batchMissing = true;
+                    batchSelect.addClass('is-invalid');
+                }
+            }
+        });
+        if (batchMissing) {
+            return 'Please select a purchase price for each product having multiple purchase-price stock.';
         }
 
         const payStatus = $('#paymentStatusSelect').val();

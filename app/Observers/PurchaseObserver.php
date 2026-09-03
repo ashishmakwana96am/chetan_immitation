@@ -38,8 +38,9 @@ class PurchaseObserver
     {
         $oldPaid   = (float) $purchase->getOriginal('paid_amount');
         $oldMethod = $purchase->getOriginal('payment_method');
+        $oldInvoiceNo = $purchase->getOriginal('invoice_no');
 
-        $this->updatePurchaseBalance($oldPaid, $oldMethod, $purchase);
+        $this->updatePurchaseBalance($oldPaid, $oldMethod, $purchase, $oldInvoiceNo);
     }
 
     public function deleted(Purchase $purchase): void
@@ -49,8 +50,6 @@ class PurchaseObserver
         }
     }
 
-    // ─────────────────────────────────────────────
-    // Helpers
     // ─────────────────────────────────────────────
     // Helpers
     // ─────────────────────────────────────────────
@@ -114,7 +113,7 @@ class PurchaseObserver
         LocationBalanceTransaction::syncLocationBalance($locationId, $balanceType);
     }
 
-    private function updatePurchaseBalance(float $oldPaidInput, ?string $oldMethod, Purchase $purchase): void
+    public function updatePurchaseBalance(float $oldPaidInput, ?string $oldMethod, Purchase $purchase, ?string $oldInvoiceNo = null): void
     {
         $locationId = $this->resolvePurchaseLocationId($purchase);
 
@@ -127,18 +126,25 @@ class PurchaseObserver
         $oldCol  = $oldType === LocationBalanceTransaction::BALANCE_TYPE_BANK ? 'bank_balance' : 'cash_balance';
         $newCol  = $newType === LocationBalanceTransaction::BALANCE_TYPE_BANK ? 'bank_balance' : 'cash_balance';
 
-        $note = 'Purchase #' . $purchase->invoice_no;
-        $existingTx = LocationBalanceTransaction::where('notes', $note)->first();
+        $oldInv = $oldInvoiceNo ?? $purchase->getOriginal('invoice_no') ?? $purchase->invoice_no;
+        $newInv = $purchase->invoice_no;
+
+        $existingTx = LocationBalanceTransaction::where(function ($q) use ($oldInv, $newInv) {
+            $q->where('notes', 'LIKE', '%Purchase #' . $oldInv . '%')
+              ->orWhere('notes', 'LIKE', '%Purchase #' . $newInv . '%');
+        })->first();
+
         $oldPaid = $existingTx ? (float) $existingTx->amount : 0.0;
 
-        // Calculate only direct cashbook payments (excluding advance payments and bulk payments)
         $newPaid = (float) \App\Models\PurchasePayment::where('purchase_id', $purchase->id)
             ->whereNull('bulk_purchase_payment_id')
             ->where(function ($q) {
                 $q->where('is_advance', false)->orWhereNull('is_advance');
             })->sum('amount');
 
-        DB::transaction(function () use ($locationId, $oldCol, $oldPaid, $newCol, $newPaid, $oldType, $newType, $note, $purchase) {
+        $note = 'Purchase #' . $newInv;
+
+        DB::transaction(function () use ($locationId, $oldCol, $oldPaid, $newCol, $newPaid, $oldType, $newType, $note, $purchase, $existingTx) {
             $balance = LocationBalance::where('location_id', $locationId)->lockForUpdate()->first();
 
             if ($balance) {
@@ -163,7 +169,6 @@ class PurchaseObserver
                 $newBalanceVal = 0.0;
             }
 
-            $existingTx = LocationBalanceTransaction::where('notes', $note)->first();
             $transaction = null;
 
             if ($existingTx) {
@@ -175,6 +180,7 @@ class PurchaseObserver
                         'balance_type' => $newType,
                         'amount'       => $newPaid,
                         'balance_after'=> $newBalanceVal,
+                        'notes'        => $note,
                     ]);
                     $transaction = $existingTx;
                 }

@@ -45,7 +45,7 @@
 
     // Filter out system columns we don't want to show
     $keys = array_filter($keys, function($k) {
-        return !in_array($k, ['id', 'created_at', 'updated_at', 'deleted_at', 'password', 'remember_token', 'sort_order']);
+        return !in_array($k, ['id', 'created_at', 'updated_at', 'deleted_at', 'password', 'remember_token', 'sort_order','purchase_ids']);
     });
 
     // Closure to rename columns
@@ -77,6 +77,9 @@
             'is_default' => 'Default Location',
             'is_featured' => 'Featured',
             'custom_sizes' => 'Pair Size',
+            'stock_items' => 'Stock Items',
+            'qty_added' => 'Qty Added',
+            'qty_deducted' => 'Qty Deducted',
         ];
         return $map[$key] ?? ucwords(str_replace('_', ' ', $key));
     };
@@ -223,7 +226,21 @@
         }
 
         // Handle Monetary / Currency fields
-        if (in_array($key, ['total_amount', 'tax_amount', 'paid_amount', 'discount_amount', 'final_amount', 'shipping_charge', 'price', 'total', 'mrp', 'unit_price', 'subtotal', 'sale_price', 'purchase_price', 'display_sale_price', 'display_mrp'])) {
+        if (in_array($key, [
+            'total_amount',
+            'tax_amount',
+            'paid_amount',
+            'discount_amount',
+            'final_amount',
+            'shipping_charge',
+            'order_discount_value',
+            'price',
+            'total',
+            'mrp',
+            'unit_price',
+            'subtotal',
+            'sale_price','purchase_price','display_sale_price','display_mrp'
+        ])) {
             return is_numeric($val) ? format_price($val) : ($val ?: '-');
         }
 
@@ -275,6 +292,122 @@
             return '<span class="text-muted small">-</span>';
         }
 
+        if ($key === 'purchase_details' && is_array($val)) {
+            $html = '';
+
+            foreach ($val as $purchase) {
+                if (!is_array($purchase)) {
+                    continue;
+                }
+
+                $purchaseId = $purchase['purchase_id'] ?? '-';
+                $purchaseNo = $purchase['purchase_no'] ?? '-';
+                $supplier = $purchase['supplier'] ?? '-';
+                $totalAmount = $purchase['total_amount'] ?? 0;
+                $paidAmount = $purchase['paid_amount'] ?? 0;
+                $items = $purchase['items'] ?? [];
+
+                $html .= '<div class="border rounded p-3 mb-3 bg-white">';
+
+                // Purchase Header
+                $html .= '<div class="row g-3 mb-3">';
+
+                $html .= '<div class="col-md-2">';
+                $html .= '<small class="text-muted d-block text-uppercase fw-semibold fs-tiny">Purchase ID</small>';
+                $html .= '<span class="fw-bold text-dark">' . e($purchaseId) . '</span>';
+                $html .= '</div>';
+
+                $html .= '<div class="col-md-2">';
+                $html .= '<small class="text-muted d-block text-uppercase fw-semibold fs-tiny">Purchase No</small>';
+                $html .= '<span class="badge bg-label-primary">' . e($purchaseNo) . '</span>';
+                $html .= '</div>';
+
+                $html .= '<div class="col-md-3">';
+                $html .= '<small class="text-muted d-block text-uppercase fw-semibold fs-tiny">Supplier</small>';
+                $html .= '<span class="fw-semibold text-dark">' . e($supplier) . '</span>';
+                $html .= '</div>';
+
+                $html .= '<div class="col-md-2">';
+                $html .= '<small class="text-muted d-block text-uppercase fw-semibold fs-tiny">Total Amount</small>';
+                $html .= '<span class="fw-semibold text-dark">' . e(format_price($totalAmount)) . '</span>';
+                $html .= '</div>';
+
+                $html .= '<div class="col-md-2">';
+                $html .= '<small class="text-muted d-block text-uppercase fw-semibold fs-tiny">Paid Amount</small>';
+                $html .= '<span class="fw-semibold text-dark">' . e(format_price($paidAmount)) . '</span>';
+                $html .= '</div>';
+
+                $html .= '</div>';
+
+                // Products / Items
+                if (!empty($items) && is_array($items)) {
+                    $html .= '<div class="table-responsive border rounded">';
+                    $html .= '<table class="table table-sm table-hover mb-0">';
+                    $html .= '<thead class="table-light">';
+                    $html .= '<tr>';
+                    $html .= '<th>Product</th>';
+                    $html .= '<th>Barcode</th>';
+                    $html .= '<th class="text-center">Qty</th>';
+                    $html .= '<th class="text-end">Price</th>';
+                    $html .= '<th class="text-end">Total</th>';
+                    $html .= '</tr>';
+                    $html .= '</thead>';
+                    $html .= '<tbody>';
+
+                    foreach ($items as $item) {
+                        if (!is_array($item)) {
+                            continue;
+                        }
+
+                        $productName = $item['product_name'] ?? $item['name'] ?? '-';
+                        $barcode = $item['barcode'] ?? '-';
+                        $quantity = $item['quantity'] ?? $item['qty'] ?? '-';
+                        $price = $item['price'] ?? $item['purchase_price'] ?? 0;
+                        $itemTotal = $item['total'] ?? 0;
+
+                        $html .= '<tr>';
+
+                        $html .= '<td class="fw-semibold text-dark">';
+                        $html .= e($productName);
+
+                        if (!empty($item['variant_id'])) {
+                            $html .= '<br><small class="text-muted">Variant #' . e($item['variant_id']) . '</small>';
+                        }
+
+                        $html .= '</td>';
+
+                        $html .= '<td class="text-muted">';
+                        $html .= e($barcode);
+                        $html .= '</td>';
+
+                        $html .= '<td class="text-center">';
+                        $html .= e($quantity);
+                        $html .= '</td>';
+
+                        $html .= '<td class="text-end">';
+                        $html .= e(format_price($price));
+                        $html .= '</td>';
+
+                        $html .= '<td class="text-end fw-semibold">';
+                        $html .= e(format_price($itemTotal));
+                        $html .= '</td>';
+
+                        $html .= '</tr>';
+                    }
+
+                    $html .= '</tbody>';
+                    $html .= '</table>';
+                    $html .= '</div>';
+                }
+
+                $html .= '</div>';
+            }
+
+            return $html !== ''
+                ? $html
+                : '<span class="text-muted small">-</span>';
+        }
+
         $isSequential = array_keys($val) === range(0, count($val) - 1);
 
         // Sequential list of scalar items (e.g. ['Red', 'Blue'])
@@ -309,16 +442,44 @@
                 $html .= '<tr>';
                 foreach ($headers as $h) {
                     $cellVal = $row[$h] ?? '-';
-                    $resolvedCell = is_array($cellVal) ? implode(', ', array_map('strval', $cellVal)) : $resolveValue($h, $cellVal, $log);
-                    $html .= '<td>' . e($resolvedCell) . '</td>';
+
+                    if (is_array($cellVal)) {
+                        $resolvedCell = collect($cellVal)
+                            ->map(function ($item) {
+                                if (is_array($item)) {
+                                    return collect($item)
+                                        ->map(fn ($v) => is_scalar($v) ? (string) $v : json_encode($v))
+                                        ->implode(', ');
+                                }
+
+                                return is_scalar($item) ? (string) $item : json_encode($item);
+                            })
+                            ->implode(', ');
+                    } else {
+                        $resolvedCell = $resolveValue($h, $cellVal, $log);
+                    }
+
+                    // Final safety check in case resolveValue() itself returns an array
+                    if (is_array($resolvedCell)) {
+                        $resolvedCell = json_encode($resolvedCell);
+                    }
+
+                    $html .= '<td>' . e((string) $resolvedCell) . '</td>';
                 }
+
                 $html .= '</tr>';
             }
+
             $html .= '</tbody></table>';
+
             return $html;
         }
 
-        return e(implode(', ', array_map('strval', $val)));
+        return e(
+            collect($val)
+                ->map(fn ($item) => is_scalar($item) ? (string) $item : json_encode($item))
+                ->implode(', ')
+        );
     };
 @endphp
 
@@ -360,8 +521,12 @@
         <div class="col-sm-6 col-md-4">
             <small class="text-muted d-block text-uppercase fw-semibold fs-tiny">Record</small>
             <span class="fw-semibold text-dark fs-6">
-                @if($log->subject_type && class_basename($log->subject_type) === 'Inventory' && $subject)
+                @if($log->subject_type && class_basename($log->subject_type) === 'Inventory' && $subject instanceof \App\Models\Inventory)
                     {{ $subject->product?->name ?? ('Inventory #' . $log->subject_id) }}{{ $subject->location?->name ? ' (' . $subject->location->name . ')' : '' }}
+                @elseif($log->subject_type && class_basename($log->subject_type) === 'Purchase' && $subject instanceof \App\Models\Purchase)
+                    Purchase #{{ $subject->invoice_no }}
+                @elseif($log->subject_type && class_basename($log->subject_type) === 'Order' && $subject instanceof \App\Models\Order)
+                    Sale #{{ $subject->order_no }}
                 @else
                     {{ $log->subject_type ? class_basename($log->subject_type) . ' #' . $log->subject_id : '-' }}
                 @endif
@@ -471,6 +636,7 @@
                     <thead class="table-light">
                         <tr>
                             <th>Product</th>
+                            <th>Barcode</th>
                             <th class="text-center">Qty</th>
                             <th class="text-end">Price</th>
                             <th class="text-end">Total</th>
@@ -485,13 +651,14 @@
                                         <br><small class="text-muted">{{ trim($item->variant->name) }}</small>
                                     @endif
                                 </td>
+                                <td class="text-muted">{{ $item->product?->barcode ?? '-' }}</td>
                                 <td class="text-center text-dark">{{ $item->quantity }}</td>
                                 <td class="text-end text-dark">{{ number_format($item->purchase_price, 2) }}</td>
                                 <td class="text-end fw-bold text-dark">{{ number_format($item->total, 2) }}</td>
                             </tr>
                         @empty
                             <tr>
-                                <td colspan="4" class="text-center text-muted py-2">No items found</td>
+                                <td colspan="5" class="text-center text-muted py-2">No items found</td>
                             </tr>
                         @endforelse
                     </tbody>
@@ -524,7 +691,7 @@
                 <div class="col-sm-6 col-md-4">
                     <small class="text-muted d-block text-uppercase fw-semibold fs-tiny">Status</small>
                     @php
-                        $sStatusColors = [1 => 'bg-label-warning', 2 => 'bg-label-primary', 3 => 'bg-label-info', 4 => 'bg-label-info', 5 => 'bg-label-success', 6 => 'bg-label-danger'];
+                        $sStatusColors = [1 => 'bg-label-warning', 2 => 'bg-label-primary', 3 => 'bg-label-info', 4 => 'bg-label-info', 5 => 'bg-label-delivered', 6 => 'bg-label-danger'];
                         $sStatusLabels = [1 => 'Pending', 2 => 'Approved', 3 => 'Shipped', 4 => 'Out for Delivery', 5 => 'Delivered', 6 => 'Declined'];
                     @endphp
                     <span class="badge {{ $sStatusColors[$subject->status] ?? 'bg-label-secondary' }}">
@@ -626,25 +793,128 @@
                         $newVal = $new[$key] ?? null;
                     @endphp
                     <tr>
-                        <td class="fw-bold text-dark">{{ $renameKey($key) }}</td>
-                        
-                        @if($key === 'permissions')
+                        @if($key === 'purchase_details' && is_array($newVal))
+                            <td colspan="3" class="p-3">
+                                <div class="fw-bold text-dark mb-3">
+                                    Purchase Details
+                                </div>
+                                @php
+                                    $purchaseDetails = $newVal;
+                                @endphp
+                                @if(!empty($purchaseDetails))
+                                    @foreach($purchaseDetails as $purchase)
+                                        @if(!is_array($purchase))
+                                            @continue
+                                        @endif
+                                        @php
+                                            $purchaseNo = $purchase['purchase_no'] ?? '-';
+                                            $supplier = $purchase['supplier'] ?? '-';
+                                            $totalAmount = $purchase['total_amount'] ?? 0;
+                                            $paidAmount = $purchase['paid_amount'] ?? 0;
+                                            $items = $purchase['items'] ?? [];
+                                        @endphp
+                                        <div class="border rounded p-3 mb-3 bg-white">
+                                            {{-- Purchase Header --}}
+                                            <div class="row g-3 mb-3">
+                                                <div class="col-sm-6 col-md-3">
+                                                    <small class="text-muted d-block text-uppercase fw-semibold fs-tiny">
+                                                        Purchase No
+                                                    </small>
+                                                    <span class="badge bg-label-primary">
+                                                        {{ $purchaseNo }}
+                                                    </span>
+                                                </div>
+                                                <div class="col-sm-6 col-md-3">
+                                                    <small class="text-muted d-block text-uppercase fw-semibold fs-tiny">
+                                                        Supplier
+                                                    </small>
+                                                    <span class="fw-semibold text-dark">
+                                                        {{ $supplier }}
+                                                    </span>
+                                                </div>
+                                                <div class="col-sm-6 col-md-3">
+                                                    <small class="text-muted d-block text-uppercase fw-semibold fs-tiny">
+                                                        Total Amount
+                                                    </small>
+                                                    <span class="fw-semibold text-dark">
+                                                        {{ format_price($totalAmount) }}
+                                                    </span>
+                                                </div>
+                                                <div class="col-sm-6 col-md-3">
+                                                    <small class="text-muted d-block text-uppercase fw-semibold fs-tiny">
+                                                        Paid Amount
+                                                    </small>
+                                                    <span class="fw-semibold text-dark">
+                                                        {{ format_price($paidAmount) }}
+                                                    </span>
+                                                </div>
+                                            </div>
+                                            {{-- Product Details --}}
+                                            @if(!empty($items) && is_array($items))
+                                                <div class="table-responsive border rounded">
+                                                    <table class="table table-sm table-hover mb-0 w-100">
+                                                        <thead class="table-light">
+                                                            <tr>
+                                                                <th style="width: 35%;">Product</th>
+                                                                <th style="width: 20%;">Barcode</th>
+                                                                <th style="width: 10%;" class="text-center">Qty</th>
+                                                                <th style="width: 17.5%;" class="text-end">Price</th>
+                                                                <th style="width: 17.5%;" class="text-end">Total</th>
+                                                            </tr>
+                                                        </thead>
+                                                        <tbody>
+                                                            @foreach($items as $item)
+                                                                @if(!is_array($item))
+                                                                    @continue
+                                                                @endif
+                                                                @php
+                                                                    $productId = $item['product_id'] ?? null;
+                                                                    $product = $productId ? \App\Models\Product::withTrashed()->find($productId) : null;
+                                                                    $productName = $item['product_name'] ?? ($product?->name ?? '-');
+                                                                    $variantId = $item['variant_id'] ?? $item['product_variant_id'] ?? null;
+                                                                    $variant = $variantId ? \App\Models\ProductVariant::withTrashed()->find($variantId) : null;
+                                                                    $variantName = $variant?->name ?? $variant?->attributeValue?->value ?? null;
+                                                                    $barcode = $item['barcode'] ?? $product?->barcode ?? '-';
+                                                                    $quantity = $item['quantity'] ?? $item['qty'] ?? '-';
+                                                                    $price = $item['price'] ?? $item['purchase_price'] ?? 0;
+                                                                    $itemTotal = $item['total'] ?? 0;
+                                                                @endphp
+                                                                <tr>
+                                                                    <td>
+                                                                        <span class="fw-semibold text-dark">{{ $productName }}</span>
+                                                                        @if($variantName)
+                                                                            <br><small class="text-muted">{{ $variantName }}</small>
+                                                                        @endif
+                                                                    </td>
+                                                                    <td class="text-muted">{{ $barcode }}</td>
+                                                                    <td class="text-center text-dark">{{ $quantity }}</td>
+                                                                    <td class="text-end text-dark">{{ format_price($price) }}</td>
+                                                                    <td class="text-end fw-semibold text-dark">{{ format_price($itemTotal) }}</td>
+                                                                </tr>
+                                                            @endforeach
+                                                        </tbody>
+                                                    </table>
+                                                </div>
+                                            @else
+                                                <span class="text-muted small">No items found</span>
+                                            @endif
+                                        </div>
+                                    @endforeach
+                                @else
+                                    <span class="text-muted small">No purchase details found</span>
+                                @endif
+                            </td>
+                        @elseif($key === 'permissions')
                             @php
                                 $oldPermissions = is_array($oldVal) ? array_filter($oldVal, 'is_scalar') : [];
                                 $newPermissions = is_array($newVal) ? array_filter($newVal, 'is_scalar') : [];
-
                                 $addedPerms = array_diff($newPermissions, $oldPermissions);
                                 $removedPerms = array_diff($oldPermissions, $newPermissions);
-                                
-                                // Fetch modules for the permissions to group them
                                 $allPermNames = array_unique(array_merge($addedPerms, $removedPerms));
                                 $permModules = [];
                                 if (!empty($allPermNames)) {
-                                    $permModules = \Spatie\Permission\Models\Permission::whereIn('name', $allPermNames)
-                                        ->pluck('module', 'name')
-                                        ->toArray();
+                                    $permModules = \Spatie\Permission\Models\Permission::whereIn('name', $allPermNames)->pluck('module', 'name')->toArray();
                                 }
-                                
                                 $groupedChanges = [];
                                 foreach ($addedPerms as $p) {
                                     $mod = $permModules[$p] ?? 'General';
@@ -655,8 +925,7 @@
                                     $groupedChanges[$mod]['removed'][] = $p;
                                 }
                             @endphp
-                            
-                            <!-- Old values cell for permissions (Removed Items) -->
+                            <td class="fw-bold text-dark">{{ $renameKey($key) }}</td>
                             <td class="text-danger">
                                 @if(!empty($removedPerms))
                                     <div class="d-flex flex-column gap-2">
@@ -677,8 +946,6 @@
                                     <span class="text-muted small">-</span>
                                 @endif
                             </td>
-                            
-                            <!-- New values cell for permissions (Added Items) -->
                             <td class="text-success">
                                 @if(!empty($addedPerms))
                                     <div class="d-flex flex-column gap-2">
@@ -699,96 +966,294 @@
                                     <span class="text-muted small">-</span>
                                 @endif
                             </td>
+                        @elseif($key === 'stock_items' && (is_array($oldVal) || is_array($newVal)))
+                            @php
+                                $oldStockItems = is_array($oldVal) ? $oldVal : [];
+                                $newStockItems = is_array($newVal) ? $newVal : [];
+
+                                $stockRows = [];
+
+                                foreach ($oldStockItems as $oldItem) {
+                                    $oldItem = (array) $oldItem;
+
+                                    $matchKey = ($oldItem['product_id'] ?? $oldItem['product_name'] ?? '') . '|' .
+                                                ($oldItem['location_id'] ?? $oldItem['location'] ?? '');
+
+                                    $stockRows[$matchKey]['old'] = $oldItem;
+                                }
+
+                                foreach ($newStockItems as $newItem) {
+                                    $newItem = (array) $newItem;
+
+                                    $matchKey = ($newItem['product_id'] ?? $newItem['product_name'] ?? '') . '|' .
+                                                ($newItem['location_id'] ?? $newItem['location'] ?? '');
+
+                                    $stockRows[$matchKey]['new'] = $newItem;
+                                }
+                            @endphp
+
+                            <td colspan="3" class="p-3">
+                                <div class="fw-bold text-dark mb-3">
+                                    {{ $renameKey($key) }}
+                                </div>
+                                @if(!empty($stockRows))
+                                    <div class="table-responsive">
+                                        <table class="table table-sm table-hover align-middle mb-0 w-100">
+                                            <thead class="table-light">
+                                                <tr>
+                                                    <th style="min-width: 220px;">Product</th>
+                                                    <th style="min-width: 120px;">Barcode</th>
+                                                    <th style="min-width: 180px;">Location</th>
+                                                    <th class="text-center" style="width: 110px;">
+                                                        Old Stock
+                                                    </th>
+                                                    <th class="text-center" style="width: 110px;">
+                                                        New Stock
+                                                    </th>
+                                                    <th class="text-center" style="width: 100px;">
+                                                        Change
+                                                    </th>
+                                                </tr>
+                                            </thead>
+                                            <tbody>
+                                                @foreach($stockRows as $row)
+                                                    @php
+                                                        $old = $row['old'] ?? [];
+                                                        $new = $row['new'] ?? [];
+
+                                                        $item = !empty($new) ? $new : $old;
+
+                                                        $productName = $item['product_name'] ?? '-';
+                                                        $barcode = $item['barcode'] ?? '-';
+                                                        $location = $item['location'] ?? '-';
+
+                                                        $oldStock = isset($old['stock'])
+                                                            ? (float) $old['stock']
+                                                            : (float) ($old['quantity'] ?? 0);
+
+                                                        $newStock = isset($new['stock'])
+                                                            ? (float) $new['stock']
+                                                            : (float) ($new['quantity'] ?? 0);
+
+                                                        $change = $newStock - $oldStock;
+                                                    @endphp
+                                                    <tr>
+                                                        <td>
+                                                            <span class="fw-semibold text-dark">
+                                                                {{ $productName }}
+                                                            </span>
+                                                        </td>
+
+                                                        <td>
+                                                            <code>{{ $barcode }}</code>
+                                                        </td>
+
+                                                        <td>
+                                                            <span class="text-dark">
+                                                                {{ $location }}
+                                                            </span>
+                                                        </td>
+
+                                                        <td class="text-center">
+                                                            <span class="badge bg-label-secondary">
+                                                                {{ rtrim(rtrim(number_format($oldStock, 2), '0'), '.') }}
+                                                            </span>
+                                                        </td>
+
+                                                        <td class="text-center">
+                                                            <span class="badge bg-label-primary">
+                                                                {{ rtrim(rtrim(number_format($newStock, 2), '0'), '.') }}
+                                                            </span>
+                                                        </td>
+
+                                                        <td class="text-center">
+                                                            @if($change > 0)
+                                                                <span class="text-success fw-bold">
+                                                                    +{{ rtrim(rtrim(number_format($change, 2), '0'), '.') }}
+                                                                </span>
+                                                            @elseif($change < 0)
+                                                                <span class="text-danger fw-bold">
+                                                                    {{ rtrim(rtrim(number_format($change, 2), '0'), '.') }}
+                                                                </span>
+                                                            @else
+                                                                <span class="text-muted fw-semibold">
+                                                                    0
+                                                                </span>
+                                                            @endif
+                                                        </td>
+                                                    </tr>
+                                                @endforeach
+                                            </tbody>
+                                        </table>
+                                    </div>
+                                @else
+                                    <span class="text-muted small">
+                                        No stock items found
+                                    </span>
+                                @endif
+                            </td>
                         @elseif($key === 'items' && (is_array($oldVal) || is_array($newVal)))
                             @php
-                                 $formatItemsList = function($items) {
-                                     if (!is_array($items)) {
-                                         return [];
-                                     }
-                                     return array_map(function($item) {
-                                         $item = (array) $item;
-                                         $productId = $item['product_id'] ?? null;
-                                         $prod = $productId ? \App\Models\Product::withTrashed()->find($productId) : null;
-                                         $productName = $prod ? ($prod->barcode ? "{$prod->name} ({$prod->barcode})" : $prod->name) : '-';
+                                $formatItemsList = function($items) {
+                                    if (!is_array($items)) return [];
+                                    return array_map(function($item) {
+                                        $item = (array) $item;
+                                        $productId = $item['product_id'] ?? null;
+                                        $prod = $productId ? \App\Models\Product::withTrashed()->find($productId) : null;
+                                        $rawName = $item['product_name'] ?? $item['name'] ?? ($prod ? $prod->name : '-');
+                                        $barcode = $item['barcode'] ?? ($prod ? $prod->barcode : null);
+                                        $productName = $rawName;
+                                        if (!empty($barcode) && !str_contains($productName, $barcode)) {
+                                            $productName .= ' (' . $barcode . ')';
+                                        }
+                                        if (!empty($item['product_variant_id'])) {
+                                            $variant = \App\Models\ProductVariant::withTrashed()->find($item['product_variant_id']);
+                                            if ($variant) {
 
-                                         if (!empty($item['product_variant_id'])) {
-                                             $variant = \App\Models\ProductVariant::withTrashed()->find($item['product_variant_id']);
-                                             if ($variant) {
-                                                 $variantLabel = trim((string) ($variant->name ?? $variant->attributeValue?->value ?? ''));
-                                                 if ($variantLabel !== '') {
-                                                     $productName .= ' (' . $variantLabel . ')';
-                                                 }
-                                             }
-                                         }
+                                                $variantLabel = trim(
+                                                    (string) (
+                                                        $variant->name
+                                                        ?? $variant->attributeValue?->value
+                                                        ?? ''
+                                                    )
+                                                );
 
-                                         $priceVal = $item['price'] ?? $item['purchase_price'] ?? $item['unit_price'] ?? null;
+                                                if ($variantLabel !== '') {
+                                                    $productName .= ' (' . $variantLabel . ')';
+                                                }
+                                            }
+                                        }
 
-                                         return [
-                                             'name' => $productName,
-                                             'quantity' => $item['quantity'] ?? $item['qty'] ?? '-',
-                                             'price' => is_numeric($priceVal) ? format_price($priceVal) : '-',
-                                         ];
-                                     }, $items);
-                                 };
+                                        $priceVal = $item['price']
+                                            ?? $item['purchase_price']
+                                            ?? $item['unit_price']
+                                            ?? null;
+
+                                        return [
+                                            'name' => $productName,
+
+                                            'quantity' => $item['quantity']
+                                                ?? $item['qty']
+                                                ?? '-',
+
+                                            'price' => is_numeric($priceVal)
+                                                ? format_price($priceVal)
+                                                : '-',
+                                        ];
+
+                                    }, $items);
+                                };
+
                                 $oldItemsList = $formatItemsList($oldVal);
                                 $newItemsList = $formatItemsList($newVal);
                             @endphp
+
+                            <td class="fw-bold text-dark">
+                                {{ $renameKey($key) }}
+                            </td>
+
                             <td class="text-danger fw-semibold">
                                 @if(!empty($oldItemsList))
-                                    <table class="table table-sm table-borderless mb-0">
-                                        <thead>
-                                            <tr class="text-uppercase fs-tiny text-muted">
-                                                <th>Product</th>
-                                                <th class="text-center">Qty</th>
-                                                <th class="text-end">Price</th>
-                                            </tr>
-                                        </thead>
-                                        <tbody>
-                                            @foreach($oldItemsList as $it)
-                                                <tr>
-                                                    <td>{{ $it['name'] }}</td>
-                                                    <td class="text-center">{{ $it['quantity'] }}</td>
-                                                    <td class="text-end">{{ $it['price'] }}</td>
+                                    <div class="table-responsive">
+                                        <table class="table table-sm table-borderless mb-0">
+                                            <thead>
+                                                <tr class="text-uppercase fs-tiny text-muted">
+                                                    <th>Product</th>
+                                                    <th class="text-center">Qty</th>
+                                                    <th class="text-end">Price</th>
                                                 </tr>
-                                            @endforeach
-                                        </tbody>
-                                    </table>
+                                            </thead>
+
+                                            <tbody>
+                                                @foreach($oldItemsList as $it)
+                                                    <tr>
+                                                        <td>
+                                                            {{ $it['name'] }}
+                                                        </td>
+
+                                                        <td class="text-center">
+                                                            {{ $it['quantity'] }}
+                                                        </td>
+
+                                                        <td class="text-end">
+                                                            {{ $it['price'] }}
+                                                        </td>
+                                                    </tr>
+                                                @endforeach
+                                            </tbody>
+                                        </table>
+                                    </div>
                                 @else
-                                    <span class="text-muted small">-</span>
+                                    <span class="text-muted small">
+                                        -
+                                    </span>
                                 @endif
                             </td>
+
                             <td class="text-success fw-semibold">
                                 @if(!empty($newItemsList))
-                                    <table class="table table-sm table-borderless mb-0">
-                                        <thead>
-                                            <tr class="text-uppercase fs-tiny text-muted">
-                                                <th>Product</th>
-                                                <th class="text-center">Qty</th>
-                                                <th class="text-end">Price</th>
-                                            </tr>
-                                        </thead>
-                                        <tbody>
-                                            @foreach($newItemsList as $it)
-                                                <tr>
-                                                    <td>{{ $it['name'] }}</td>
-                                                    <td class="text-center">{{ $it['quantity'] }}</td>
-                                                    <td class="text-end">{{ $it['price'] }}</td>
+                                    <div class="table-responsive">
+                                        <table class="table table-sm table-borderless mb-0">
+                                            <thead>
+                                                <tr class="text-uppercase fs-tiny text-muted">
+                                                    <th>Product</th>
+                                                    <th class="text-center">Qty</th>
+                                                    <th class="text-end">Price</th>
                                                 </tr>
-                                            @endforeach
-                                        </tbody>
-                                    </table>
+                                            </thead>
+
+                                            <tbody>
+                                                @foreach($newItemsList as $it)
+                                                    <tr>
+                                                        <td>
+                                                            {{ $it['name'] }}
+                                                        </td>
+
+                                                        <td class="text-center">
+                                                            {{ $it['quantity'] }}
+                                                        </td>
+
+                                                        <td class="text-end">
+                                                            {{ $it['price'] }}
+                                                        </td>
+                                                    </tr>
+                                                @endforeach
+                                            </tbody>
+                                        </table>
+                                    </div>
                                 @else
-                                    <span class="text-muted small">-</span>
+                                    <span class="text-muted small">
+                                        -
+                                    </span>
                                 @endif
                             </td>
+
                         @elseif(is_array($oldVal) || is_array($newVal))
-                             <!-- Generic array attribute fields formatted cleanly -->
-                             <td class="text-danger fw-semibold">{!! $renderArrayValue($key, $oldVal, $log) !!}</td>
-                             <td class="text-success fw-semibold">{!! $renderArrayValue($key, $newVal, $log) !!}</td>
+
+                            <td class="fw-bold text-dark">
+                                {{ $renameKey($key) }}
+                            </td>
+
+                            <td class="text-danger fw-semibold">
+                                {!! $renderArrayValue($key, $oldVal, $log) !!}
+                            </td>
+
+                            <td class="text-success fw-semibold">
+                                {!! $renderArrayValue($key, $newVal, $log) !!}
+                            </td>
+
                         @else
-                            <!-- Standard single attribute fields with resolved names -->
-                            <td class="text-danger fw-semibold">{!! $formatSingleValue($key, $oldVal, $log) !!}</td>
-                            <td class="text-success fw-semibold">{!! $formatSingleValue($key, $newVal, $log) !!}</td>
+                            <td class="fw-bold text-dark">
+                                {{ $renameKey($key) }}
+                            </td>
+
+                            <td class="text-danger fw-semibold">
+                                {!! $formatSingleValue($key, $oldVal, $log) !!}
+                            </td>
+
+                            <td class="text-success fw-semibold">
+                                {!! $formatSingleValue($key, $newVal, $log) !!}
+                            </td>
                         @endif
                     </tr>
                 @endforeach

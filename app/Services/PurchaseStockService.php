@@ -13,9 +13,13 @@ class PurchaseStockService
      */
     public static function approve(Purchase $purchase): void
     {
-        $purchase->load('items.allocations.location', 'items.product');
+        $purchase->load(['items.allocations.location', 'items.product', 'items.variant.attributeValue']);
+        $stockChanges = [];
+
         foreach ($purchase->items as $item) {
+            $product = $item->product;
             $multiplier = self::multiplierFor($item);
+
             foreach ($item->allocations as $allocation) {
                 $qtyToAdd = (int) round($allocation->quantity * $multiplier);
 
@@ -30,11 +34,57 @@ class PurchaseStockService
                     ]
                 );
 
-                $oldQty = $inventory->quantity;
+                $oldQty = (int) $inventory->quantity;
                 $inventory->increment('quantity', $qtyToAdd);
+                $newQty = $oldQty + $qtyToAdd;
 
-                ActivityLogger::log('Inventory', 'update', $inventory, ['quantity' => $oldQty], ['quantity' => $oldQty + $qtyToAdd], 'Stock added for purchase #' . $purchase->invoice_no);
+                $locationName = $allocation->location?->name ?? ('Location #' . $allocation->location_id);
+                $barcode = $product?->barcode ?: '-';
+                $productName = $product?->name ?: ('Product #' . $item->product_id);
+
+                if ($item->product_variant_id && $item->variant) {
+                    $vLabel = trim((string)($item->variant->name ?? $item->variant->attributeValue?->value ?? ''));
+                    if ($vLabel !== '') {
+                        $productName .= ' (' . $vLabel . ')';
+                    }
+                }
+
+                $stockChanges[] = [
+                    'product_id'   => $item->product_id,
+                    'product_name' => $productName,
+                    'barcode'      => $barcode,
+                    'location'     => $locationName,
+                    'quantity'     => $qtyToAdd,
+                    'old_quantity' => $oldQty,
+                    'new_quantity' => $newQty,
+                ];
             }
+        }
+
+        if (!empty($stockChanges)) {
+            $oldStockSnapshot = array_map(fn($sc) => [
+                'product_name' => $sc['product_name'],
+                'barcode'      => $sc['barcode'],
+                'location'     => $sc['location'],
+                'stock'        => $sc['old_quantity'],
+            ], $stockChanges);
+
+            $newStockSnapshot = array_map(fn($sc) => [
+                'product_name' => $sc['product_name'],
+                'barcode'      => $sc['barcode'],
+                'location'     => $sc['location'],
+                'stock'        => $sc['new_quantity'],
+                'qty_added'    => '+' . $sc['quantity'],
+            ], $stockChanges);
+
+            ActivityLogger::log(
+                'Inventory',
+                'update',
+                $purchase,
+                ['stock_items' => $oldStockSnapshot],
+                ['stock_items' => $newStockSnapshot],
+                'Stock added for purchase #' . $purchase->invoice_no . ' (' . count($stockChanges) . ' item' . (count($stockChanges) > 1 ? 's' : '') . ')'
+            );
         }
     }
 
@@ -44,23 +94,72 @@ class PurchaseStockService
      */
     public static function reverse(Purchase $purchase, string $reason = 'edit'): void
     {
-        $purchase->load('items.allocations.location', 'items.product');
+        $purchase->load(['items.allocations.location', 'items.product', 'items.variant.attributeValue']);
+        $stockChanges = [];
+
         foreach ($purchase->items as $item) {
+            $product = $item->product;
             $multiplier = self::multiplierFor($item);
+
             foreach ($item->allocations as $allocation) {
                 $inventory = Inventory::where('product_id', $item->product_id)
                     ->where('location_id', $allocation->location_id)
                     ->first();
 
                 if ($inventory) {
-                    $oldQty = $inventory->quantity;
+                    $oldQty = (int) $inventory->quantity;
                     $qtyToSubtract = (int) round($allocation->quantity * $multiplier);
                     $newQty = max(0, $inventory->quantity - $qtyToSubtract);
                     $inventory->update(['quantity' => $newQty]);
 
-                    ActivityLogger::log('Inventory', 'update', $inventory, ['quantity' => $oldQty], ['quantity' => $newQty], 'Stock reversed for purchase #' . $purchase->invoice_no . ' ' . $reason);
+                    $locationName = $allocation->location?->name ?? ('Location #' . $allocation->location_id);
+                    $barcode = $product?->barcode ?: '-';
+                    $productName = $product?->name ?: ('Product #' . $item->product_id);
+
+                    if ($item->product_variant_id && $item->variant) {
+                        $vLabel = trim((string)($item->variant->name ?? $item->variant->attributeValue?->value ?? ''));
+                        if ($vLabel !== '') {
+                            $productName .= ' (' . $vLabel . ')';
+                        }
+                    }
+
+                    $stockChanges[] = [
+                        'product_id'   => $item->product_id,
+                        'product_name' => $productName,
+                        'barcode'      => $barcode,
+                        'location'     => $locationName,
+                        'quantity'     => $qtyToSubtract,
+                        'old_quantity' => $oldQty,
+                        'new_quantity' => $newQty,
+                    ];
                 }
             }
+        }
+
+        if (!empty($stockChanges)) {
+            $oldStockSnapshot = array_map(fn($sc) => [
+                'product_name' => $sc['product_name'],
+                'barcode'      => $sc['barcode'],
+                'location'     => $sc['location'],
+                'stock'        => $sc['old_quantity'],
+            ], $stockChanges);
+
+            $newStockSnapshot = array_map(fn($sc) => [
+                'product_name' => $sc['product_name'],
+                'barcode'      => $sc['barcode'],
+                'location'     => $sc['location'],
+                'stock'        => $sc['new_quantity'],
+                'qty_deducted' => '-' . $sc['quantity'],
+            ], $stockChanges);
+
+            ActivityLogger::log(
+                'Inventory',
+                'update',
+                $purchase,
+                ['stock_items' => $oldStockSnapshot],
+                ['stock_items' => $newStockSnapshot],
+                'Stock reversed for purchase #' . $purchase->invoice_no . ' (' . $reason . ')'
+            );
         }
     }
 
