@@ -97,7 +97,7 @@ class AccountingController extends Controller
                 $detectedSource = 'purchase';
             } elseif (stripos($notes, 'Expense') !== false) {
                 $detectedSource = 'expense';
-            } elseif (stripos($notes, 'Transfer to ') !== false || stripos($notes, 'Transfer from ') !== false) {
+            } elseif (stripos($notes, 'Transfer') !== false || stripos($notes, 'BT-') !== false) {
                 $detectedSource = 'balance_transfer';
             }
 
@@ -119,7 +119,7 @@ class AccountingController extends Controller
                 $detectedSource = 'purchase';
             } elseif (stripos($notes, 'Expense') !== false) {
                 $detectedSource = 'expense';
-            } elseif (stripos($notes, 'Transfer to ') !== false || stripos($notes, 'Transfer from ') !== false) {
+            } elseif (stripos($notes, 'Transfer') !== false || stripos($notes, 'BT-') !== false) {
                 $detectedSource = 'balance_transfer';
             }
 
@@ -239,7 +239,7 @@ class AccountingController extends Controller
                 $detectedSource = 'purchase';
             } elseif (stripos($notes, 'Expense') !== false) {
                 $detectedSource = 'expense';
-            } elseif (stripos($notes, 'Transfer to ') !== false || stripos($notes, 'Transfer from ') !== false) {
+            } elseif (stripos($notes, 'Transfer') !== false || stripos($notes, 'BT-') !== false) {
                 $detectedSource = 'balance_transfer';
             }
 
@@ -257,7 +257,7 @@ class AccountingController extends Controller
                 $detectedSource = 'purchase';
             } elseif (stripos($notes, 'Expense') !== false) {
                 $detectedSource = 'expense';
-            } elseif (stripos($notes, 'Transfer to ') !== false || stripos($notes, 'Transfer from ') !== false) {
+            } elseif (stripos($notes, 'Transfer') !== false || stripos($notes, 'BT-') !== false) {
                 $detectedSource = 'balance_transfer';
             }
 
@@ -384,7 +384,7 @@ class AccountingController extends Controller
                 $detectedSource = 'purchase';
             } elseif (stripos($notes, 'Expense') !== false) {
                 $detectedSource = 'expense';
-            } elseif (stripos($notes, 'Transfer to ') !== false || stripos($notes, 'Transfer from ') !== false) {
+            } elseif (stripos($notes, 'Transfer') !== false || stripos($notes, 'BT-') !== false) {
                 $detectedSource = 'balance_transfer';
             }
 
@@ -551,7 +551,7 @@ class AccountingController extends Controller
                 $detectedSource = 'purchase';
             } elseif (stripos($notes, 'Expense') !== false) {
                 $detectedSource = 'expense';
-            } elseif (stripos($notes, 'Transfer to ') !== false || stripos($notes, 'Transfer from ') !== false) {
+            } elseif (stripos($notes, 'Transfer') !== false || stripos($notes, 'BT-') !== false) {
                 $detectedSource = 'balance_transfer';
             }
 
@@ -1571,7 +1571,7 @@ class AccountingController extends Controller
                 $detectedSource = 'purchase';
             } elseif (stripos($notes, 'Expense') !== false) {
                 $detectedSource = 'expense';
-            } elseif (stripos($notes, 'Transfer to ') !== false || stripos($notes, 'Transfer from ') !== false) {
+            } elseif (stripos($notes, 'Transfer') !== false || stripos($notes, 'BT-') !== false) {
                 $detectedSource = 'balance_transfer';
             }
 
@@ -1590,7 +1590,7 @@ class AccountingController extends Controller
                 $detectedSource = 'purchase';
             } elseif (stripos($notes, 'Expense') !== false) {
                 $detectedSource = 'expense';
-            } elseif (stripos($notes, 'Transfer to ') !== false || stripos($notes, 'Transfer from ') !== false) {
+            } elseif (stripos($notes, 'Transfer') !== false || stripos($notes, 'BT-') !== false) {
                 $detectedSource = 'balance_transfer';
             }
 

@@ -119,6 +119,8 @@
         padding: 3px 14px; font-size: .8rem; font-weight: 600; border: none; cursor: pointer;
         background: #fff; color: #B4771E; transition: background .15s, color .15s;
     }
+    .size-toggle .size-btn + .size-btn { border-left: 1.5px solid #B4771E; }
+    .size-toggle .size-btn.active { background: #B4771E !important; color: #fff !important; }
     /* Visually hidden but focusable purchase batch selector */
     .batch-select-hidden {
         position: absolute !important;
@@ -698,6 +700,21 @@ $(document).ready(function () {
         return unselected;
     }
 
+    function hasUnselectedBatchProduct() {
+        let unselectedRow = null;
+        $('.item-row').each(function () {
+            const row = $(this);
+            const batchSelect = row.find('.batch-select');
+            if (batchSelect.length > 0 && batchSelect.attr('data-required') === '1') {
+                if (!batchSelect.val() || batchSelect.val() === '') {
+                    unselectedRow = row;
+                    return false;
+                }
+            }
+        });
+        return unselectedRow;
+    }
+
     function incrementExistingRowQty(product) {
         let updated = false;
         $('.product-id-input').each(function () {
@@ -717,6 +734,18 @@ $(document).ready(function () {
     function selectSearchProduct(product) {
         if (hasUnselectedVariableProduct()) {
             toastr.warning('Please select a variant for the existing variable product before scanning or adding another product.');
+            searchInput.val('');
+            searchResults.hide().empty();
+            return;
+        }
+
+        const unselectedBatchRow = hasUnselectedBatchProduct();
+        if (unselectedBatchRow) {
+            const prod = unselectedBatchRow.data('product');
+            const pName = prod ? prod.name : 'the item';
+            toastr.warning('Please select Purchase Price for ' + pName + ' before adding another product.');
+            const batchSel = unselectedBatchRow.find('.batch-select');
+            batchSel.removeClass('batch-select-hidden').show().focus();
             searchInput.val('');
             searchResults.hide().empty();
             return;
@@ -845,7 +874,7 @@ $(document).ready(function () {
     function buildSizeToggleHtml(sizes, defSize) {
         let sizeHtml = `<div class="size-toggle mt-1">`;
         sizes.forEach(cs => {
-            const active = defSize && defSize == cs.size ? 'active' : '';
+            const active = (defSize != null && String(defSize) === String(cs.size)) ? 'active' : '';
             const csMrp = cs.mrp != null ? cs.mrp : '';
             sizeHtml += `<button type="button" class="size-btn ${active}" data-value="${cs.size}" data-price="${cs.sale_price}" data-mrp="${csMrp}">${cs.size} pcs</button>`;
         });
@@ -866,58 +895,76 @@ $(document).ready(function () {
             product_variant_id: variantId,
             location_id: locationId
         }, function(res) {
-            const batches = (res.status === 'success' && res.batches && res.batches.length > 0) ? res.batches : [];
+            const rawBatches = (res.status === 'success' && res.batches && res.batches.length > 0) ? res.batches : [];
+            let batches = rawBatches.filter(b => parseInt(b.available_qty) > 0);
+            if (batches.length === 0) {
+                batches = rawBatches;
+            }
 
-            if (batches.length > 0) {
-                if (batches.length === 1) {
-                    // Case A: Only one Purchase Price has stock -> Automatically select, keep hidden, focus barcode
-                    const b = batches[0];
-                    let html = `<select class="batch-select batch-select-hidden no-select2">
-                        <option value="${b.purchase_item_id}" data-purchase-price="${b.purchase_price}" data-available-qty="${b.available_qty}" selected>Batch 1</option>
-                    </select>`;
-                    container.html(html);
+            // Find unique purchase prices among batches
+            const uniquePrices = [];
+            batches.forEach(b => {
+                const pPrice = parseFloat(b.purchase_price) || 0;
+                if (!uniquePrices.includes(pPrice)) {
+                    uniquePrices.push(pPrice);
+                }
+            });
 
-                    row.data('available-pcs', parseInt(b.available_qty) || 0);
-                    row.data('purchase-price', parseFloat(b.purchase_price) || 0);
-                    updateStockInfo(row);
-                    updateRowTotal(row);
+            if (batches.length > 0 && uniquePrices.length > 1) {
+                // 2 or 2+ DIFFERENT Purchase Prices exist in stock -> Selection is COMPULSORY
+                let hasSelected = false;
+                let optionsHtml = '';
 
-                    if (autoFocusOnMultiple) {
-                        $('#productSearchInput').val('').focus();
-                    }
+                batches.forEach((b) => {
+                    const isSel = (selectedBatchId && selectedBatchId == b.purchase_item_id);
+                    if (isSel) hasSelected = true;
+                    const pPriceVal = parseFloat(b.purchase_price) || 0;
+                    optionsHtml += `<option value="${b.purchase_item_id}" data-purchase-price="${pPriceVal}" data-available-qty="${b.available_qty}" ${isSel ? 'selected' : ''}>${symbol} ${formatPrice(pPriceVal)}</option>`;
+                });
+
+                let selectClass = hasSelected ? "batch-select batch-select-hidden no-select2" : "form-select form-select-sm batch-select no-select2 mt-1";
+                let html = `<select class="${selectClass}" data-required="1" style="max-width: 220px;">`;
+                if (!hasSelected) {
+                    html += `<option value="" disabled selected>-- Select Price --</option>`;
+                }
+                html += optionsHtml + `</select>`;
+                container.html(html);
+
+                const selOpt = container.find('.batch-select option:selected');
+                if (hasSelected && selOpt.length && selOpt.val()) {
+                    row.data('available-pcs', parseInt(selOpt.attr('data-available-qty')) || 0);
+                    row.data('purchase-price', parseFloat(selOpt.attr('data-purchase-price')) || 0);
                 } else {
-                    // Case B: 2 or more Purchase Prices have stock -> Selection mandatory
-                    let html = `<select class="batch-select batch-select-hidden no-select2" data-required="1">`;
-                    let hasSelected = false;
+                    row.data('purchase-price', 0);
+                }
+                updateStockInfo(row);
+                updateRowTotal(row);
 
-                    let optionsHtml = '';
-                    batches.forEach((b, idx) => {
-                        const isSel = (selectedBatchId && selectedBatchId == b.purchase_item_id);
-                        if (isSel) hasSelected = true;
-                        optionsHtml += `<option value="${b.purchase_item_id}" data-purchase-price="${b.purchase_price}" data-available-qty="${b.available_qty}" ${isSel ? 'selected' : ''}>Batch ${idx + 1}</option>`;
-                    });
+                if (!hasSelected && autoFocusOnMultiple) {
+                    setTimeout(() => {
+                        const sel = container.find('.batch-select');
+                        sel.removeClass('batch-select-hidden').show().focus();
+                    }, 50);
+                }
+            } else if (batches.length > 0) {
+                // Stock has only 1 distinct purchase price -> Auto-select, keep hidden, focus search input
+                const b = batches[0];
+                const pPriceVal = parseFloat(b.purchase_price) || 0;
+                let html = `<select class="batch-select batch-select-hidden no-select2">
+                    <option value="${b.purchase_item_id}" data-purchase-price="${pPriceVal}" data-available-qty="${b.available_qty}" selected>Batch 1</option>
+                </select>`;
+                container.html(html);
 
-                    if (!hasSelected) {
-                        html += `<option value="" disabled selected>-- Select Batch --</option>`;
-                    }
-                    html += optionsHtml + `</select>`;
-                    container.html(html);
+                row.data('available-pcs', parseInt(b.available_qty) || 0);
+                row.data('purchase-price', pPriceVal);
+                updateStockInfo(row);
+                updateRowTotal(row);
 
-                    const selOpt = container.find('.batch-select option:selected');
-                    if (hasSelected && selOpt.length && selOpt.val()) {
-                        row.data('available-pcs', parseInt(selOpt.attr('data-available-qty')) || 0);
-                        row.data('purchase-price', parseFloat(selOpt.attr('data-purchase-price')) || 0);
-                    }
-                    updateStockInfo(row);
-                    updateRowTotal(row);
-
-                    if (!hasSelected && autoFocusOnMultiple) {
-                        setTimeout(() => {
-                            row.find('.batch-select').focus();
-                        }, 50);
-                    }
+                if (autoFocusOnMultiple) {
+                    $('#productSearchInput').val('').focus();
                 }
             } else {
+                // No batches found -> Default purchase price
                 const defaultPurchasePrice = product.purchase_price || 0;
                 let html = `<select class="batch-select batch-select-hidden no-select2">
                     <option value="" data-purchase-price="${defaultPurchasePrice}" data-available-qty="0" selected>Default</option>
@@ -1169,6 +1216,8 @@ $(document).ready(function () {
         const selOpt = $(this).find('option:selected');
         const availAttr = selOpt.attr('data-available-qty');
         const purchasePriceAttr = selOpt.attr('data-purchase-price');
+        const val = selOpt.val();
+
         if (selOpt.length && availAttr !== undefined && availAttr !== false) {
             row.data('available-pcs', parseInt(availAttr) || 0);
             updateStockInfo(row);
@@ -1179,14 +1228,20 @@ $(document).ready(function () {
         $(this).removeClass('is-invalid');
         updateRowTotal(row);
         updateSummary();
+
+        if (val && val !== '') {
+            $(this).addClass('batch-select-hidden');
+            $('#productSearchInput').val('').focus();
+        }
     });
 
     $(document).on('keydown', '.batch-select', function (e) {
         if (e.key === 'Enter' || e.keyCode === 13) {
             e.preventDefault();
             const select = $(this);
-            // If placeholder/empty, pick the first valid option
-            if (!select.val()) {
+            const val = select.val();
+            
+            if (!val) {
                 const firstValid = select.find('option:not([disabled])').first();
                 if (firstValid.length) {
                     select.val(firstValid.val()).trigger('change');
@@ -1939,20 +1994,22 @@ $(document).ready(function () {
             return 'Please select a size for each pair product before saving.';
         }
 
-        let batchMissing = false;
+        let batchMissingRow = null;
         $('.item-row').each(function () {
             const row = $(this);
             const batchSelect = row.find('.batch-select');
-            if (batchSelect.length > 0) {
-                const validOptions = batchSelect.find('option:not([disabled])');
-                if (validOptions.length > 1 && (!batchSelect.val() || batchSelect.val() === '')) {
-                    batchMissing = true;
-                    batchSelect.addClass('is-invalid');
+            if (batchSelect.length > 0 && batchSelect.attr('data-required') === '1') {
+                if (!batchSelect.val() || batchSelect.val() === '') {
+                    batchMissingRow = row;
+                    batchSelect.removeClass('batch-select-hidden').show().addClass('is-invalid');
                 }
             }
         });
-        if (batchMissing) {
-            return 'Please select a purchase price for each product having multiple purchase-price stock.';
+        if (batchMissingRow) {
+            const prod = batchMissingRow.data('product');
+            const pName = prod ? prod.name : 'the item';
+            batchMissingRow.find('.batch-select').focus();
+            return 'Please select a Purchase Price for ' + pName + ' before saving.';
         }
 
         const payStatus = $('#paymentStatusSelect').val();
