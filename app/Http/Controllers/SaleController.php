@@ -967,9 +967,17 @@ class SaleController extends Controller
 
         $existingItems = $sale->items->map(function ($item) {
             $product = $item->product;
+            $multiplier = $this->stockMultiplierFor((int) $item->product_id, $item->pair_type, $item->custom_size_value ? (float) $item->custom_size_value : null);
+            $physicalQty = (float) $item->quantity * $multiplier;
+            $unitPurchasePrice = $physicalQty > 0 ? round((float) $item->purchase_price / $physicalQty, 2) : (float) $item->purchase_price;
+
             return [
+                'order_item_id' => $item->id,
                 'product_id' => $item->product_id,
                 'product_variant_id' => $item->product_variant_id,
+                'purchase_item_id' => $item->purchase_item_id,
+                'purchase_price' => $unitPurchasePrice,
+                'total_purchase_price' => (float) $item->purchase_price,
                 'pair_type' => $item->pair_type ?? 'single',
                 'custom_size_value' => $item->custom_size_value,
                 'price' => $item->price,
@@ -1047,6 +1055,9 @@ class SaleController extends Controller
             'paid_cash_amount' => ['required_if:payment_status,2,3', 'nullable', 'numeric', 'min:0'],
             'paid_online_amount' => ['required_if:payment_status,2,3', 'nullable', 'numeric', 'min:0'],
             'items' => ['required', 'array', 'min:1'],
+            'items.*.order_item_id' => ['nullable', 'integer'],
+            'items.*.purchase_item_id' => ['nullable', 'integer'],
+            'items.*.purchase_price' => ['nullable', 'numeric', 'min:0'],
             'items.*.product_id' => ['required', 'exists:products,id'],
             'items.*.product_variant_id' => ['nullable', 'exists:product_variants,id'],
             'items.*.pair_type' => ['nullable', 'string', 'in:single,pair'],
@@ -1114,17 +1125,20 @@ class SaleController extends Controller
         $oldLocationId = (int) $sale->location_id;
         $oldItemsSnapshot = $sale->items->map(function ($item) {
             return [
+                'id'                 => $item->id,
                 'product_id'         => $item->product_id,
                 'product_variant_id' => $item->product_variant_id,
+                'purchase_item_id'   => $item->purchase_item_id,
+                'purchase_price'     => (float) $item->purchase_price,
                 'pair_type'          => $item->pair_type ?? 'single',
                 'custom_size_value'  => $item->custom_size_value ?? null,
                 'quantity'           => $item->quantity,
                 'price'              => (float) $item->price,
             ];
-        })->values()->all();
+        })->values();
 
         if ($isApprove) {
-            $stockError = $this->getStockError($request->items, (int) $request->location_id, ($wasApproved && $oldLocationId === (int) $request->location_id) ? $oldItemsSnapshot : []);
+            $stockError = $this->getStockError($request->items, (int) $request->location_id, ($wasApproved && $oldLocationId === (int) $request->location_id) ? $oldItemsSnapshot->all() : []);
             if ($stockError) {
                 return response()->json([
                     'status' => 'error',
@@ -1179,39 +1193,63 @@ class SaleController extends Controller
                     $customSizeVal = (isset($itemData['custom_size_value']) && $itemData['custom_size_value'] !== '') ? (float) $itemData['custom_size_value'] : null;
                     $physicalQty = ($customSizeVal !== null && $customSizeVal > 0) ? ($qty * $customSizeVal) : ($pairType === 'pair' ? ($qty * 2.0) : (float) $qty);
 
-                    $purchaseItemId = !empty($itemData['purchase_item_id']) ? (int) $itemData['purchase_item_id'] : null;
-                    $unitPurchasePrice = (isset($itemData['purchase_price']) && is_numeric($itemData['purchase_price']) && (float)$itemData['purchase_price'] > 0)
-                        ? (float) $itemData['purchase_price']
-                        : ($purchaseItemId ? (float) (\App\Models\PurchaseItem::where('id', $purchaseItemId)->value('purchase_price') ?? \App\Models\PurchaseBillItem::where('id', $purchaseItemId)->value('purchase_price')) : null);
-
-                    $batchAlloc = \App\Services\PurchaseBatchService::calculateTotalCostPrice(
-                        (int) $itemData['product_id'],
-                        !empty($itemData['product_variant_id']) ? (int) $itemData['product_variant_id'] : null,
-                        (int) $request->location_id,
-                        $physicalQty,
-                        $purchaseItemId,
-                        $unitPurchasePrice,
-                        (int) $sale->id
-                    );
-
-                    $productObj = \App\Models\Product::find($itemData['product_id']);
-                    $purchasePrice = $batchAlloc['total_cost'];
-                    if ($purchasePrice <= 0 && $unitPurchasePrice > 0) {
-                        $purchasePrice = (float) $unitPurchasePrice;
+                    // Check if this item already existed in the database for this sale
+                    $orderItemId = !empty($itemData['order_item_id']) ? (int) $itemData['order_item_id'] : null;
+                    $existingItem = null;
+                    if ($orderItemId) {
+                        $existingItem = $oldItemsSnapshot->firstWhere('id', $orderItemId);
+                    }
+                    if (!$existingItem) {
+                        $existingItem = $oldItemsSnapshot->first(function ($old) use ($itemData) {
+                            return (int)$old['product_id'] === (int)$itemData['product_id']
+                                && ((empty($old['product_variant_id']) && empty($itemData['product_variant_id'])) || (int)($old['product_variant_id'] ?? 0) === (int)($itemData['product_variant_id'] ?? 0));
+                        });
                     }
 
-                    if ($productObj && $productObj->pair_product && !empty($productObj->custom_sizes)) {
-                        $maxSize = (float) (collect($productObj->custom_sizes)->pluck('size')->map(fn($s) => (float)$s)->max() ?: 1.0);
-                        if ($maxSize > 0) {
-                            $soldSize = ($customSizeVal !== null && $customSizeVal > 0) ? $customSizeVal : 2.0;
-                            $purchasePrice = round(($purchasePrice / $maxSize) * $soldSize * $qty, 2);
+                    if ($existingItem && (float)($existingItem['purchase_price'] ?? 0) > 0) {
+                        // PRESERVE the exact database purchase price for this existing sale item
+                        $origMultiplier = $this->stockMultiplierFor((int)$existingItem['product_id'], $existingItem['pair_type'], $existingItem['custom_size_value'] ? (float)$existingItem['custom_size_value'] : null);
+                        $origPhysicalQty = (float)$existingItem['quantity'] * $origMultiplier;
+                        $origUnitCost = $origPhysicalQty > 0 ? ((float)$existingItem['purchase_price'] / $origPhysicalQty) : (float)$existingItem['purchase_price'];
+
+                        $purchasePrice = round($origUnitCost * $physicalQty, 2);
+                        $purchaseItemId = $existingItem['purchase_item_id'] ?? null;
+                    } else {
+                        // Newly added item during sale edit
+                        $purchaseItemId = !empty($itemData['purchase_item_id']) ? (int) $itemData['purchase_item_id'] : null;
+                        $unitPurchasePrice = (isset($itemData['purchase_price']) && is_numeric($itemData['purchase_price']) && (float)$itemData['purchase_price'] > 0)
+                            ? (float) $itemData['purchase_price']
+                            : ($purchaseItemId ? (float) (\App\Models\PurchaseItem::where('id', $purchaseItemId)->value('purchase_price') ?? \App\Models\PurchaseBillItem::where('id', $purchaseItemId)->value('purchase_price')) : null);
+
+                        $batchAlloc = \App\Services\PurchaseBatchService::calculateTotalCostPrice(
+                            (int) $itemData['product_id'],
+                            !empty($itemData['product_variant_id']) ? (int) $itemData['product_variant_id'] : null,
+                            (int) $request->location_id,
+                            $physicalQty,
+                            $purchaseItemId,
+                            $unitPurchasePrice,
+                            (int) $sale->id
+                        );
+
+                        $productObj = \App\Models\Product::find($itemData['product_id']);
+                        $purchasePrice = $batchAlloc['total_cost'];
+                        if ($purchasePrice <= 0 && $unitPurchasePrice > 0) {
+                            $purchasePrice = (float) $unitPurchasePrice;
+                        }
+
+                        if ($productObj && $productObj->pair_product && !empty($productObj->custom_sizes)) {
+                            $maxSize = (float) (collect($productObj->custom_sizes)->pluck('size')->map(fn($s) => (float)$s)->max() ?: 1.0);
+                            if ($maxSize > 0) {
+                                $soldSize = ($customSizeVal !== null && $customSizeVal > 0) ? $customSizeVal : 2.0;
+                                $purchasePrice = round(($purchasePrice / $maxSize) * $soldSize * $qty, 2);
+                            } else {
+                                $purchasePrice = round($purchasePrice * $qty, 2);
+                            }
                         } else {
                             $purchasePrice = round($purchasePrice * $qty, 2);
                         }
-                    } else {
-                        $purchasePrice = round($purchasePrice * $qty, 2);
+                        $purchaseItemId = $batchAlloc['primary_purchase_item_id'];
                     }
-                    $purchaseItemId = $batchAlloc['primary_purchase_item_id'];
 
                     $itemsData[] = [
                         'product_id' => $itemData['product_id'],

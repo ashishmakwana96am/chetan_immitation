@@ -1712,6 +1712,8 @@ class ReportController extends Controller
 
         // Summary metrics via fast SQL aggregates
         $totalSales = (float) (clone $query)->sum('orders.final_amount');
+        $totalGstAmount = (float) (clone $query)->sum('orders.tax_amount');
+        $totalTaxableAmount = (float) (clone $query)->selectRaw('SUM(COALESCE(orders.final_amount, 0) - COALESCE(orders.tax_amount, 0)) as taxable')->value('taxable');
         $orderCount = (int) (clone $query)->count();
         $avgOrderValue = $orderCount > 0 ? $totalSales / $orderCount : 0.0;
         $paidCount = (int) (clone $query)->where('orders.payment_status', Order::PAYMENT_STATUS_PAID)->count();
@@ -1792,6 +1794,8 @@ class ReportController extends Controller
             'locations',
             'customers',
             'totalSales',
+            'totalTaxableAmount',
+            'totalGstAmount',
             'orderCount',
             'avgOrderValue',
             'paidCount',
@@ -2202,7 +2206,12 @@ class ReportController extends Controller
 
         $totalExpenses = (float) (clone $expensesQuery)->sum('expenses.amount');
 
-        $netProfit = $totalRevenue - $totalCogs - $totalExpenses;
+        // Total Tax (GST on Sales) via direct SQL
+        $totalTax = (float) (clone $salesQuery)
+            ->selectRaw('SUM(COALESCE(orders.tax_amount, 0)) as total_tax')
+            ->value('total_tax');
+
+        $netProfit = $totalRevenue - $totalCogs - $totalExpenses - $totalTax;
         $profitMargin = $totalRevenue > 0 ? ($netProfit / $totalRevenue) * 100 : 0.0;
 
         // Group Monthly Revenue directly via SQL
@@ -2227,21 +2236,31 @@ class ReportController extends Controller
             ->pluck('cogs', 'month')
             ->toArray();
 
+        // Group Monthly Tax directly via SQL
+        $monthlyTaxMap = (clone $salesQuery)
+            ->selectRaw("DATE_FORMAT(orders.created_at, '%Y-%m') as month, SUM(COALESCE(orders.tax_amount, 0)) as total_tax")
+            ->groupBy(DB::raw("DATE_FORMAT(orders.created_at, '%Y-%m')"))
+            ->pluck('total_tax', 'month')
+            ->toArray();
+
         // Unique months list
         $allMonths = collect(array_merge(
             array_keys($monthlyRevenueMap),
             array_keys($monthlyExpensesMap),
-            array_keys($monthlyCogsMap)
+            array_keys($monthlyCogsMap),
+            array_keys($monthlyTaxMap)
         ))->unique()->sort()->values();
 
         $monthlyRevenue  = [];
         $monthlyCogs     = [];
         $monthlyExpenses = [];
+        $monthlyTax      = [];
 
         foreach ($allMonths as $month) {
             $monthlyRevenue[$month]  = (float) ($monthlyRevenueMap[$month] ?? 0.0);
             $monthlyCogs[$month]     = (float) ($monthlyCogsMap[$month] ?? 0.0);
             $monthlyExpenses[$month] = (float) ($monthlyExpensesMap[$month] ?? 0.0);
+            $monthlyTax[$month]      = (float) ($monthlyTaxMap[$month] ?? 0.0);
         }
 
         return view('reports.profit-loss', compact(
@@ -2249,12 +2268,14 @@ class ReportController extends Controller
             'totalRevenue',
             'totalCogs',
             'totalExpenses',
+            'totalTax',
             'netProfit',
             'profitMargin',
             'productProfitability',
             'monthlyRevenue',
             'monthlyCogs',
             'monthlyExpenses',
+            'monthlyTax',
             'startDate',
             'endDate',
             'locationId'
@@ -2555,10 +2576,15 @@ class ReportController extends Controller
             $expensesQuery->where('expenses.location_id', $locationId);
         }
         $totalExpenses = (float) $expensesQuery->sum('expenses.amount');
-        $netProfit = $totalRevenue - $totalCogs - $totalExpenses;
+        
+        $totalTax = (float) (clone $salesQuery)
+            ->selectRaw('SUM(COALESCE(orders.tax_amount, 0)) as total_tax')
+            ->value('total_tax');
+
+        $netProfit = $totalRevenue - $totalCogs - $totalExpenses - $totalTax;
         $profitMargin = $totalRevenue > 0 ? ($netProfit / $totalRevenue) * 100 : 0.0;
 
-        if ($totalRevenue <= 0 && $totalExpenses <= 0 && $productProfitability->isEmpty()) {
+        if ($totalRevenue <= 0 && $totalExpenses <= 0 && $totalTax <= 0 && $productProfitability->isEmpty()) {
             return redirect()->back()->with('error', 'No data found for the selected filters. Nothing to export.');
         }
 
@@ -2613,6 +2639,7 @@ class ReportController extends Controller
             ['Total Revenue', '₹' . number_format($totalRevenue, 2)],
             ['Cost of Goods Sold (COGS)', '₹' . number_format($totalCogs, 2)],
             ['Operating Expenses', '₹' . number_format($totalExpenses, 2)],
+            ['GST / Tax Amount', '₹' . number_format($totalTax, 2)],
             ['Net Profit / (Loss)', '₹' . number_format($netProfit, 2)],
             ['Profit Margin (%)', number_format($profitMargin, 2) . '%'],
         ];
@@ -2627,9 +2654,9 @@ class ReportController extends Controller
 
         $sheet1->getStyle('A2:B' . ($r - 1))->applyFromArray($borderStyle);
         $sheet1->getStyle('B3:B' . ($r - 1))->getAlignment()->setHorizontal(Alignment::HORIZONTAL_RIGHT);
-        $sheet1->getStyle('A5:B6')->getFont()->setBold(true);
+        $sheet1->getStyle('A6:B7')->getFont()->setBold(true);
 
-        $r1_breakdown = 9;
+        $r1_breakdown = 10;
         $sheet1->mergeCells('A' . $r1_breakdown . ':H' . $r1_breakdown);
         $sheet1->setCellValue('A' . $r1_breakdown, 'Product Profitability Breakdown Data (' . $locationName . ')');
         $sheet1->getStyle('A' . $r1_breakdown . ':H' . $r1_breakdown)->applyFromArray($titleStyle);
