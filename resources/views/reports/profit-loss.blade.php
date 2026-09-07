@@ -68,7 +68,7 @@
 
         <!-- Stats Cards -->
         <div class="row g-4 mb-4">
-        <div class="col-sm-6 col-md-4 col-xl-2">
+        <div class="col-sm-6 col-lg-3">
             <div class="card h-100">
                 <div class="card-body">
                     <div class="d-flex align-items-start justify-content-between">
@@ -81,7 +81,7 @@
                 </div>
             </div>
         </div>
-        <div class="col-sm-6 col-md-4 col-xl-2">
+        <div class="col-sm-6 col-lg-3">
             <div class="card h-100">
                 <div class="card-body">
                     <div class="d-flex align-items-start justify-content-between">
@@ -94,7 +94,7 @@
                 </div>
             </div>
         </div>
-        <div class="col-sm-6 col-md-4 col-xl-2">
+        <div class="col-sm-6 col-lg-3">
             <div class="card h-100">
                 <div class="card-body">
                     <div class="d-flex align-items-start justify-content-between">
@@ -107,7 +107,7 @@
                 </div>
             </div>
         </div>
-        <div class="col-sm-6 col-md-4 col-xl-2">
+        <div class="col-sm-6 col-lg-3">
             <div class="card h-100">
                 <div class="card-body">
                     <div class="d-flex align-items-start justify-content-between">
@@ -120,7 +120,7 @@
                 </div>
             </div>
         </div>
-        <div class="col-sm-6 col-md-4 col-xl-2">
+        <div class="col-sm-6 col-lg-3">
             <div class="card h-100">
                 <div class="card-body">
                     <div class="d-flex align-items-start justify-content-between">
@@ -137,7 +137,7 @@
                 </div>
             </div>
         </div>
-        <div class="col-sm-6 col-md-4 col-xl-2">
+        <div class="col-sm-6 col-lg-3">
             <div class="card h-100">
                 <div class="card-body">
                     <div class="d-flex align-items-start justify-content-between">
