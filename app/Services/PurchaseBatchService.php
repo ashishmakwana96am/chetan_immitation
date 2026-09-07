@@ -148,7 +148,11 @@ class PurchaseBatchService
         // 3. Group items by price and calculate available stock
         $groupedByPrice = [];
         foreach ($items as $item) {
-            $priceKey = (string) number_format((float) $item->purchase_price, 2, '.', '');
+            $rawPrice = (float) $item->purchase_price;
+            if ($rawPrice <= 0) {
+                $rawPrice = self::resolveFallbackPurchasePrice($productId, $productVariantId);
+            }
+            $priceKey = (string) number_format($rawPrice, 2, '.', '');
             $multiplier = self::multiplierForProduct($product, $item->pair_type ?? null, $item->custom_size_value ?? null);
 
             if ($item->batch_type === 'transfer') {
@@ -184,7 +188,7 @@ class PurchaseBatchService
                     WHEN order_items.custom_size_value IS NOT NULL AND order_items.custom_size_value > 0 THEN order_items.custom_size_value
                     WHEN order_items.pair_type = "pair" THEN 2.0
                     ELSE 1.0
-                END, 0), 2) - ?) < 0.05', [(float)$item->purchase_price]);
+                END, 0), 2) - ?) < 0.05', [$rawPrice]);
 
             $soldQty = (float) $soldQuery->sum(DB::raw('order_items.quantity * CASE 
                 WHEN order_items.custom_size_value IS NOT NULL AND order_items.custom_size_value > 0 THEN order_items.custom_size_value
@@ -200,7 +204,7 @@ class PurchaseBatchService
                 ->whereNull('purchase_bills.deleted_at')
                 ->where('purchase_bills.status', PurchaseBill::STATUS_ACCEPTED)
                 ->when($productVariantId, fn($q) => $q->where('purchase_bill_items.product_variant_id', $productVariantId), fn($q) => $q->whereNull('purchase_bill_items.product_variant_id'))
-                ->whereRaw('ABS(ROUND(purchase_bill_items.purchase_price, 2) - ?) < 0.05', [(float)$item->purchase_price]);
+                ->whereRaw('ABS(ROUND(purchase_bill_items.purchase_price, 2) - ?) < 0.05', [$rawPrice]);
 
             $transferredOutQty = (float) $transferredOutQuery->sum(DB::raw('purchase_bill_items.quantity * CASE 
                 WHEN purchase_bill_items.custom_size_value IS NOT NULL AND purchase_bill_items.custom_size_value > 0 THEN purchase_bill_items.custom_size_value
@@ -213,7 +217,7 @@ class PurchaseBatchService
             if (!isset($groupedByPrice[$priceKey])) {
                 $groupedByPrice[$priceKey] = [
                     'purchase_item_id' => (int) $item->purchase_item_id,
-                    'purchase_price'   => (float) $item->purchase_price,
+                    'purchase_price'   => $rawPrice,
                     'available_qty'    => 0,
                 ];
             }
@@ -249,7 +253,7 @@ class PurchaseBatchService
 
         // 5. If remainingLive > 0 after allocated batches, assign remaining physical stock to fallback/last batch
         if ($remainingLive > 0) {
-            if ($lastBatchRecorded) {
+            if ($lastBatchRecorded && (float)$lastBatchRecorded['purchase_price'] > 0) {
                 $existingQty = DB::table('purchase_batch_stocks')
                     ->where('location_id', $locationId)
                     ->where('product_id', $productId)
@@ -294,11 +298,29 @@ class PurchaseBatchService
         $pPrice = (float) (Product::where('id', $productId)->value('purchase_price') ?? 0);
         if ($pPrice > 0) return $pPrice;
 
-        $piPrice = (float) (DB::table('purchase_items')->where('product_id', $productId)->where('purchase_price', '>', 0)->value('purchase_price') ?? 0);
+        $piPrice = (float) (DB::table('purchase_items')
+            ->where('product_id', $productId)
+            ->when($productVariantId, fn($q) => $q->where('product_variant_id', $productVariantId))
+            ->where('purchase_price', '>', 0)
+            ->orderBy('id', 'desc')
+            ->value('purchase_price') ?? 0);
         if ($piPrice > 0) return $piPrice;
 
-        $pbiPrice = (float) (DB::table('purchase_bill_items')->where('product_id', $productId)->where('purchase_price', '>', 0)->value('purchase_price') ?? 0);
+        $pbiPrice = (float) (DB::table('purchase_bill_items')
+            ->where('product_id', $productId)
+            ->when($productVariantId, fn($q) => $q->where('product_variant_id', $productVariantId))
+            ->where('purchase_price', '>', 0)
+            ->orderBy('id', 'desc')
+            ->value('purchase_price') ?? 0);
         if ($pbiPrice > 0) return $pbiPrice;
+
+        if ($productVariantId) {
+            $generalPiPrice = (float) (DB::table('purchase_items')->where('product_id', $productId)->where('purchase_price', '>', 0)->orderBy('id', 'desc')->value('purchase_price') ?? 0);
+            if ($generalPiPrice > 0) return $generalPiPrice;
+
+            $generalPbiPrice = (float) (DB::table('purchase_bill_items')->where('product_id', $productId)->where('purchase_price', '>', 0)->orderBy('id', 'desc')->value('purchase_price') ?? 0);
+            if ($generalPbiPrice > 0) return $generalPbiPrice;
+        }
 
         return 0.0;
     }
@@ -309,6 +331,10 @@ class PurchaseBatchService
     private static function upsertBatchRecord(int $locationId, int $productId, ?int $productVariantId, ?int $purchaseItemId, float $purchasePrice, float $quantity): void
     {
         $priceVal = (float) number_format($purchasePrice, 2, '.', '');
+        if ($priceVal <= 0 && $quantity > 0) {
+            $priceVal = (float) number_format(self::resolveFallbackPurchasePrice($productId, $productVariantId), 2, '.', '');
+        }
+
         $existing = DB::table('purchase_batch_stocks')
             ->where('location_id', $locationId)
             ->where('product_id', $productId)

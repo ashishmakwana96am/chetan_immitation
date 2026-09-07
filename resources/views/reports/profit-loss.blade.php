@@ -62,59 +62,73 @@
         <div id="chart-data" 
              data-monthly-revenue='@json($monthlyRevenue)' 
              data-monthly-cogs='@json($monthlyCogs)'
-             data-monthly-expenses='@json($monthlyExpenses)'>
+             data-monthly-expenses='@json($monthlyExpenses)'
+             data-monthly-tax='@json($monthlyTax)'>
         </div>
 
         <!-- Stats Cards -->
         <div class="row g-4 mb-4">
-        <div class="col-sm-6 col-xl-3">
-            <div class="card">
+        <div class="col-sm-6 col-md-4 col-xl-2">
+            <div class="card h-100">
                 <div class="card-body">
                     <div class="d-flex align-items-start justify-content-between">
                         <div>
-                            <span class="text-muted">Revenue</span>
-                            <h4 class="mb-0 mt-1 text-success">{{ format_price($totalRevenue) }}</h4>
+                            <span class="text-muted small">Revenue</span>
+                            <h5 class="mb-0 mt-1 text-success">{{ format_price($totalRevenue) }}</h5>
                         </div>
                         <span class="badge bg-label-success rounded p-2"><i class="ti ti-arrow-up-right ti-sm"></i></span>
                     </div>
                 </div>
             </div>
         </div>
-        <div class="col-sm-6 col-xl-3">
-            <div class="card">
+        <div class="col-sm-6 col-md-4 col-xl-2">
+            <div class="card h-100">
                 <div class="card-body">
                     <div class="d-flex align-items-start justify-content-between">
                         <div>
-                            <span class="text-muted">Cost of Goods Sold (COGS)</span>
-                            <h4 class="mb-0 mt-1 text-danger">{{ format_price($totalCogs) }}</h4>
+                            <span class="text-muted small">COGS (Cost)</span>
+                            <h5 class="mb-0 mt-1 text-danger">{{ format_price($totalCogs) }}</h5>
                         </div>
                         <span class="badge bg-label-danger rounded p-2"><i class="ti ti-arrow-down-left ti-sm"></i></span>
                     </div>
                 </div>
             </div>
         </div>
-        <div class="col-sm-6 col-xl-3">
-            <div class="card">
+        <div class="col-sm-6 col-md-4 col-xl-2">
+            <div class="card h-100">
                 <div class="card-body">
                     <div class="d-flex align-items-start justify-content-between">
                         <div>
-                            <span class="text-muted">Expenses</span>
-                            <h4 class="mb-0 mt-1 text-warning">{{ format_price($totalExpenses) }}</h4>
+                            <span class="text-muted small">Expenses</span>
+                            <h5 class="mb-0 mt-1 text-warning">{{ format_price($totalExpenses) }}</h5>
                         </div>
                         <span class="badge bg-label-warning rounded p-2"><i class="ti ti-receipt ti-sm"></i></span>
                     </div>
                 </div>
             </div>
         </div>
-        <div class="col-sm-6 col-xl-3">
-            <div class="card">
+        <div class="col-sm-6 col-md-4 col-xl-2">
+            <div class="card h-100">
                 <div class="card-body">
                     <div class="d-flex align-items-start justify-content-between">
                         <div>
-                            <span class="text-muted">Net Profit</span>
-                            <h4 class="mb-0 mt-1 {{ $netProfit >= 0 ? 'text-success' : 'text-danger' }}">
+                            <span class="text-muted small">Taxable Amount</span>
+                            <h5 class="mb-0 mt-1 text-info">{{ format_price($totalTax) }}</h5>
+                        </div>
+                        <span class="badge bg-label-info rounded p-2"><i class="ti ti-file-dollar ti-sm"></i></span>
+                    </div>
+                </div>
+            </div>
+        </div>
+        <div class="col-sm-6 col-md-4 col-xl-2">
+            <div class="card h-100">
+                <div class="card-body">
+                    <div class="d-flex align-items-start justify-content-between">
+                        <div>
+                            <span class="text-muted small">Net Profit</span>
+                            <h5 class="mb-0 mt-1 {{ $netProfit >= 0 ? 'text-success' : 'text-danger' }}">
                                 {{ format_price($netProfit) }}
-                            </h4>
+                            </h5>
                         </div>
                         <span class="badge {{ $netProfit >= 0 ? 'bg-label-success' : 'bg-label-danger' }} rounded p-2">
                             <i class="ti ti-presentation ti-sm"></i>
@@ -123,15 +137,15 @@
                 </div>
             </div>
         </div>
-        <div class="col-sm-6 col-xl-3">
-            <div class="card">
+        <div class="col-sm-6 col-md-4 col-xl-2">
+            <div class="card h-100">
                 <div class="card-body">
                     <div class="d-flex align-items-start justify-content-between">
                         <div>
-                            <span class="text-muted">Profit Margin</span>
-                            <h4 class="mb-0 mt-1">{{ number_format($profitMargin, 2) }}%</h4>
+                            <span class="text-muted small">Profit Margin</span>
+                            <h5 class="mb-0 mt-1">{{ number_format($profitMargin, 2) }}%</h5>
                         </div>
-                        <span class="badge bg-label-info rounded p-2"><i class="ti ti-percentage ti-sm"></i></span>
+                        <span class="badge bg-label-primary rounded p-2"><i class="ti ti-percentage ti-sm"></i></span>
                     </div>
                 </div>
             </div>
@@ -179,6 +193,16 @@
                     <div class="ledger-line total-line">
                         <span>Total Operating Expenses</span>
                         <span class="text-danger">{{ format_price($totalExpenses) }}</span>
+                    </div>
+
+                    <div class="ledger-header">Taxable Amount</div>
+                    <div class="ledger-line">
+                        <span>Taxable Amount</span>
+                        <span class="text-danger">-{{ format_price($totalTax) }}</span>
+                    </div>
+                    <div class="ledger-line total-line">
+                        <span>Total Taxable Amount</span>
+                        <span class="text-danger">{{ format_price($totalTax) }}</span>
                     </div>
 
                     <!-- Net Income -->
@@ -377,11 +401,13 @@
         const monthlyRevenue = JSON.parse(chartDataEl.attr('data-monthly-revenue') || '{}');
         const monthlyCogs = JSON.parse(chartDataEl.attr('data-monthly-cogs') || '{}');
         const monthlyExpenses = JSON.parse(chartDataEl.attr('data-monthly-expenses') || '{}');
+        const monthlyTax = JSON.parse(chartDataEl.attr('data-monthly-tax') || '{}');
 
         const months = Object.keys(monthlyRevenue);
         const revenueValues = Object.values(monthlyRevenue);
         const cogsValues = Object.values(monthlyCogs);
         const expensesValues = Object.values(monthlyExpenses);
+        const taxValues = Object.values(monthlyTax);
 
         if (revenueCogsChart) {
             revenueCogsChart.destroy();
@@ -393,11 +419,12 @@
                 series: [
                     { name: 'Revenue', data: revenueValues },
                     { name: 'COGS (Cost)', data: cogsValues },
-                    { name: 'Expenses', data: expensesValues }
+                    { name: 'Expenses', data: expensesValues },
+                    { name: 'Tax / GST', data: taxValues }
                 ],
                 xaxis: { categories: months },
-                colors: ['#28c76f', '#ea5455', '#ff9f43'],
-                plotOptions: { bar: { borderRadius: 4, columnWidth: '45%' } },
+                colors: ['#28c76f', '#ea5455', '#ff9f43', '#00cfe8'],
+                plotOptions: { bar: { borderRadius: 4, columnWidth: '55%' } },
                 dataLabels: { enabled: false },
                 yaxis: {
                     labels: {

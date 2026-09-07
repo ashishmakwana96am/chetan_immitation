@@ -28,7 +28,8 @@ class ProductController extends Controller
     public function index()
     {
         $this->authorize('view products');
-        $categories = Category::orderBy('name')->get();
+        $categories = Category::with(['subCategories' => fn($q) => $q->orderBy('name')])->orderBy('name')->get();
+        $subCategories = SubCategory::where('status', SubCategory::STATUS_ACTIVE)->orderBy('name')->get();
         $collections = Collection::where('status', 1)->orderBy('name')->get();
 
         $user = auth()->user();
@@ -39,7 +40,7 @@ class ProductController extends Controller
             $locations = Location::where('status', 1)->orderBy('name')->get();
         }
 
-        return view('products.index', compact('categories', 'collections', 'locations', 'isRestricted'));
+        return view('products.index', compact('categories', 'subCategories', 'collections', 'locations', 'isRestricted'));
     }
 
     public function data(Request $request)
@@ -56,7 +57,22 @@ class ProductController extends Controller
 
         $baseQuery = Product::query()
             ->when($request->category_id, function($q) use ($request) {
-                $q->where('category_id', $request->category_id);
+                $q->where('products.category_id', $request->category_id);
+            })
+            ->when($request->sub_category_ids, function($q) use ($request) {
+                $subCatIds = is_array($request->sub_category_ids)
+                    ? $request->sub_category_ids
+                    : explode(',', $request->sub_category_ids);
+                $subCatIds = array_filter(array_map('trim', $subCatIds));
+                if (!empty($subCatIds)) {
+                    $q->whereIn('products.sub_category_id', $subCatIds);
+                }
+            })
+            ->when($request->filled('min_price'), function($q) use ($request) {
+                $q->where('products.sale_price', '>=', (float) $request->min_price);
+            })
+            ->when($request->filled('max_price'), function($q) use ($request) {
+                $q->where('products.sale_price', '<=', (float) $request->max_price);
             })
             ->when($request->collection_id, function($q) use ($request) {
                 $q->where(function($subQ) use ($request) {

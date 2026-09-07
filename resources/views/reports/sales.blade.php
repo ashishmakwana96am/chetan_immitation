@@ -153,67 +153,160 @@
 
         <!-- Stats Cards -->
         <div class="row g-4 mb-4">
-        <div class="col-sm-6 col-xl-3">
-            <div class="card h-100">
-                <div class="card-body">
-                    <div class="d-flex align-items-start justify-content-between">
-                        <div>
-                            <span class="text-muted">Total Sales</span>
-                            <h4 class="mb-0 mt-1">{{ format_price($totalSales) }}</h4>
-                            <small class="text-muted d-block mt-1">Pending Amount: <span class="fw-semibold text-warning">{{ format_price($totalPendingAmount ?? 0) }}</span></small>
-                        </div>
-                        <span class="badge bg-label-success rounded p-2"><i class="ti ti-chart-line ti-sm"></i></span>
-                    </div>
-                </div>
-            </div>
-        </div>
-        <div class="col-sm-6 col-xl-3">
-            <div class="card h-100">
-                <div class="card-body">
-                    <div class="d-flex align-items-start justify-content-between">
-                        <div>
-                            <span class="text-muted">Total Orders</span>
-                            <h4 class="mb-0 mt-1">{{ $orderCount }}</h4>
-                        </div>
-                        <span class="badge bg-label-info rounded p-2"><i class="ti ti-shopping-cart ti-sm"></i></span>
-                    </div>
-                </div>
-            </div>
-        </div>
-        <div class="col-sm-6 col-xl-3">
-            <div class="card h-100">
-                <div class="card-body">
-                    <div class="d-flex align-items-start justify-content-between">
-                        <div>
-                            <span class="text-muted">Avg Order Value</span>
-                            <h4 class="mb-0 mt-1">{{ format_price($avgOrderValue) }}</h4>
-                        </div>
-                        <span class="badge bg-label-primary rounded p-2"><i class="ti ti-calculator ti-sm"></i></span>
-                    </div>
-                </div>
-            </div>
-        </div>
-        <div class="col-sm-6 col-xl-3">
-            <div class="card h-100">
-                <div class="card-body">
-                    <div class="d-flex align-items-start justify-content-between">
-                        <div>
-                            <span class="text-muted">Payment Split</span>
-                            <div class="d-flex flex-wrap gap-1 mt-1">
-                                <span class="badge bg-label-success">{{ $paidCount }} Paid</span>
-                                @if(($partialCount ?? 0) > 0)
-                                    <span class="badge bg-label-info">{{ $partialCount }} Partial</span>
-                                @endif
-                                <span class="badge bg-label-warning">{{ $pendingCount }} Unpaid</span>
+        @if((string)$isGst === '1')
+            <div class="col-sm-6 col-lg-3">
+                <div class="card h-100">
+                    <div class="card-body">
+                        <div class="d-flex align-items-start justify-content-between">
+                            <div>
+                                <span class="text-muted">Total Sales</span>
+                                <h4 class="mb-0 mt-1 text-success">{{ format_price($totalSales) }}</h4>
+                                <small class="text-muted d-block mt-1">Pending: <span class="fw-semibold text-warning">{{ format_price($totalPendingAmount ?? 0) }}</span></small>
                             </div>
-                            <small class="text-muted d-block mt-1">Pending: <span class="fw-semibold text-warning">{{ format_price($totalPendingAmount ?? 0) }}</span></small>
+                            <span class="badge bg-label-success rounded p-2"><i class="ti ti-chart-line ti-sm"></i></span>
                         </div>
-                        <span class="badge bg-label-secondary rounded p-2"><i class="ti ti-wallet ti-sm"></i></span>
                     </div>
                 </div>
             </div>
+            <div class="col-sm-6 col-lg-3">
+                <div class="card h-100">
+                    <div class="card-body">
+                        <div class="d-flex align-items-start justify-content-between">
+                            <div>
+                                <span class="text-muted">Taxable Amount</span>
+                                <h4 class="mb-0 mt-1 text-primary">{{ format_price($totalTaxableAmount ?? 0) }}</h4>
+                                <small class="text-muted d-block mt-1">Base Amount</small>
+                            </div>
+                            <span class="badge bg-label-primary rounded p-2"><i class="ti ti-box ti-sm"></i></span>
+                        </div>
+                    </div>
+                </div>
+            </div>
+            <div class="col-sm-6 col-lg-3">
+                <div class="card h-100">
+                    <div class="card-body">
+                        <div class="d-flex align-items-start justify-content-between">
+                            <div>
+                                <span class="text-muted">GST Amount</span>
+                                <h4 class="mb-0 mt-1 text-warning">{{ format_price($totalGstAmount ?? 0) }}</h4>
+                                <small class="text-muted d-block mt-1">Total Tax</small>
+                            </div>
+                            <span class="badge bg-label-warning rounded p-2"><i class="ti ti-file-dollar ti-sm"></i></span>
+                        </div>
+                    </div>
+                </div>
+            </div>
+            <div class="col-sm-6 col-lg-3">
+                <div class="card h-100">
+                    <div class="card-body">
+                        <div class="d-flex align-items-start justify-content-between">
+                            <div>
+                                <span class="text-muted">Total Orders</span>
+                                <h4 class="mb-0 mt-1">{{ $orderCount }}</h4>
+                                <small class="text-muted d-block mt-1">Orders Count</small>
+                            </div>
+                            <span class="badge bg-label-info rounded p-2"><i class="ti ti-shopping-cart ti-sm"></i></span>
+                        </div>
+                    </div>
+                </div>
+            </div>
+            <div class="col-sm-6 col-lg-3">
+                <div class="card h-100">
+                    <div class="card-body">
+                        <div class="d-flex align-items-start justify-content-between">
+                            <div>
+                                <span class="text-muted">Avg Order Value</span>
+                                <h4 class="mb-0 mt-1">{{ format_price($avgOrderValue) }}</h4>
+                                <small class="text-muted d-block mt-1">Per Order</small>
+                            </div>
+                            <span class="badge bg-label-secondary rounded p-2"><i class="ti ti-calculator ti-sm"></i></span>
+                        </div>
+                    </div>
+                </div>
+            </div>
+            <div class="col-sm-6 col-lg-3">
+                <div class="card h-100">
+                    <div class="card-body">
+                        <div class="d-flex align-items-start justify-content-between">
+                            <div>
+                                <span class="text-muted">Payment Split</span>
+                                <div class="d-flex flex-wrap gap-1 mt-1">
+                                    <span class="badge bg-label-success">{{ $paidCount }} Paid</span>
+                                    @if(($partialCount ?? 0) > 0)
+                                        <span class="badge bg-label-info">{{ $partialCount }} Partial</span>
+                                    @endif
+                                    <span class="badge bg-label-warning">{{ $pendingCount }} Unpaid</span>
+                                </div>
+                                <small class="text-muted d-block mt-1">Pending: <span class="fw-semibold text-warning">{{ format_price($totalPendingAmount ?? 0) }}</span></small>
+                            </div>
+                            <span class="badge bg-label-dark rounded p-2"><i class="ti ti-wallet ti-sm"></i></span>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        @else
+            <div class="col-sm-6 col-xl-3">
+                <div class="card h-100">
+                    <div class="card-body">
+                        <div class="d-flex align-items-start justify-content-between">
+                            <div>
+                                <span class="text-muted">Total Sales</span>
+                                <h4 class="mb-0 mt-1">{{ format_price($totalSales) }}</h4>
+                                <small class="text-muted d-block mt-1">Pending Amount: <span class="fw-semibold text-warning">{{ format_price($totalPendingAmount ?? 0) }}</span></small>
+                            </div>
+                            <span class="badge bg-label-success rounded p-2"><i class="ti ti-chart-line ti-sm"></i></span>
+                        </div>
+                    </div>
+                </div>
+            </div>
+            <div class="col-sm-6 col-xl-3">
+                <div class="card h-100">
+                    <div class="card-body">
+                        <div class="d-flex align-items-start justify-content-between">
+                            <div>
+                                <span class="text-muted">Total Orders</span>
+                                <h4 class="mb-0 mt-1">{{ $orderCount }}</h4>
+                            </div>
+                            <span class="badge bg-label-info rounded p-2"><i class="ti ti-shopping-cart ti-sm"></i></span>
+                        </div>
+                    </div>
+                </div>
+            </div>
+            <div class="col-sm-6 col-xl-3">
+                <div class="card h-100">
+                    <div class="card-body">
+                        <div class="d-flex align-items-start justify-content-between">
+                            <div>
+                                <span class="text-muted">Avg Order Value</span>
+                                <h4 class="mb-0 mt-1">{{ format_price($avgOrderValue) }}</h4>
+                            </div>
+                            <span class="badge bg-label-primary rounded p-2"><i class="ti ti-calculator ti-sm"></i></span>
+                        </div>
+                    </div>
+                </div>
+            </div>
+            <div class="col-sm-6 col-xl-3">
+                <div class="card h-100">
+                    <div class="card-body">
+                        <div class="d-flex align-items-start justify-content-between">
+                            <div>
+                                <span class="text-muted">Payment Split</span>
+                                <div class="d-flex flex-wrap gap-1 mt-1">
+                                    <span class="badge bg-label-success">{{ $paidCount }} Paid</span>
+                                    @if(($partialCount ?? 0) > 0)
+                                        <span class="badge bg-label-info">{{ $partialCount }} Partial</span>
+                                    @endif
+                                    <span class="badge bg-label-warning">{{ $pendingCount }} Unpaid</span>
+                                </div>
+                                <small class="text-muted d-block mt-1">Pending: <span class="fw-semibold text-warning">{{ format_price($totalPendingAmount ?? 0) }}</span></small>
+                            </div>
+                            <span class="badge bg-label-secondary rounded p-2"><i class="ti ti-wallet ti-sm"></i></span>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        @endif
         </div>
-    </div>
 
     <!-- Charts Row -->
     <div class="row g-4 mb-4">

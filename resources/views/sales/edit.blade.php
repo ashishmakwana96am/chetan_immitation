@@ -934,6 +934,8 @@ $(document).ready(function () {
                 if (hasSelected && selOpt.length && selOpt.val()) {
                     row.data('available-pcs', parseInt(selOpt.attr('data-available-qty')) || 0);
                     row.data('purchase-price', parseFloat(selOpt.attr('data-purchase-price')) || 0);
+                } else if (row.data('purchase-price') !== undefined && row.data('purchase-price') !== null && parseFloat(row.data('purchase-price')) > 0) {
+                    // Retain existing preserved purchase price
                 } else {
                     row.data('purchase-price', 0);
                 }
@@ -949,7 +951,9 @@ $(document).ready(function () {
             } else if (batches.length > 0) {
                 // Stock has only 1 distinct purchase price -> Auto-select, keep hidden, focus search input
                 const b = batches[0];
-                const pPriceVal = parseFloat(b.purchase_price) || 0;
+                const pPriceVal = (row.data('purchase-price') !== undefined && row.data('purchase-price') !== null && parseFloat(row.data('purchase-price')) > 0)
+                    ? parseFloat(row.data('purchase-price'))
+                    : (parseFloat(b.purchase_price) || 0);
                 let html = `<select class="batch-select batch-select-hidden no-select2">
                     <option value="${b.purchase_item_id}" data-purchase-price="${pPriceVal}" data-available-qty="${b.available_qty}" selected>Batch 1</option>
                 </select>`;
@@ -965,7 +969,9 @@ $(document).ready(function () {
                 }
             } else {
                 // No batches found -> Default purchase price
-                const defaultPurchasePrice = product.purchase_price || 0;
+                const defaultPurchasePrice = (row.data('purchase-price') !== undefined && row.data('purchase-price') !== null && parseFloat(row.data('purchase-price')) > 0)
+                    ? parseFloat(row.data('purchase-price'))
+                    : (product.purchase_price || 0);
                 let html = `<select class="batch-select batch-select-hidden no-select2">
                     <option value="" data-purchase-price="${defaultPurchasePrice}" data-available-qty="0" selected>Default</option>
                 </select>`;
@@ -980,7 +986,9 @@ $(document).ready(function () {
                 }
             }
         }).fail(function() {
-            const defaultPurchasePrice = product.purchase_price || 0;
+            const defaultPurchasePrice = (row.data('purchase-price') !== undefined && row.data('purchase-price') !== null && parseFloat(row.data('purchase-price')) > 0)
+                ? parseFloat(row.data('purchase-price'))
+                : (product.purchase_price || 0);
             let html = `<select class="batch-select batch-select-hidden no-select2">
                 <option value="" data-purchase-price="${defaultPurchasePrice}" data-available-qty="0" selected>Default</option>
             </select>`;
@@ -991,7 +999,7 @@ $(document).ready(function () {
         });
     }
 
-    function addItemRow(product, selectedVariantId = null, qty = 1, price = null, discountType = 'percentage', discountValue = 0, pairType = 'single', customSizeValue = null, prependRow = true, existingMrp = null, purchaseItemId = null) {
+    function addItemRow(product, selectedVariantId = null, qty = 1, price = null, discountType = 'percentage', discountValue = 0, pairType = 'single', customSizeValue = null, prependRow = true, existingMrp = null, purchaseItemId = null, existingPurchasePrice = null, orderItemId = null) {
         const template = document.getElementById('itemRowTemplate').innerHTML
             .replaceAll('__INDEX__', itemIndex);
 
@@ -1010,6 +1018,15 @@ $(document).ready(function () {
 
         row.data('product', product);
         row.data('index', itemIndex);
+        if (orderItemId) {
+            row.data('order-item-id', orderItemId);
+        }
+        if (purchaseItemId) {
+            row.data('purchase-item-id', purchaseItemId);
+        }
+        if (existingPurchasePrice !== null && existingPurchasePrice !== undefined) {
+            row.data('purchase-price', parseFloat(existingPurchasePrice) || 0);
+        }
 
         if (product.type === 'variable') {
             // Build variant select dropdown
@@ -1046,7 +1063,9 @@ $(document).ready(function () {
             row.attr('data-variant-id', initialVariantId);
             row.data('variant-id', initialVariantId);
             row.data('mrp', initialMrp);
-            row.data('purchase-price', selectedOpt.data('purchase-price') || 0);
+            if (existingPurchasePrice === null || existingPurchasePrice === undefined) {
+                row.data('purchase-price', selectedOpt.data('purchase-price') || 0);
+            }
             row.data('bypass-min-price', product.bypass_min_price == 1 || product.bypass_min_price === true);
             row.find('.item-mrp-display').text(symbol + ' ' + formatPrice(initialMrp));
             setItemPrice(row, price != null ? price : (initialPrice > 0 ? initialPrice : (selectedOpt.data('price') || 0)));
@@ -1055,7 +1074,9 @@ $(document).ready(function () {
             row.find('.product-sku-display').text('Barcode: ' + product.barcode);
             const itemMrp = existingMrp != null ? existingMrp : (product.mrp != null ? product.mrp : 0);
             row.data('mrp', itemMrp);
-            row.data('purchase-price', product.purchase_price != null ? product.purchase_price : 0);
+            if (existingPurchasePrice === null || existingPurchasePrice === undefined) {
+                row.data('purchase-price', product.purchase_price != null ? product.purchase_price : 0);
+            }
             row.data('bypass-min-price', product.bypass_min_price == 1 || product.bypass_min_price === true);
             row.find('.item-mrp-display').text(symbol + ' ' + formatPrice(itemMrp));
             setItemPrice(row, price != null ? price : (product.price != null ? product.price : 0));
@@ -1310,12 +1331,12 @@ $(document).ready(function () {
                     }
                     
                     if (matchedVariant) {
-                        addItemRow(product, matchedVariant.id, item.quantity, item.price, item.discount_type, item.discount_value, item.pair_type || 'single', item.custom_size_value, false, item.mrp, item.purchase_item_id);
+                        addItemRow(product, matchedVariant.id, item.quantity, item.price, item.discount_type, item.discount_value, item.pair_type || 'single', item.custom_size_value, false, item.mrp, item.purchase_item_id, item.purchase_price, item.order_item_id);
                     }
                 });
             } else {
                 const item = itemsForProduct[0];
-                addItemRow(product, null, item.quantity, item.price, item.discount_type, item.discount_value, item.pair_type || 'single', item.custom_size_value, false, item.mrp, item.purchase_item_id);
+                addItemRow(product, null, item.quantity, item.price, item.discount_type, item.discount_value, item.pair_type || 'single', item.custom_size_value, false, item.mrp, item.purchase_item_id, item.purchase_price, item.order_item_id);
             }
         });
     }
@@ -2103,9 +2124,14 @@ $(document).ready(function () {
             const discountValue = parseFloat(row.find('.item-discount-value').val()) || 0;
 
             const batchSelect = row.find('.batch-select');
-            const purchaseItemId = batchSelect.length ? (batchSelect.val() || '') : '';
-            const purchasePrice = batchSelect.length ? (batchSelect.find('option:selected').data('purchase-price') || '') : '';
+            const purchaseItemId = batchSelect.length ? (batchSelect.val() || row.data('purchase-item-id') || '') : (row.data('purchase-item-id') || '');
+            let purchasePrice = batchSelect.length ? (batchSelect.find('option:selected').data('purchase-price') || '') : '';
+            if (purchasePrice === '' || purchasePrice === undefined || purchasePrice === null) {
+                purchasePrice = row.data('purchase-price') !== undefined ? row.data('purchase-price') : '';
+            }
+            const orderItemId = row.data('order-item-id') || '';
 
+            hiddenContainer.append(`<input type="hidden" name="items[${submitIdx}][order_item_id]" value="${orderItemId}">`);
             hiddenContainer.append(`<input type="hidden" name="items[${submitIdx}][product_id]" value="${product.id}">`);
             hiddenContainer.append(`<input type="hidden" name="items[${submitIdx}][product_variant_id]" value="${variantId}">`);
             hiddenContainer.append(`<input type="hidden" name="items[${submitIdx}][purchase_item_id]" value="${purchaseItemId}">`);

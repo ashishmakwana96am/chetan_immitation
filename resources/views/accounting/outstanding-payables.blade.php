@@ -197,6 +197,11 @@
                             <option value="online">Online</option>
                         </select>
                     </div>
+
+                    <div class="mb-3">
+                        <label class="form-label fw-semibold">Description</label>
+                        <textarea id="bulk-pay-description" name="description" class="form-control" rows="3" placeholder="Enter description / notes (optional)"></textarea>
+                    </div>
                 </div>
                 <div class="d-flex p-4 border-top gap-3 mt-auto mb-0">
                     <button type="submit" id="bulkPaySubmitBtn" class="btn btn-primary flex-fill w-50 m-0">
@@ -411,6 +416,7 @@
                 $('#bulk-pay-location-id').val(locationId);
                 $('#bulk-pay-amount').val('');
                 $('#bulk-pay-supplier-id').val('');
+                $('#bulk-pay-description').val('');
                 updateBulkPayMax();
             });
 

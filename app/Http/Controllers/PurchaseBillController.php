@@ -380,7 +380,24 @@ class PurchaseBillController extends Controller
 
                 $unitPrice = (isset($item['purchase_price']) && is_numeric($item['purchase_price']) && (float)$item['purchase_price'] > 0)
                     ? (float) $item['purchase_price']
-                    : ($variantObj ? $variantObj->purchase_price : ($product ? $product->purchase_price : 0));
+                    : ($variantObj ? (float)$variantObj->purchase_price : ($product ? (float)$product->purchase_price : 0));
+
+                if ($unitPrice <= 0) {
+                    $sourceBatchPrice = DB::table('purchase_batch_stocks')
+                        ->where('location_id', $defaultLocation->id)
+                        ->where('product_id', $item['product_id'])
+                        ->when(!empty($item['product_variant_id']), fn($q) => $q->where('product_variant_id', $item['product_variant_id']), fn($q) => $q->whereNull('product_variant_id'))
+                        ->where('quantity', '>', 0)
+                        ->where('purchase_price', '>', 0)
+                        ->orderBy('id', 'desc')
+                        ->value('purchase_price');
+
+                    if ($sourceBatchPrice !== null && (float)$sourceBatchPrice > 0) {
+                        $unitPrice = (float) $sourceBatchPrice;
+                    } else {
+                        $unitPrice = \App\Services\PurchaseBatchService::resolveFallbackPurchasePrice((int)$item['product_id'], !empty($item['product_variant_id']) ? (int)$item['product_variant_id'] : null);
+                    }
+                }
 
                 PurchaseBillItem::create([
                     'purchase_bill_id'   => $transfer->id,
@@ -537,7 +554,24 @@ class PurchaseBillController extends Controller
 
                 $unitPrice = (isset($item['purchase_price']) && is_numeric($item['purchase_price']) && (float)$item['purchase_price'] > 0)
                     ? (float) $item['purchase_price']
-                    : ($variantObj ? $variantObj->purchase_price : ($product ? $product->purchase_price : 0));
+                    : ($variantObj ? (float)$variantObj->purchase_price : ($product ? (float)$product->purchase_price : 0));
+
+                if ($unitPrice <= 0) {
+                    $sourceBatchPrice = DB::table('purchase_batch_stocks')
+                        ->where('location_id', $fromLocation->id)
+                        ->where('product_id', $item['product_id'])
+                        ->when(!empty($item['product_variant_id']), fn($q) => $q->where('product_variant_id', $item['product_variant_id']), fn($q) => $q->whereNull('product_variant_id'))
+                        ->where('quantity', '>', 0)
+                        ->where('purchase_price', '>', 0)
+                        ->orderBy('id', 'desc')
+                        ->value('purchase_price');
+
+                    if ($sourceBatchPrice !== null && (float)$sourceBatchPrice > 0) {
+                        $unitPrice = (float) $sourceBatchPrice;
+                    } else {
+                        $unitPrice = \App\Services\PurchaseBatchService::resolveFallbackPurchasePrice((int)$item['product_id'], !empty($item['product_variant_id']) ? (int)$item['product_variant_id'] : null);
+                    }
+                }
 
                 PurchaseBillItem::create([
                     'purchase_bill_id'   => $purchaseBill->id,
@@ -678,11 +712,21 @@ class PurchaseBillController extends Controller
                     ->where('product_id', $item->product_id)
                     ->when($item->product_variant_id, fn($q) => $q->where('product_variant_id', $item->product_variant_id), fn($q) => $q->whereNull('product_variant_id'))
                     ->where('quantity', '>', 0)
+                    ->where('purchase_price', '>', 0)
+                    ->orderBy('id', 'desc')
                     ->value('purchase_price');
 
                 $unitPrice = ((float)$item->purchase_price > 0)
                     ? (float) $item->purchase_price
                     : (($sourceBatchPrice !== null && (float)$sourceBatchPrice > 0) ? (float)$sourceBatchPrice : $this->purchasePriceForPurchaseBillItem($item));
+
+                if ($unitPrice <= 0) {
+                    $unitPrice = \App\Services\PurchaseBatchService::resolveFallbackPurchasePrice((int)$item->product_id, !empty($item->product_variant_id) ? (int)$item->product_variant_id : null);
+                }
+
+                if ((float)$item->purchase_price <= 0 && $unitPrice > 0) {
+                    $item->update(['purchase_price' => $unitPrice]);
+                }
 
                 \App\Services\PurchaseBatchService::deductBatchStock((int)$purchaseBill->from_location_id, (int)$item->product_id, !empty($item->product_variant_id) ? (int)$item->product_variant_id : null, (float)$unitPrice, (float)$stockQty);
                 \App\Services\PurchaseBatchService::addBatchStock((int)$purchaseBill->to_location_id, (int)$item->product_id, !empty($item->product_variant_id) ? (int)$item->product_variant_id : null, $item->id, (float)$unitPrice, (float)$stockQty);
@@ -1239,6 +1283,10 @@ class PurchaseBillController extends Controller
             Product::preloadVariantStock($products);
 
             $allProducts = $products->map(function ($p) {
+                $resolvedProductPrice = (float) ($p->purchase_price ?? 0);
+                if ($resolvedProductPrice <= 0) {
+                    $resolvedProductPrice = \App\Services\PurchaseBatchService::resolveFallbackPurchasePrice($p->id, null);
+                }
                 $data = [
                     'id'             => $p->id,
                     'name'           => $p->name,
@@ -1246,14 +1294,18 @@ class PurchaseBillController extends Controller
                     'type'           => $p->type,
                     'pair_product'   => (bool) $p->pair_product,
                     'custom_sizes'   => $p->custom_sizes ?? [],
-                    'purchase_price' => $p->purchase_price,
+                    'purchase_price' => $resolvedProductPrice > 0 ? $resolvedProductPrice : $p->purchase_price,
                     'image'          => $p->primary_image_url,
                 ];
                 if ($p->type === 'variable') {
-                    $data['variants'] = $p->variants->filter(fn ($v) => $v->status == 1)->values()->map(function ($v) {
+                    $data['variants'] = $p->variants->filter(fn ($v) => $v->status == 1)->values()->map(function ($v) use ($p) {
+                        $resolvedVarPrice = (float) ($v->purchase_price ?? 0);
+                        if ($resolvedVarPrice <= 0) {
+                            $resolvedVarPrice = \App\Services\PurchaseBatchService::resolveFallbackPurchasePrice($p->id, $v->id);
+                        }
                         return [
                             'id'             => $v->id,
-                            'purchase_price' => $v->purchase_price,
+                            'purchase_price' => $resolvedVarPrice > 0 ? $resolvedVarPrice : $v->purchase_price,
                             'custom_sizes'   => $v->custom_sizes ?? [],
                             'attr_name'      => $v->attributeValue->attribute->name ?? '',
                             'value_name'     => $v->attributeValue->value ?? '',

@@ -1050,11 +1050,13 @@ class AccountingController extends Controller
             &$advanceAmount
         ) {
             $supplierId = $request->filled('supplier_id') ? (int) $request->supplier_id : null;
+            $description = $request->filled('description') ? trim($request->description) : null;
 
             $bulkPayRecord = BulkPurchasePayment::create([
                 'total_amount'   => $enteredAmount,
                 'supplier_id'    => $supplierId,
                 'payment_method' => $paymentMethod,
+                'description'    => $description,
                 'created_by'     => auth()->id(),
             ]);
 
@@ -1064,7 +1066,7 @@ class AccountingController extends Controller
                 $bulkPayRecord,
                 null,
                 $bulkPayRecord->toArray(),
-                'Created bulk purchase payment of ' . format_price($enteredAmount) . ' via ' . ucfirst($paymentMethod)
+                'Created bulk purchase payment of ' . format_price($enteredAmount) . ' via ' . ucfirst($paymentMethod) . ($description ? ' (Desc: ' . $description . ')' : '')
             );
 
             // FIFO: Settle pending purchase bills
@@ -1130,7 +1132,7 @@ class AccountingController extends Controller
                     'used_amount'              => 0.00,
                     'remaining_amount'         => $advanceAmount,
                     'payment_method'           => $paymentMethod,
-                    'notes'                    => 'Supplier Advance Payment',
+                    'notes'                    => $description ? $description : 'Supplier Advance Payment',
                     'created_by'               => auth()->id(),
                 ]);
 
@@ -1152,6 +1154,7 @@ class AccountingController extends Controller
 
             $supplierObj = $supplierId ? Supplier::find($supplierId) : null;
             $suppName = $supplierObj ? $supplierObj->name : 'Supplier';
+            $descSuffix = $description ? ' (' . $description . ')' : '';
 
             // 1. Transaction for Purchase Bill Payment (if any allocated to bills)
             if ($totalPaidAllocated > 0) {
@@ -1165,7 +1168,7 @@ class AccountingController extends Controller
                     'type'          => LocationBalanceTransaction::TYPE_DEBIT,
                     'amount'        => $totalPaidAllocated,
                     'balance_after' => $newBal,
-                    'notes'         => 'Purchase Payment (' . format_price($totalPaidAllocated) . ') to ' . $suppName,
+                    'notes'         => 'Purchase Payment (' . format_price($totalPaidAllocated) . ') to ' . $suppName . $descSuffix,
                     'created_by'    => auth()->id(),
                 ]);
             }
@@ -1182,7 +1185,7 @@ class AccountingController extends Controller
                     'type'          => LocationBalanceTransaction::TYPE_DEBIT,
                     'amount'        => $remainingPayment,
                     'balance_after' => $newBal,
-                    'notes'         => 'Advance Payment (' . format_price($remainingPayment) . ') to ' . $suppName,
+                    'notes'         => 'Advance Payment (' . format_price($remainingPayment) . ') to ' . $suppName . $descSuffix,
                     'created_by'    => auth()->id(),
                 ]);
             }
@@ -1255,7 +1258,7 @@ class AccountingController extends Controller
         $rows = $payments->map(function ($payment, $index) use ($canEdit, $canDelete) {
             $items = '';
             if ($canEdit) {
-                $items .= '<a href="javascript:void(0)" class="dropdown-item edit-payable-payment-btn" data-id="' . $payment->id . '" data-amount="' . $payment->total_amount . '" data-method="' . e($payment->payment_method ?? 'cash') . '" data-supplier="' . ($payment->supplier_id ?? '') . '"><i class="ti ti-pencil me-2"></i>Edit</a>';
+                $items .= '<a href="javascript:void(0)" class="dropdown-item edit-payable-payment-btn" data-id="' . $payment->id . '" data-amount="' . $payment->total_amount . '" data-method="' . e($payment->payment_method ?? 'cash') . '" data-supplier="' . ($payment->supplier_id ?? '') . '" data-description="' . e($payment->description ?? '') . '"><i class="ti ti-pencil me-2"></i>Edit</a>';
             }
             if ($canDelete) {
                 $items .= '<button type="button" class="dropdown-item text-danger delete-payable-payment-btn" data-id="' . $payment->id . '"><i class="ti ti-trash me-2"></i>Delete</button>';
@@ -1281,6 +1284,7 @@ class AccountingController extends Controller
                 'amount'         => format_price($payment->total_amount),
                 'amount_raw'     => (float) $payment->total_amount,
                 'payment_method' => ucfirst($payment->payment_method ?? 'cash'),
+                'description'    => !empty($payment->description) ? e($payment->description) : '-',
                 'created_by'     => e($payment->createdBy->name ?? 'System'),
                 'actions'        => $actions,
             ];
@@ -1307,13 +1311,15 @@ class AccountingController extends Controller
         $request->validate([
             'amount'         => ['required', 'numeric', 'min:0.01'],
             'payment_method' => ['required', 'string', 'in:cash,online'],
+            'description'    => ['nullable', 'string', 'max:1000'],
         ]);
 
         $newAmount = round((float) $request->amount, 2);
         $newPaymentMethod = $request->payment_method;
+        $newDescription = $request->filled('description') ? trim($request->description) : null;
 
         try {
-            DB::transaction(function () use ($payment, $newAmount, $newPaymentMethod) {
+            DB::transaction(function () use ($payment, $newAmount, $newPaymentMethod, $newDescription) {
                 // 1. Revert previous purchase payments for this bulk payment
                 $linkedPayments = PurchasePayment::where('bulk_purchase_payment_id', $payment->id)->get();
                 foreach ($linkedPayments as $pPayment) {
@@ -1385,6 +1391,7 @@ class AccountingController extends Controller
                 $payment->update([
                     'total_amount'   => $newAmount,
                     'payment_method' => $newPaymentMethod,
+                    'description'    => $newDescription,
                 ]);
 
                 ActivityLogger::log(
@@ -1947,7 +1954,9 @@ class AccountingController extends Controller
                     'created_by'    => auth()->id(),
                 ]);
 
-                // Clear Purchase Bills FIFO
+                LocationBalanceTransaction::syncLocationBalance($fromLocationId, $transfer->balance_type);
+                LocationBalanceTransaction::syncLocationBalance($toLocationId, $transfer->balance_type);
+
                 $fromUnpaidBills = \App\Models\PurchaseBill::with('items.product', 'items.variant')
                     ->where('from_location_id', $toLocationId)
                     ->where('to_location_id', $fromLocationId)
@@ -2139,6 +2148,14 @@ class AccountingController extends Controller
         $oldBalanceType = $transfer->balance_type;
         $oldAmount      = (float) $transfer->amount;
 
+        $senderLocationId = $user->location_id ? (int) $user->location_id : $oldFromId;
+        if (!$isSuperAdmin && $senderLocationId !== $newFromId) {
+            return response()->json([
+                'status'  => 'error',
+                'message' => ['from_location_id' => ['Branch admins can only initiate transfers from their own branch.']],
+            ], 422);
+        }
+
         $dueBills = \App\Models\PurchaseBill::with('items.product', 'items.variant')
             ->where('from_location_id', $newToId)
             ->where('to_location_id', $newFromId)
@@ -2196,30 +2213,17 @@ class AccountingController extends Controller
                 $newBalanceType,
                 $newAmount
             ) {
-                // If transfer was accepted, silently adjust balance difference & update purchase bill payments
                 if ((int) $transfer->status === BranchBalanceTransfer::STATUS_ACCEPTED) {
                     $oldBalanceCol = $oldBalanceType === LocationBalanceTransaction::BALANCE_TYPE_BANK ? 'bank_balance' : 'cash_balance';
-                    $newBalanceCol = $newBalanceType === LocationBalanceTransaction::BALANCE_TYPE_BANK ? 'bank_balance' : 'cash_balance';
-
-                    // 1. Revert Old Balance Effects (without adding audit transaction log rows)
-                    $oldFromBal = LocationBalance::firstOrCreate(['location_id' => $oldFromId]);
-                    $oldToBal   = LocationBalance::firstOrCreate(['location_id' => $oldToId]);
-
-                    $oldFromBal = LocationBalance::where('id', $oldFromBal->id)->lockForUpdate()->first();
-                    $oldToBal   = LocationBalance::where('id', $oldToBal->id)->lockForUpdate()->first();
+                    
+                    $oldToBal = LocationBalance::firstOrCreate(['location_id' => $oldToId]);
+                    $oldToBal = LocationBalance::where('id', $oldToBal->id)->lockForUpdate()->first();
 
                     $oldToCurrent = (float) $oldToBal->{$oldBalanceCol};
                     if ($oldToCurrent < $oldAmount) {
                         throw new \RuntimeException('insufficient_balance_revert');
                     }
 
-                    $oldFromNew = (float) $oldFromBal->{$oldBalanceCol} + $oldAmount;
-                    $oldToNew   = $oldToCurrent - $oldAmount;
-
-                    $oldFromBal->update([$oldBalanceCol => $oldFromNew]);
-                    $oldToBal->update([$oldBalanceCol => $oldToNew]);
-
-                    // Revert Old PurchaseBill payments generated by this transfer
                     $linkedPayments = \App\Models\PurchaseBillPayment::where('branch_balance_transfer_id', $transfer->id)->get();
                     foreach ($linkedPayments as $pPayment) {
                         $pBill = \App\Models\PurchaseBill::find($pPayment->purchase_bill_id);
@@ -2240,25 +2244,36 @@ class AccountingController extends Controller
                         $pPayment->delete();
                     }
 
-                    // 2. Apply New Balance Effects (without creating duplicate audit transaction rows)
-                    $newFromBal = LocationBalance::firstOrCreate(['location_id' => $newFromId]);
-                    $newToBal   = LocationBalance::firstOrCreate(['location_id' => $newToId]);
+                    $cleanTransferNo = preg_replace('/_del_\d+$/', '', $transfer->transfer_no);
+                    LocationBalanceTransaction::where(function ($q) use ($transfer, $cleanTransferNo) {
+                        $q->where('notes', 'LIKE', 'Transfer (' . $transfer->transfer_no . ')%')
+                          ->orWhere('notes', 'LIKE', 'Transfer (' . $cleanTransferNo . ')%');
+                    })->delete();
 
-                    $newFromBal = LocationBalance::where('id', $newFromBal->id)->lockForUpdate()->first();
-                    $newToBal   = LocationBalance::where('id', $newToBal->id)->lockForUpdate()->first();
+                    $fromLocName = Location::find($newFromId)->name ?? $newFromId;
+                    $toLocName   = Location::find($newToId)->name ?? $newToId;
+                    $userNotes   = !empty($request->notes) ? ' (Note: ' . $request->notes . ')' : '';
 
-                    $newFromCurrent = (float) $newFromBal->{$newBalanceCol};
-                    if ($newFromCurrent < $newAmount) {
-                        throw new \RuntimeException('insufficient_balance_apply');
-                    }
+                    LocationBalanceTransaction::create([
+                        'location_id'   => $newFromId,
+                        'balance_type'  => $newBalanceType,
+                        'type'          => LocationBalanceTransaction::TYPE_DEBIT,
+                        'amount'        => $newAmount,
+                        'balance_after' => 0,
+                        'notes'         => 'Transfer (' . $transfer->transfer_no . ') to ' . $toLocName . $userNotes,
+                        'created_by'    => auth()->id(),
+                    ]);
 
-                    $newFromNew = $newFromCurrent - $newAmount;
-                    $newToNew   = (float) $newToBal->{$newBalanceCol} + $newAmount;
+                    LocationBalanceTransaction::create([
+                        'location_id'   => $newToId,
+                        'balance_type'  => $newBalanceType,
+                        'type'          => LocationBalanceTransaction::TYPE_CREDIT,
+                        'amount'        => $newAmount,
+                        'balance_after' => 0,
+                        'notes'         => 'Transfer (' . $transfer->transfer_no . ') from ' . $fromLocName . $userNotes,
+                        'created_by'    => auth()->id(),
+                    ]);
 
-                    $newFromBal->update([$newBalanceCol => $newFromNew]);
-                    $newToBal->update([$newBalanceCol => $newToNew]);
-
-                    // Clear Purchase Bills FIFO for New Branches
                     $fromUnpaidBills = \App\Models\PurchaseBill::with('items.product', 'items.variant')
                         ->where('from_location_id', $newToId)
                         ->where('to_location_id', $newFromId)
@@ -2309,6 +2324,15 @@ class AccountingController extends Controller
                         ]);
 
                         $remAmt = round($remAmt - $payAmt, 2);
+                    }
+
+                    LocationBalanceTransaction::syncLocationBalance($oldFromId, $oldBalanceType);
+                    LocationBalanceTransaction::syncLocationBalance($oldToId, $oldBalanceType);
+                    if ($newFromId !== $oldFromId || $newBalanceType !== $oldBalanceType) {
+                        LocationBalanceTransaction::syncLocationBalance($newFromId, $newBalanceType);
+                    }
+                    if ($newToId !== $oldToId || $newBalanceType !== $oldBalanceType) {
+                        LocationBalanceTransaction::syncLocationBalance($newToId, $newBalanceType);
                     }
                 }
 
@@ -2374,30 +2398,28 @@ class AccountingController extends Controller
         $toLocationId   = (int) $transfer->to_location_id;
         $balanceColumn  = $transfer->balance_type === LocationBalanceTransaction::BALANCE_TYPE_BANK ? 'bank_balance' : 'cash_balance';
         $amount         = (float) $transfer->amount;
+        $transferNo     = $transfer->transfer_no;
+        $cleanTransferNo = preg_replace('/_del_\d+$/', '', $transferNo);
 
         try {
-            DB::transaction(function () use ($transfer, $fromLocationId, $toLocationId, $balanceColumn, $amount) {
-                // If transfer was accepted, revert balance change
+            DB::transaction(function () use ($transfer, $fromLocationId, $toLocationId, $balanceColumn, $amount, $transferNo, $cleanTransferNo) {
                 if ((int) $transfer->status === BranchBalanceTransfer::STATUS_ACCEPTED) {
-                    $fromBalanceRecord = LocationBalance::firstOrCreate(['location_id' => $fromLocationId]);
-                    $toBalanceRecord   = LocationBalance::firstOrCreate(['location_id' => $toLocationId]);
-
-                    $fromBalanceRecord = LocationBalance::where('id', $fromBalanceRecord->id)->lockForUpdate()->first();
-                    $toBalanceRecord   = LocationBalance::where('id', $toBalanceRecord->id)->lockForUpdate()->first();
+                    $toBalanceRecord = LocationBalance::firstOrCreate(['location_id' => $toLocationId]);
+                    $toBalanceRecord = LocationBalance::where('id', $toBalanceRecord->id)->lockForUpdate()->first();
 
                     $toCurrent = (float) $toBalanceRecord->{$balanceColumn};
                     if ($toCurrent < $amount) {
                         throw new \RuntimeException('insufficient_balance_revert');
                     }
 
-                    $fromNew = (float) $fromBalanceRecord->{$balanceColumn} + $amount;
-                    $toNew   = $toCurrent - $amount;
+                    LocationBalanceTransaction::where(function ($q) use ($transferNo, $cleanTransferNo) {
+                        $q->where('notes', 'LIKE', 'Transfer (' . $transferNo . ')%')
+                          ->orWhere('notes', 'LIKE', 'Transfer (' . $cleanTransferNo . ')%');
+                    })->delete();
 
-                    // Silently revert balances without creating extra reversal transaction entries
-                    $fromBalanceRecord->update([$balanceColumn => $fromNew]);
-                    $toBalanceRecord->update([$balanceColumn => $toNew]);
+                    LocationBalanceTransaction::syncLocationBalance($fromLocationId, $transfer->balance_type);
+                    LocationBalanceTransaction::syncLocationBalance($toLocationId, $transfer->balance_type);
 
-                    // Revert PurchaseBill payments generated by this transfer
                     $linkedPayments = \App\Models\PurchaseBillPayment::where('branch_balance_transfer_id', $transfer->id)->get();
                     foreach ($linkedPayments as $pPayment) {
                         $pBill = \App\Models\PurchaseBill::find($pPayment->purchase_bill_id);

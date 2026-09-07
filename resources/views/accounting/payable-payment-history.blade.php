@@ -76,6 +76,7 @@
                         <th>Supplier</th>
                         <th class="text-end">Paid Amount</th>
                         <th>Payment Method</th>
+                        <th>Description</th>
                         <th>Paid By</th>
                         @if($hasActionPermission)
                             <th style="width: 10%">Actions</th>
@@ -112,6 +113,11 @@
                             <option value="cash">Cash</option>
                             <option value="online">Online</option>
                         </select>
+                    </div>
+
+                    <div class="mb-3">
+                        <label class="form-label fw-semibold">Description</label>
+                        <textarea id="edit-payment-description" name="description" class="form-control" rows="3" placeholder="Enter description / notes (optional)"></textarea>
                     </div>
                 </div>
                 <div class="d-flex p-4 border-top gap-3 mt-auto mb-0">
@@ -182,6 +188,7 @@
                         return `<span class="badge ${isOnline ? 'bg-label-primary' : 'bg-label-success'}">${data}</span>`;
                     }
                 },
+                { data: 'description', className: 'text-muted' },
                 { 
                     data: 'created_by',
                     render: function(data) {
@@ -209,7 +216,7 @@
                 rowGroup: {
                     dataSrc: 'date_group',
                     startRender: function (rows, group) {
-                        const colSpanCount = hasActionPermission ? 7 : 6;
+                        const colSpanCount = hasActionPermission ? 8 : 7;
                         return $('<tr class="group-header"/>')
                             .append('<td colspan="' + colSpanCount + '"><div class="group-header-inner"><i class="ti ti-calendar-event me-1"></i><span>' + group + '</span><span class="badge bg-label-primary ms-2">' + rows.count() + ' payment' + (rows.count() > 1 ? 's' : '') + '</span></div></td>');
                     }
@@ -252,10 +259,12 @@
                 const id = $(this).data('id');
                 const amount = $(this).data('amount');
                 const method = $(this).data('method');
+                const description = $(this).data('description') || '';
 
                 $('#edit-payment-id').val(id);
                 $('#edit-payment-amount').val(amount);
                 $('#edit-payment-method').val(method.toLowerCase());
+                $('#edit-payment-description').val(description);
 
                 const offcanvasEl = document.getElementById('editPaymentOffcanvas');
                 const offcanvas = bootstrap.Offcanvas.getOrCreateInstance(offcanvasEl);

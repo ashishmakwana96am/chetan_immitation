@@ -12,6 +12,7 @@ class BulkPurchasePayment extends Model
         'total_amount',
         'supplier_id',
         'payment_method',
+        'description',
         'created_by',
     ];
 
