@@ -1263,15 +1263,23 @@ class LedgerController extends Controller
             };
 
             return [
-                'raw_date'    => $rawDate,
-                'date'        => format_date($date),
-                'date_sort'   => $date,
-                'date_group'  => format_date($date),
-                'transfer_no' => '<code>' . e($transferNo) . '</code>',
-                'status'      => $statusBadge,
-                'branch'      => $branchLabel,
-                'amount'      => '<span class="fw-semibold">' . format_price($amount) . '</span>',
-                'actions'     => '
+                'raw_date'        => $rawDate,
+                'date'            => format_date($date),
+                'date_sort'       => $rawDate,
+                'date_group'      => format_date($date),
+                'transfer_no'     => '<code>' . e($transferNo) . '</code>',
+                'raw_transfer_no' => $transferNo,
+                'status'          => $statusBadge,
+                'raw_status'      => match ((int) $transfer->status) {
+                    PurchaseBill::STATUS_ACCEPTED => 'Accepted',
+                    PurchaseBill::STATUS_REJECTED => 'Rejected',
+                    default                       => 'Pending',
+                },
+                'branch'          => $branchLabel,
+                'raw_branch'      => ($transfer->fromLocation->name ?? '-') . ' -> ' . ($transfer->toLocation->name ?? '-'),
+                'amount'          => '<span class="fw-semibold">' . format_price($amount) . '</span>',
+                'raw_amount'      => (float) $amount,
+                'actions'         => '
                     <div class="dropdown table-action-dropdown">
                         <button class="btn btn-sm btn-label-primary action-dropdown-btn dropdown-toggle" data-bs-toggle="dropdown" data-bs-boundary="viewport" aria-expanded="false">
                             <span>Actions</span>
@@ -1358,15 +1366,23 @@ class LedgerController extends Controller
             }
 
             return [
-                'raw_date'    => $rawDate,
-                'date'        => format_date($date),
-                'date_sort'   => $date,
-                'date_group'  => format_date($date),
-                'transfer_no' => '<code>' . e($bt->transfer_no) . '</code>',
-                'status'      => $statusBadge,
-                'branch'      => $branchLabel,
-                'amount'      => '<span class="fw-semibold text-primary">' . format_price($bt->amount) . '</span>',
-                'actions'     => $actionBtns,
+                'raw_date'        => $rawDate,
+                'date'            => format_date($date),
+                'date_sort'       => $rawDate,
+                'date_group'      => format_date($date),
+                'transfer_no'     => '<code>' . e($bt->transfer_no) . '</code>',
+                'raw_transfer_no' => $bt->transfer_no,
+                'status'          => $statusBadge,
+                'raw_status'      => match ((int) $bt->status) {
+                    BranchBalanceTransfer::STATUS_ACCEPTED => 'Accepted',
+                    BranchBalanceTransfer::STATUS_REJECTED => 'Rejected',
+                    default                                => 'Pending',
+                },
+                'branch'          => $branchLabel,
+                'raw_branch'      => ($bt->fromLocation->name ?? '-') . ' -> ' . ($bt->toLocation->name ?? '-'),
+                'amount'          => '<span class="fw-semibold text-primary">' . format_price($bt->amount) . '</span>',
+                'raw_amount'      => (float) $bt->amount,
+                'actions'         => $actionBtns,
             ];
         });
 

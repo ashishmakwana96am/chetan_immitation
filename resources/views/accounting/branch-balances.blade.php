@@ -258,7 +258,9 @@
             responsive : false,
             order      : [[11, 'desc']],
             columnDefs : [
-                { targets: [10, 11], visible: false }
+                { targets: 0, orderable: false, searchable: false },
+                { targets: [6, 7], type: 'num' },
+                { targets: [10, 11], visible: false, searchable: false }
             ],
             rowGroup   : {
                 dataSrc: 'date_group',
@@ -297,22 +299,40 @@
             columns     : [
                 { data: 'index', orderable: false, width: '5%', render: function (data, type, row, meta) { return meta.row + meta.settings._iDisplayStart + 1; } },
                 { data: 'source_type', render: function (data) { return sourceBadge(data); } },
-                { data: 'time' },
+                { data: 'time', render: function (data, type, row) { return (type === 'sort' || type === 'type') ? (row.raw_time || data) : data; } },
                 { data: 'branch_name' },
-                { data: 'balance_type', render: function (data, type, row) { return type === 'sort' ? String(data).replace(/<[^>]*>/g, '') : data; } },
-                { data: 'type', render: function (data, type, row) { return type === 'sort' ? String(data).replace(/<[^>]*>/g, '') : data; } },
-                { data: 'amount', className: 'fw-semibold text-nowrap', render: function (data, type, row) {
-                    if (type === 'sort' || type === 'type') {
-                        return row.amount_raw !== undefined ? row.amount_raw : (parseFloat(String(data).replace(/[^0-9.-]+/g, '')) || 0);
+                { data: 'balance_type', render: function (data, type, row) { return (type === 'sort' || type === 'type') ? (row.raw_balance_type || String(data).replace(/<[^>]*>/g, '')) : data; } },
+                { data: 'type', render: function (data, type, row) { return (type === 'sort' || type === 'type') ? (row.raw_type || String(data).replace(/<[^>]*>/g, '')) : data; } },
+                {
+                    data: 'amount',
+                    type: 'num',
+                    className: 'fw-semibold text-nowrap',
+                    render: function (data, type, row) {
+                        if (type === 'sort' || type === 'type') {
+                            if (row.raw_amount !== undefined) {
+                                return parseFloat(row.raw_amount);
+                            }
+                            if (row.amount_raw !== undefined) {
+                                return parseFloat(row.amount_raw);
+                            }
+                            const isNeg = String(data).includes('-') || row.is_credit === false;
+                            const num = parseFloat(String(data).replace(/[^0-9.]/g, '')) || 0;
+                            return isNeg ? -num : num;
+                        }
+                        return data;
                     }
-                    return data;
-                } },
-                { data: 'balance_after', className: 'fw-semibold text-nowrap', render: function(d, type, row) {
-                    if (type === 'sort' || type === 'type') {
-                        return row.balance_after_raw !== undefined ? row.balance_after_raw : (parseFloat(String(d).replace(/[^0-9.-]+/g, '')) || 0);
+                },
+                {
+                    data: 'balance_after',
+                    type: 'num',
+                    className: 'fw-semibold text-nowrap',
+                    render: function (d, type, row) {
+                        if (type === 'sort' || type === 'type') {
+                            return row.raw_balance_after !== undefined ? parseFloat(row.raw_balance_after) : (parseFloat(String(d).replace(/[^0-9.-]+/g, '')) || 0);
+                        }
+                        return d.includes('-') ? '<span class="text-danger">' + d + '</span>' : d;
                     }
-                    return d.includes('-') ? '<span class="text-danger">' + d + '</span>' : d;
-                } },
+                },
                 { data: 'notes' },
                 { data: 'created_by' },
                 { data: 'date_group', visible: false },
