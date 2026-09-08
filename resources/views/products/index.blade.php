@@ -24,6 +24,151 @@
         #bulkActionsDropdownBtn.no-caret::after {
             display: none !important;
         }
+
+        /* Desktop: Standard Dropdown Menu */
+        #filterDropdownContainer {
+            position: relative;
+        }
+        @media (min-width: 768px) {
+            .product-filter-dropdown {
+                min-width: 660px;
+                width: 660px;
+                max-width: 95vw;
+                max-height: 90vh;
+                overflow-y: auto;
+                overflow-x: hidden;
+                box-shadow: 0 10px 30px rgba(0, 0, 0, 0.15);
+                border: 1px solid rgba(0, 0, 0, 0.08);
+                border-radius: 10px;
+                padding: 1.5rem;
+                z-index: 1060;
+            }
+            .filter-sidepanel-header {
+                display: flex;
+                align-items: center;
+                justify-content: space-between;
+                margin-bottom: 1rem;
+            }
+            .filter-sidepanel-body {
+                padding: 0;
+            }
+            .filter-sidepanel-footer {
+                margin-top: 1rem;
+                padding-top: 1rem;
+                border-top: 1px solid rgba(0, 0, 0, 0.08);
+            }
+        }
+
+        /* Mobile / Phone View: Full Screen Modal Drawer */
+        @media (max-width: 767.98px) {
+            #filterDropdownContainer .dropdown-menu.product-filter-dropdown {
+                position: fixed !important;
+                top: 0 !important;
+                right: 0 !important;
+                bottom: 0 !important;
+                left: 0 !important;
+                width: 100vw !important;
+                max-width: 100vw !important;
+                height: 100vh !important;
+                max-height: 100vh !important;
+                margin: 0 !important;
+                border: none !important;
+                border-radius: 0 !important;
+                box-shadow: none !important;
+                padding: 0 !important;
+                display: flex !important;
+                flex-direction: column !important;
+                z-index: 1090 !important;
+                transform: translateX(100%) !important;
+                transition: transform 0.28s ease-in-out, visibility 0.28s !important;
+                visibility: hidden !important;
+            }
+
+            #filterDropdownContainer .dropdown-menu.product-filter-dropdown.show {
+                transform: translateX(0) !important;
+                visibility: visible !important;
+            }
+
+            .filter-sidepanel-header {
+                padding: 1.25rem 1.25rem;
+                margin-bottom: 0;
+                border-bottom: 1px solid rgba(0, 0, 0, 0.08);
+                flex-shrink: 0;
+                display: flex;
+                align-items: center;
+                justify-content: space-between;
+            }
+
+            .filter-sidepanel-body {
+                flex: 1 1 auto;
+                overflow-y: auto;
+                overflow-x: hidden;
+                padding: 1.25rem;
+                -webkit-overflow-scrolling: touch;
+            }
+
+            .filter-sidepanel-body .row {
+                --bs-gutter-y: 0.5rem;
+            }
+
+            .filter-sidepanel-body .mb-3 {
+                margin-bottom: 0.75rem !important;
+            }
+
+            .filter-sidepanel-body .input-group .form-control {
+                min-width: 50px;
+            }
+
+            .filter-sidepanel-body .input-group-text {
+                padding-left: 0.5rem;
+                padding-right: 0.5rem;
+            }
+
+            .filter-sidepanel-footer {
+                margin-top: 0;
+                padding: 1rem 1.25rem;
+                border-top: 1px solid rgba(0, 0, 0, 0.08);
+                background: #fff;
+                flex-shrink: 0;
+            }
+
+            .filter-action-buttons {
+                display: flex;
+                width: 100%;
+                gap: 0.5rem;
+            }
+
+            .filter-action-buttons button {
+                flex: 1;
+            }
+
+            .filter-mobile-backdrop {
+                position: fixed;
+                top: 0;
+                left: 0;
+                width: 100vw;
+                height: 100vh;
+                background: rgba(0, 0, 0, 0.45);
+                backdrop-filter: blur(1px);
+                z-index: 1085;
+                opacity: 0;
+                transition: opacity 0.25s ease;
+                pointer-events: none;
+            }
+
+            .filter-mobile-backdrop.show {
+                opacity: 1;
+                pointer-events: auto;
+            }
+        }
+
+        /* Select2 Dropdown in front */
+        .select2-container--open,
+        .select2-dropdown,
+        #filterDropdownContainer .select2-container--open,
+        #filterDropdownContainer .select2-dropdown {
+            z-index: 99999 !important;
+        }
     </style>
 @endsection
 
@@ -57,142 +202,145 @@
                 </ul>
             </div>
 
-            {{-- Filter Dropdown --}}
+            {{-- Filter Dropdown / Side Panel on Mobile --}}
             <div class="dropdown d-inline-block" id="filterDropdownContainer">
                 <button type="button" class="btn btn-outline-primary" data-bs-toggle="dropdown" data-bs-auto-close="outside" data-bs-boundary="viewport" aria-expanded="false">
                     <i class="ti ti-filter me-1"></i> Filter
                 </button>
-                <div class="dropdown-menu dropdown-menu-end p-4 shadow-lg" style="min-width: 660px; width: 660px; max-width: 95vw; max-height: 90vh; overflow-y: auto; box-shadow: 0 10px 30px rgba(0,0,0,0.15); border: 1px solid rgba(0,0,0,0.08); border-radius: 10px;">
-                    <div class="d-flex justify-content-between align-items-center mb-3">
+                <div class="dropdown-menu dropdown-menu-end shadow-lg product-filter-dropdown" id="filterDropdownMenu">
+                    <div class="filter-sidepanel-header">
                         <h5 class="dropdown-header px-0 mb-0 fw-semibold fs-5 text-dark">
                             <i class="ti ti-filter me-1 text-primary"></i> Filters
                         </h5>
+                        <button type="button" class="btn-close d-md-none" id="btnCloseFilterDropdown" aria-label="Close"></button>
                     </div>
 
-                    <div class="row g-3">
-                        {{-- Left Column --}}
-                        <div class="col-md-6">
-                            {{-- Category --}}
-                            <div class="mb-3 text-start">
-                                <label class="form-label fw-medium text-muted mb-1" for="filter-category">Category</label>
-                                <select id="filter-category" class="form-select">
-                                    <option value="">All Categories</option>
-                                    @foreach($categories as $category)
-                                        <option value="{{ $category->id }}">{{ $category->name }}</option>
-                                    @endforeach
-                                </select>
-                            </div>
-
-                            {{-- Sub Category (Multi-Select) --}}
-                            <div class="mb-3 text-start">
-                                <label class="form-label fw-medium text-muted mb-1" for="filter-sub-category">Sub Category</label>
-                                <select id="filter-sub-category" class="form-select select2" multiple="multiple" data-placeholder="All Sub Categories" style="width: 100%;">
-                                    @foreach($subCategories as $subCategory)
-                                        <option value="{{ $subCategory->id }}" data-category-id="{{ $subCategory->category_id }}">{{ $subCategory->name }}</option>
-                                    @endforeach
-                                </select>
-                            </div>
-
-                            {{-- Collection --}}
-                            <div class="mb-3 text-start">
-                                <label class="form-label fw-medium text-muted mb-1" for="filter-collection">Collection</label>
-                                <select id="filter-collection" class="form-select">
-                                    <option value="">All Collections</option>
-                                    @foreach($collections as $collection)
-                                        <option value="{{ $collection->id }}">{{ $collection->display_name }}</option>
-                                    @endforeach
-                                </select>
-                            </div>
-
-                            {{-- Location (Only for non-restricted users) --}}
-                            @if(!$isRestricted)
+                    <div class="filter-sidepanel-body">
+                        <div class="row g-3">
+                            {{-- Left Column --}}
+                            <div class="col-md-6">
+                                {{-- Category --}}
                                 <div class="mb-3 text-start">
-                                    <label class="form-label fw-medium text-muted mb-1" for="filter-location">Location</label>
-                                    <select id="filter-location" class="form-select">
-                                        <option value="">All Locations</option>
-                                        @foreach($locations as $location)
-                                            <option value="{{ $location->id }}">{{ $location->name }}</option>
+                                    <label class="form-label fw-medium text-muted mb-1" for="filter-category">Category</label>
+                                    <select id="filter-category" class="form-select">
+                                        <option value="">All Categories</option>
+                                        @foreach($categories as $category)
+                                            <option value="{{ $category->id }}">{{ $category->name }}</option>
                                         @endforeach
                                     </select>
                                 </div>
-                            @endif
 
-                            {{-- Status --}}
-                            <div class="mb-3 text-start">
-                                <label class="form-label fw-medium text-muted mb-1" for="filter-status">Status</label>
-                                <select id="filter-status" class="form-select">
-                                    <option value="">All Statuses</option>
-                                    <option value="1">Active</option>
-                                    <option value="0">Inactive</option>
-                                </select>
-                            </div>
-                        </div>
+                                {{-- Sub Category (Multi-Select) --}}
+                                <div class="mb-3 text-start">
+                                    <label class="form-label fw-medium text-muted mb-1" for="filter-sub-category">Sub Category</label>
+                                    <select id="filter-sub-category" class="form-select select2" multiple="multiple" data-placeholder="All Sub Categories" style="width: 100%;">
+                                        @foreach($subCategories as $subCategory)
+                                            <option value="{{ $subCategory->id }}" data-category-id="{{ $subCategory->category_id }}">{{ $subCategory->name }}</option>
+                                        @endforeach
+                                    </select>
+                                </div>
 
-                        {{-- Right Column --}}
-                        <div class="col-md-6">
-                            {{-- Price Range (From - To) --}}
-                            <div class="mb-3 text-start">
-                                <label class="form-label fw-medium text-muted mb-1">Price Range (₹)</label>
-                                <div class="input-group">
-                                    <span class="input-group-text px-2">₹</span>
-                                    <input type="number" step="0.01" min="0" id="filter-price-from" class="form-control" placeholder="From" />
-                                    <span class="input-group-text px-2">to</span>
-                                    <input type="number" step="0.01" min="0" id="filter-price-to" class="form-control" placeholder="To" />
+                                {{-- Collection --}}
+                                <div class="mb-3 text-start">
+                                    <label class="form-label fw-medium text-muted mb-1" for="filter-collection">Collection</label>
+                                    <select id="filter-collection" class="form-select">
+                                        <option value="">All Collections</option>
+                                        @foreach($collections as $collection)
+                                            <option value="{{ $collection->id }}">{{ $collection->display_name }}</option>
+                                        @endforeach
+                                    </select>
+                                </div>
+
+                                {{-- Location (Only for non-restricted users) --}}
+                                @if(!$isRestricted)
+                                    <div class="mb-3 text-start">
+                                        <label class="form-label fw-medium text-muted mb-1" for="filter-location">Location</label>
+                                        <select id="filter-location" class="form-select">
+                                            <option value="">All Locations</option>
+                                            @foreach($locations as $location)
+                                                <option value="{{ $location->id }}">{{ $location->name }}</option>
+                                            @endforeach
+                                        </select>
+                                    </div>
+                                @endif
+
+                                {{-- Status --}}
+                                <div class="mb-3 text-start">
+                                    <label class="form-label fw-medium text-muted mb-1" for="filter-status">Status</label>
+                                    <select id="filter-status" class="form-select">
+                                        <option value="">All Statuses</option>
+                                        <option value="1">Active</option>
+                                        <option value="0">Inactive</option>
+                                    </select>
                                 </div>
                             </div>
 
-                            {{-- Stock Status --}}
-                            <div class="mb-3 text-start">
-                                <label class="form-label fw-medium text-muted mb-1" for="filter-stock-status">Stock Status</label>
-                                <select id="filter-stock-status" class="form-select">
-                                    <option value="">All</option>
-                                    <option value="in_stock">In Stock</option>
-                                    <option value="out_of_stock">Sold Out</option>
-                                </select>
-                            </div>
+                            {{-- Right Column --}}
+                            <div class="col-md-6">
+                                {{-- Price Range (From - To) --}}
+                                <div class="mb-3 text-start">
+                                    <label class="form-label fw-medium text-muted mb-1">Price Range (₹)</label>
+                                    <div class="input-group">
+                                        <span class="input-group-text px-2">₹</span>
+                                        <input type="number" step="0.01" min="0" id="filter-price-from" class="form-control" placeholder="From" />
+                                        <span class="input-group-text px-2">to</span>
+                                        <input type="number" step="0.01" min="0" id="filter-price-to" class="form-control" placeholder="To" />
+                                    </div>
+                                </div>
 
-                            {{-- Website Visibility --}}
-                            <div class="mb-3 text-start">
-                                <label class="form-label fw-medium text-muted mb-1" for="filter-hide-from-website">Website Visibility</label>
-                                <select id="filter-hide-from-website" class="form-select">
-                                    <option value="">All</option>
-                                    <option value="1">Hidden from Website</option>
-                                    <option value="0">Visible on Website</option>
-                                </select>
-                            </div>
+                                {{-- Stock Status --}}
+                                <div class="mb-3 text-start">
+                                    <label class="form-label fw-medium text-muted mb-1" for="filter-stock-status">Stock Status</label>
+                                    <select id="filter-stock-status" class="form-select">
+                                        <option value="">All</option>
+                                        <option value="in_stock">In Stock</option>
+                                        <option value="out_of_stock">Sold Out</option>
+                                    </select>
+                                </div>
 
-                            {{-- Product Type Filter --}}
-                            <div class="mb-3 text-start">
-                                <label class="form-label fw-medium text-muted mb-1" for="filter-product-type">Product Type</label>
-                                <select id="filter-product-type" class="form-select">
-                                    <option value="">All Product Types</option>
-                                    <option value="pair">Pair Product</option>
-                                    <option value="variable">Variable Product</option>
-                                    <option value="normal">Normal Product</option>
-                                </select>
-                            </div>
+                                {{-- Website Visibility --}}
+                                <div class="mb-3 text-start">
+                                    <label class="form-label fw-medium text-muted mb-1" for="filter-hide-from-website">Website Visibility</label>
+                                    <select id="filter-hide-from-website" class="form-select">
+                                        <option value="">All</option>
+                                        <option value="1">Hidden from Website</option>
+                                        <option value="0">Visible on Website</option>
+                                    </select>
+                                </div>
 
-                            {{-- Sale Product Filter --}}
-                            <div class="mb-3 text-start">
-                                <label class="form-label fw-medium text-muted mb-1" for="filter-sale-product">Sale Products</label>
-                                <select id="filter-sale-product" class="form-select">
-                                    <option value="">All</option>
-                                    <option value="1">Sale Products</option>
-                                    <option value="0">Regular Products</option>
-                                </select>
+                                {{-- Product Type Filter --}}
+                                <div class="mb-3 text-start">
+                                    <label class="form-label fw-medium text-muted mb-1" for="filter-product-type">Product Type</label>
+                                    <select id="filter-product-type" class="form-select">
+                                        <option value="">All Product Types</option>
+                                        <option value="pair">Pair Product</option>
+                                        <option value="variable">Variable Product</option>
+                                        <option value="normal">Normal Product</option>
+                                    </select>
+                                </div>
+
+                                {{-- Sale Product Filter --}}
+                                <div class="mb-3 text-start">
+                                    <label class="form-label fw-medium text-muted mb-1" for="filter-sale-product">Sale Products</label>
+                                    <select id="filter-sale-product" class="form-select">
+                                        <option value="">All</option>
+                                        <option value="1">Sale Products</option>
+                                        <option value="0">Regular Products</option>
+                                    </select>
+                                </div>
                             </div>
                         </div>
                     </div>
 
-                    <div class="dropdown-divider my-3"></div>
-
-                    <div class="d-flex justify-content-end gap-2 pt-1">
-                        <button type="button" class="btn btn-label-secondary btn-sm px-3" id="btnClearFilter">
-                            <i class="ti ti-refresh me-1"></i> Clear Filter
-                        </button>
-                        <button type="button" class="btn btn-primary btn-sm px-4" id="btnApplyFilter">
-                            <i class="ti ti-check me-1"></i> Apply Filter
-                        </button>
+                    <div class="filter-sidepanel-footer">
+                        <div class="d-flex justify-content-end gap-2 filter-action-buttons">
+                            <button type="button" class="btn btn-label-secondary btn-sm px-3" id="btnClearFilter">
+                                <i class="ti ti-refresh me-1"></i> Clear Filter
+                            </button>
+                            <button type="button" class="btn btn-primary btn-sm px-4" id="btnApplyFilter">
+                                <i class="ti ti-check me-1"></i> Apply Filter
+                            </button>
+                        </div>
                     </div>
                 </div>
             </div>
@@ -366,15 +514,65 @@
                 });
 
                 $subSelect.on('select2:open', function () {
+                    isSelect2Open = true;
                     const $container = $subSelect.next('.select2-container');
                     $container.find('.select2-search--inline').css('display', 'none');
+                    $('.select2-container--open, .select2-dropdown').css('z-index', 99999);
+                });
+
+                $subSelect.on('select2:close', function () {
+                    setTimeout(function () {
+                        isSelect2Open = false;
+                    }, 100);
                 });
 
                 setTimeout(updateSubCatSummary, 100);
             }
 
-            $('#filterDropdownContainer').on('click mousedown', '.select2-container, .select2-dropdown', function (e) {
+            // Prevent Bootstrap dropdown from closing while Select2 dropdown is open
+            $('#filterDropdownContainer').on('hide.bs.dropdown', function (e) {
+                if (isSelect2Open || $('#filterDropdownContainer .select2-container--open').length > 0) {
+                    e.preventDefault();
+                    return false;
+                }
+            });
+
+            // Prevent touch and click event propagation from closing dropdown
+            $(document).on('click mousedown touchstart pointerdown', '#filterDropdownContainer .select2-container, #filterDropdownContainer .select2-dropdown, .select2-results, .select2-search', function (e) {
                 e.stopPropagation();
+            });
+
+            // Handle mobile backdrop and close button
+            $('#filterDropdownContainer').on('show.bs.dropdown', function () {
+                if (window.innerWidth < 768) {
+                    if ($('.filter-mobile-backdrop').length === 0) {
+                        const $backdrop = $('<div class="filter-mobile-backdrop"></div>');
+                        $('body').append($backdrop);
+                        setTimeout(function () {
+                            $backdrop.addClass('show');
+                        }, 10);
+                    }
+                }
+            });
+
+            $('#filterDropdownContainer').on('hidden.bs.dropdown', function () {
+                $('.filter-mobile-backdrop').removeClass('show');
+                setTimeout(function () {
+                    $('.filter-mobile-backdrop').remove();
+                }, 250);
+            });
+
+            $(document).on('click', '.filter-mobile-backdrop, #btnCloseFilterDropdown', function (e) {
+                e.preventDefault();
+                const dropdownToggleEl = document.querySelector('#filterDropdownContainer button[data-bs-toggle="dropdown"]');
+                if (dropdownToggleEl) {
+                    const dropdownInstance = bootstrap.Dropdown.getInstance(dropdownToggleEl) || new bootstrap.Dropdown(dropdownToggleEl);
+                    dropdownInstance.hide();
+                }
+                $('.filter-mobile-backdrop').removeClass('show');
+                setTimeout(function () {
+                    $('.filter-mobile-backdrop').remove();
+                }, 250);
             });
 
             // Category filter change: filter Sub Category options
