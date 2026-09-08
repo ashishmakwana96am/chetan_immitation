@@ -49,16 +49,10 @@ trait LogsActivity
             return $this->transfer_no;
         }
         if (isset($this->name) && !empty($this->name)) {
-            if (isset($this->barcode) && !empty($this->barcode)) {
-                return $this->name . ' (' . $this->barcode . ')';
-            }
             return $this->name;
         }
         if (isset($this->title) && !empty($this->title)) {
             return $this->title;
-        }
-        if (isset($this->barcode) && !empty($this->barcode)) {
-            return $this->barcode;
         }
         return '#' . $this->getKey();
     }

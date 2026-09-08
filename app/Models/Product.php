@@ -31,15 +31,6 @@ class Product extends Model
         static::deleted(fn () => static::clearMappedCaches());
     }
 
-    public function activityLabel(): string
-    {
-        $label = $this->name ?? '';
-        if (!empty($this->barcode)) {
-            return $label !== '' ? "{$label} ({$this->barcode})" : (string) $this->barcode;
-        }
-        return $label !== '' ? $label : '#' . $this->getKey();
-    }
-
     protected $fillable = [
         'name',
         'slug',

@@ -657,8 +657,7 @@ class CheckoutController extends Controller
                             ->decrement('quantity', $deductQty);
 
                         if ($inventoryRow) {
-                            $prodLabel = $itemProduct ? ($itemProduct->name . ($itemProduct->barcode ? ' (' . $itemProduct->barcode . ')' : '')) : "Product #{$item['product_id']}";
-                            ActivityLogger::log('Inventory', 'update', $inventoryRow, ['quantity' => $oldQty], ['quantity' => $oldQty - $deductQty], 'Stock deducted for order #' . $order->order_no . ' [' . $prodLabel . ']');
+                            ActivityLogger::log('Inventory', 'update', $inventoryRow, ['quantity' => $oldQty], ['quantity' => $oldQty - $deductQty], 'Stock deducted for order #' . $order->order_no);
                         }
                     }
                 }
@@ -1344,8 +1343,7 @@ class CheckoutController extends Controller
                             ->decrement('quantity', $deductQty);
 
                         if ($inventoryRow) {
-                            $prodLabel = $item->product ? ($item->product->name . ($item->product->barcode ? ' (' . $item->product->barcode . ')' : '')) : "Product #{$item->product_id}";
-                            ActivityLogger::log('Inventory', 'update', $inventoryRow, ['quantity' => $oldQty], ['quantity' => $oldQty - $deductQty], 'Stock deducted for order #' . $order->order_no . ' [' . $prodLabel . ']');
+                            ActivityLogger::log('Inventory', 'update', $inventoryRow, ['quantity' => $oldQty], ['quantity' => $oldQty - $deductQty], 'Stock deducted for order #' . $order->order_no);
                         }
                     }
                 }
