@@ -521,37 +521,8 @@
         <div class="col-sm-6 col-md-4">
             <small class="text-muted d-block text-uppercase fw-semibold fs-tiny">Record</small>
             <span class="fw-semibold text-dark fs-6">
-                @php
-                    $productSubject = null;
-                    $inventorySubject = null;
-
-                    if ($subject instanceof \App\Models\Product) {
-                        $productSubject = $subject;
-                    } elseif ($subject instanceof \App\Models\Inventory) {
-                        $inventorySubject = $subject;
-                        $productSubject = $subject->product ?: \App\Models\Product::withTrashed()->find($subject->product_id);
-                    } elseif ($log->subject_type && class_basename($log->subject_type) === 'Product' && $log->subject_id) {
-                        $productSubject = \App\Models\Product::withTrashed()->find($log->subject_id);
-                    } elseif ($log->subject_type && class_basename($log->subject_type) === 'Inventory' && $log->subject_id) {
-                        $inventorySubject = \App\Models\Inventory::withTrashed()->find($log->subject_id);
-                        if ($inventorySubject) {
-                            $productSubject = $inventorySubject->product ?: \App\Models\Product::withTrashed()->find($inventorySubject->product_id);
-                        }
-                    }
-                @endphp
-                @if($log->subject_type && class_basename($log->subject_type) === 'Inventory')
-                    @php
-                        $invObj = $subject instanceof \App\Models\Inventory ? $subject : $inventorySubject;
-                        $invProd = $productSubject;
-                        $invLoc = $invObj ? ($invObj->location ?: \App\Models\Location::find($invObj->location_id)) : null;
-                        $prodDisplay = $invProd ? ($invProd->name . ($invProd->barcode ? ' (' . $invProd->barcode . ')' : '')) : ('Inventory #' . $log->subject_id);
-                    @endphp
-                    {{ $prodDisplay }}{{ $invLoc?->name ? ' (' . $invLoc->name . ')' : '' }}
-                @elseif($log->subject_type && class_basename($log->subject_type) === 'Product')
-                    @php
-                        $prodObj = $subject instanceof \App\Models\Product ? $subject : $productSubject;
-                    @endphp
-                    {{ $prodObj ? ($prodObj->name . ($prodObj->barcode ? ' (' . $prodObj->barcode . ')' : '')) : ('Product #' . $log->subject_id) }}
+                @if($log->subject_type && class_basename($log->subject_type) === 'Inventory' && $subject instanceof \App\Models\Inventory)
+                    {{ $subject->product?->name ?? ('Inventory #' . $log->subject_id) }}{{ $subject->location?->name ? ' (' . $subject->location->name . ')' : '' }}
                 @elseif($log->subject_type && class_basename($log->subject_type) === 'Purchase' && $subject instanceof \App\Models\Purchase)
                     Purchase #{{ $subject->invoice_no }}
                 @elseif($log->subject_type && class_basename($log->subject_type) === 'Order' && $subject instanceof \App\Models\Order)
@@ -567,58 +538,6 @@
         </div>
     </div>
 </div>
-
-<!-- Product / Inventory Summary Card -->
-@if($productSubject && in_array($log->module, ['Product', 'Products', 'Inventory']))
-    <div class="card border shadow-none mb-4" style="background-color: #f8f9fa;">
-        <div class="card-body p-3">
-            <h6 class="card-title fw-bold mb-3 d-flex align-items-center text-primary fs-5 border-bottom pb-2">
-                <i class="ti ti-box me-2 fs-4"></i> Product Details
-            </h6>
-            <div class="row g-3">
-                <div class="col-sm-6 col-md-4">
-                    <small class="text-muted d-block text-uppercase fw-semibold fs-tiny">Product Name</small>
-                    <span class="fw-bold text-dark fs-6">{{ $productSubject->name }}</span>
-                </div>
-                <div class="col-sm-6 col-md-4">
-                    <small class="text-muted d-block text-uppercase fw-semibold fs-tiny">Barcode</small>
-                    @if($productSubject->barcode)
-                        <span class="badge bg-label-dark fs-6 font-monospace"><i class="ti ti-barcode me-1"></i>{{ $productSubject->barcode }}</span>
-                    @else
-                        <span class="text-muted">-</span>
-                    @endif
-                </div>
-                <div class="col-sm-6 col-md-4">
-                    <small class="text-muted d-block text-uppercase fw-semibold fs-tiny">Category / Subcategory</small>
-                    <span class="fw-semibold text-dark fs-6">
-                        {{ $productSubject->category?->name ?? '-' }}
-                        @if($productSubject->subCategory?->name)
-                            <span class="text-muted">/</span> {{ $productSubject->subCategory->name }}
-                        @endif
-                    </span>
-                </div>
-                @if($inventorySubject)
-                    <div class="col-sm-6 col-md-4">
-                        <small class="text-muted d-block text-uppercase fw-semibold fs-tiny">Branch / Location</small>
-                        <span class="badge bg-label-info fs-6"><i class="ti ti-building me-1"></i>{{ $inventorySubject->location?->name ?? ('Location #' . $inventorySubject->location_id) }}</span>
-                    </div>
-                    <div class="col-sm-6 col-md-4">
-                        <small class="text-muted d-block text-uppercase fw-semibold fs-tiny">Current Stock</small>
-                        <span class="badge bg-label-primary fs-6">{{ $inventorySubject->quantity }}</span>
-                    </div>
-                @endif
-                <div class="col-sm-6 col-md-4">
-                    <small class="text-muted d-block text-uppercase fw-semibold fs-tiny">Sale Price</small>
-                    <span class="fw-semibold text-dark fs-6">{{ format_price($productSubject->sale_price) }}</span>
-                </div>
-                <div class="col-sm-6 col-md-4">
-                    <small class="text-muted d-block text-uppercase fw-semibold fs-tiny">MRP</small>
-                    <span class="fw-semibold text-dark fs-6">{{ format_price($productSubject->mrp) }}</span>
-                </div>
-            </div>
-        </div>
-    </div>
-@endif
 
 @php
     $transferSubject = null;
@@ -816,7 +735,6 @@
                     <thead class="table-light">
                         <tr>
                             <th>Product</th>
-                            <th>Barcode</th>
                             <th class="text-center">Qty</th>
                             <th class="text-end">Price</th>
                             <th class="text-end">Discount</th>
@@ -832,7 +750,6 @@
                                         <br><small class="text-muted">{{ trim($item->variant->name) }}</small>
                                     @endif
                                 </td>
-                                <td class="text-muted">{{ $item->product?->barcode ?? '-' }}</td>
                                 <td class="text-center text-dark">{{ $item->quantity }}</td>
                                 <td class="text-end text-dark">{{ number_format($item->price, 2) }}</td>
                                 <td class="text-end text-dark">
@@ -847,7 +764,7 @@
                             </tr>
                         @empty
                             <tr>
-                                <td colspan="6" class="text-center text-muted py-2">No items found</td>
+                                <td colspan="5" class="text-center text-muted py-2">No items found</td>
                             </tr>
                         @endforelse
                     </tbody>
