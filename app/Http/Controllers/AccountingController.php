@@ -1613,21 +1613,29 @@ class AccountingController extends Controller
             $amountFormatted = ($isCredit ? '+ ' : '- ') . format_price($tx->amount);
             $amountSpan = '<span class="' . ($isCredit ? 'text-success' : 'text-danger') . ' text-nowrap">' . $amountFormatted . '</span>';
 
+            $signedAmount = $isCredit ? (float) $tx->amount : -((float) $tx->amount);
+
             return [
-                'index'         => $index + 1,
-                'time'          => $tx->created_at->format('h:i A'),
-                'branch_name'   => $tx->location->name ?? '-',
-                'source_type'   => $detectedSource,
-                'balance_type'  => $balanceTypeBadge,
+                'index'             => $index + 1,
+                'time'              => $tx->created_at->format('h:i A'),
+                'raw_time'          => $tx->created_at->format('H:i:s'),
+                'branch_name'       => $tx->location->name ?? '-',
+                'source_type'       => $detectedSource,
+                'balance_type'      => $balanceTypeBadge,
+                'raw_balance_type'  => $tx->balance_type === LocationBalanceTransaction::BALANCE_TYPE_BANK ? 'Bank' : 'Cash',
                 'type'              => $typeBadge,
+                'raw_type'          => $isCredit ? 'Credit' : 'Debit',
+                'is_credit'         => $isCredit,
                 'amount'            => $amountSpan,
-                'amount_raw'        => (float) $tx->amount,
+                'amount_raw'        => $signedAmount,
+                'raw_amount'        => $signedAmount,
                 'balance_after'     => format_price($tx->balance_after),
                 'balance_after_raw' => (float) $tx->balance_after,
+                'raw_balance_after' => (float) $tx->balance_after,
                 'notes'             => (!empty($tx->notes) && $tx->notes !== 'Manual Account Balance Adjustment') ? e($tx->notes) : 'Opening Balance Added',
-                'created_by'    => e($tx->createdBy->name ?? '-'),
-                'date_group'    => $tx->created_at->format('d M Y'),
-                'date_sort'     => $tx->created_at->format('YmdHis'),
+                'created_by'        => e($tx->createdBy->name ?? '-'),
+                'date_group'        => $tx->created_at->format('d M Y'),
+                'date_sort'         => $tx->created_at->format('YmdHis'),
             ];
         });
 

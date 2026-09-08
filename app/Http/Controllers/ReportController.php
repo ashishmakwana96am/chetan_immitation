@@ -2140,12 +2140,10 @@ class ReportController extends Controller
             $salesQuery->where('orders.location_id', $locationId);
         }
 
-        // Total Revenue via direct SQL sum
         $totalRevenue = (float) (clone $salesQuery)
             ->selectRaw('SUM(COALESCE(orders.final_amount, 0)) as total_rev')
             ->value('total_rev');
 
-        // Direct SQL aggregation for COGS and Product Profitability (without loading all sales into memory)
         $productProfitabilityQuery = OrderItem::query()
             ->join('orders', 'orders.id', '=', 'order_items.order_id')
             ->leftJoin('products', 'products.id', '=', 'order_items.product_id')
@@ -2188,10 +2186,8 @@ class ReportController extends Controller
 
         $totalCogs = (float) $productProfitabilityRaw->sum('total_cost');
 
-        // Return empty array for initial Blade shell; DataTables AJAX loads paginated rows
         $productProfitability = [];
 
-        // Expenses via direct SQL
         $expensesQuery = Expense::query()
             ->when($user->location_id && !$user->hasRole('super-admin'), fn($q) => $q->where('expenses.location_id', $user->location_id));
         if ($startDate) {
@@ -2206,7 +2202,6 @@ class ReportController extends Controller
 
         $totalExpenses = (float) (clone $expensesQuery)->sum('expenses.amount');
 
-        // Total Tax (GST on Sales) via direct SQL
         $totalTax = (float) (clone $salesQuery)
             ->selectRaw('SUM(COALESCE(orders.tax_amount, 0)) as total_tax')
             ->value('total_tax');
@@ -2214,21 +2209,18 @@ class ReportController extends Controller
         $netProfit = $totalRevenue - $totalCogs - $totalExpenses - $totalTax;
         $profitMargin = $totalRevenue > 0 ? ($netProfit / $totalRevenue) * 100 : 0.0;
 
-        // Group Monthly Revenue directly via SQL
         $monthlyRevenueMap = (clone $salesQuery)
             ->selectRaw("DATE_FORMAT(orders.created_at, '%Y-%m') as month, SUM(COALESCE(orders.paid_cash_amount, 0) + COALESCE(orders.paid_online_amount, 0)) as total_rev")
             ->groupBy(DB::raw("DATE_FORMAT(orders.created_at, '%Y-%m')"))
             ->pluck('total_rev', 'month')
             ->toArray();
 
-        // Group Monthly Expenses directly via SQL
         $monthlyExpensesMap = (clone $expensesQuery)
             ->selectRaw("DATE_FORMAT(expenses.expense_date, '%Y-%m') as month, SUM(expenses.amount) as total_exp")
             ->groupBy(DB::raw("DATE_FORMAT(expenses.expense_date, '%Y-%m')"))
             ->pluck('total_exp', 'month')
             ->toArray();
 
-        // Group Monthly COGS directly via SQL
         $monthlyCogsQuery = (clone $productProfitabilityQuery);
         $monthlyCogsMap = $monthlyCogsQuery
             ->selectRaw("DATE_FORMAT(orders.created_at, '%Y-%m') as month, SUM(order_items.quantity * COALESCE(product_variants.purchase_price, products.purchase_price, 0)) as cogs")
@@ -2236,14 +2228,12 @@ class ReportController extends Controller
             ->pluck('cogs', 'month')
             ->toArray();
 
-        // Group Monthly Tax directly via SQL
         $monthlyTaxMap = (clone $salesQuery)
             ->selectRaw("DATE_FORMAT(orders.created_at, '%Y-%m') as month, SUM(COALESCE(orders.tax_amount, 0)) as total_tax")
             ->groupBy(DB::raw("DATE_FORMAT(orders.created_at, '%Y-%m')"))
             ->pluck('total_tax', 'month')
             ->toArray();
 
-        // Unique months list
         $allMonths = collect(array_merge(
             array_keys($monthlyRevenueMap),
             array_keys($monthlyExpensesMap),
@@ -2368,26 +2358,32 @@ class ReportController extends Controller
             }
         }
 
-        $proratedRevenueExpr = 'SUM(CASE WHEN orders.final_amount > 0 THEN order_items.total * (orders.final_amount / NULLIF((SELECT SUM(oi.total) FROM order_items oi WHERE oi.order_id = orders.id AND oi.deleted_at IS NULL), 0)) ELSE order_items.total END)';
-
+        $qtyExpr = 'SUM(order_items.quantity * CASE WHEN order_items.custom_size_value IS NOT NULL AND order_items.custom_size_value > 0 THEN order_items.custom_size_value WHEN products.pair_product = 1 AND (order_items.pair_type = "pair" OR order_items.pair_type IS NULL) THEN 2.0 ELSE 1.0 END)';
+        $revenueExpr = 'SUM(order_items.total)';
         $costExpr = 'SUM(COALESCE(order_items.purchase_price, order_items.quantity * COALESCE(product_variants.purchase_price, products.purchase_price, 0)))';
 
         if ($sortKey === 'product') {
             $groupedQuery->orderBy('products.name', $sortDir);
         } elseif ($sortKey === 'barcode') {
             $groupedQuery->orderBy('products.barcode', $sortDir);
+        } elseif ($sortKey === 'qty_sold') {
+            $groupedQuery->orderByRaw("{$qtyExpr} {$sortDir}");
+        } elseif ($sortKey === 'total_revenue') {
+            $groupedQuery->orderByRaw("{$revenueExpr} {$sortDir}");
+        } elseif ($sortKey === 'total_cost') {
+            $groupedQuery->orderByRaw("{$costExpr} {$sortDir}");
         } elseif ($sortKey === 'profit') {
-            $groupedQuery->orderByRaw("({$proratedRevenueExpr} - {$costExpr}) {$sortDir}");
+            $groupedQuery->orderByRaw("({$revenueExpr} - {$costExpr}) {$sortDir}");
         } elseif ($sortKey === 'margin') {
             $groupedQuery->orderByRaw("
                 CASE 
-                    WHEN {$proratedRevenueExpr} > 0 THEN 
-                        (({$proratedRevenueExpr} - {$costExpr}) / {$proratedRevenueExpr}) * 100 
+                    WHEN {$revenueExpr} > 0 THEN 
+                        (({$revenueExpr} - {$costExpr}) / {$revenueExpr}) * 100 
                     ELSE 0 
                 END {$sortDir}
             ");
         } else {
-            $groupedQuery->orderBy($sortKey, $sortDir);
+            $groupedQuery->orderByRaw("{$revenueExpr} {$sortDir}");
         }
 
         $rows = $groupedQuery
