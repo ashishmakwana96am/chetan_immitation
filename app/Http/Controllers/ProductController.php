@@ -82,36 +82,36 @@ class ProductController extends Controller
                 });
             })
             ->when($request->status !== null && $request->status !== '', function($q) use ($request) {
-                $q->where('status', $request->status);
+                $q->where('products.status', $request->status);
             })
             ->when($request->hide_from_website !== null && $request->hide_from_website !== '', function($q) use ($request) {
-                $q->where('hide_from_website', $request->hide_from_website);
+                $q->where('products.hide_from_website', $request->hide_from_website);
             })
             ->when($request->product_type !== null && $request->product_type !== '', function($q) use ($request) {
                 if ($request->product_type === 'pair') {
-                    $q->where('pair_product', 1);
+                    $q->where('products.pair_product', 1);
                 } elseif ($request->product_type === 'variable') {
-                    $q->where('type', 'variable');
+                    $q->where('products.type', 'variable');
                 } elseif ($request->product_type === 'normal') {
-                    $q->where('type', 'normal')->where('pair_product', 0);
+                    $q->where('products.type', 'normal')->where('products.pair_product', 0);
                 }
             })
             ->when($request->sale_product !== null && $request->sale_product !== '', function($q) use ($request) {
                 if ($request->sale_product == '1') {
-                    $q->whereColumn('mrp', '>', 'sale_price')->where('mrp', '>', 0);
+                    $q->whereColumn('products.mrp', '>', 'products.sale_price')->where('products.mrp', '>', 0);
                 } elseif ($request->sale_product == '0') {
                     $q->where(function($sub) {
-                        $sub->whereColumn('mrp', '<=', 'sale_price')
-                            ->orWhereNull('mrp')
-                            ->orWhere('mrp', 0);
+                        $sub->whereColumn('products.mrp', '<=', 'products.sale_price')
+                            ->orWhereNull('products.mrp')
+                            ->orWhere('products.mrp', 0);
                     });
                 }
             })
             ->when($request->input('search.value'), function ($q, $search) {
                 $q->where(function ($sub) use ($search) {
-                    $sub->where('name', 'like', "%{$search}%")
-                        ->orWhere('barcode', 'like', "%{$search}%")
-                        ->orWhere('product_code', 'like', "%{$search}%");
+                    $sub->where('products.name', 'like', "%{$search}%")
+                        ->orWhere('products.barcode', 'like', "%{$search}%")
+                        ->orWhere('products.product_code', 'like', "%{$search}%");
                 });
             });
 
