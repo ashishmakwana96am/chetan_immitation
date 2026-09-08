@@ -467,6 +467,9 @@
 
     <script>
         $(document).ready(function () {
+            let isSelect2Open = false;
+            let isForceClosing = false;
+
             // Initialize Sub Category Multi-Select with Collection-style badge & dropdown design
             const $subSelect = $('#filter-sub-category');
             if ($subSelect.length) {
@@ -531,16 +534,50 @@
 
             // Prevent Bootstrap dropdown from closing while Select2 dropdown is open
             $('#filterDropdownContainer').on('hide.bs.dropdown', function (e) {
-                if (isSelect2Open || $('#filterDropdownContainer .select2-container--open').length > 0) {
+                if (isForceClosing) {
+                    return true;
+                }
+                if (isSelect2Open) {
                     e.preventDefault();
                     return false;
                 }
             });
 
-            // Prevent touch and click event propagation from closing dropdown
+            // Prevent touch and click event propagation from closing dropdown when interacting inside Select2
             $(document).on('click mousedown touchstart pointerdown', '#filterDropdownContainer .select2-container, #filterDropdownContainer .select2-dropdown, .select2-results, .select2-search', function (e) {
                 e.stopPropagation();
             });
+
+            function closeProductFilterSidepanel() {
+                isForceClosing = true;
+                isSelect2Open = false;
+
+                if ($('#filter-sub-category').hasClass('select2-hidden-accessible')) {
+                    try {
+                        $('#filter-sub-category').select2('close');
+                    } catch (err) {}
+                }
+
+                const dropdownToggleEl = document.querySelector('#filterDropdownContainer button[data-bs-toggle="dropdown"]');
+                if (dropdownToggleEl) {
+                    try {
+                        const dropdownInstance = bootstrap.Dropdown.getInstance(dropdownToggleEl);
+                        if (dropdownInstance) {
+                            dropdownInstance.hide();
+                        }
+                    } catch (err) {}
+                }
+
+                $('#filterDropdownContainer').removeClass('show');
+                $('#filterDropdownContainer > button[data-bs-toggle="dropdown"]').removeClass('show').attr('aria-expanded', 'false');
+                $('#filterDropdownContainer .dropdown-menu').removeClass('show');
+
+                $('.filter-mobile-backdrop').removeClass('show');
+                setTimeout(function () {
+                    $('.filter-mobile-backdrop').remove();
+                    isForceClosing = false;
+                }, 280);
+            }
 
             // Handle mobile backdrop and close button
             $('#filterDropdownContainer').on('show.bs.dropdown', function () {
@@ -559,20 +596,13 @@
                 $('.filter-mobile-backdrop').removeClass('show');
                 setTimeout(function () {
                     $('.filter-mobile-backdrop').remove();
-                }, 250);
+                }, 280);
             });
 
-            $(document).on('click', '.filter-mobile-backdrop, #btnCloseFilterDropdown', function (e) {
+            $(document).on('click', '#btnCloseFilterDropdown, .filter-mobile-backdrop', function (e) {
                 e.preventDefault();
-                const dropdownToggleEl = document.querySelector('#filterDropdownContainer button[data-bs-toggle="dropdown"]');
-                if (dropdownToggleEl) {
-                    const dropdownInstance = bootstrap.Dropdown.getInstance(dropdownToggleEl) || new bootstrap.Dropdown(dropdownToggleEl);
-                    dropdownInstance.hide();
-                }
-                $('.filter-mobile-backdrop').removeClass('show');
-                setTimeout(function () {
-                    $('.filter-mobile-backdrop').remove();
-                }, 250);
+                e.stopPropagation();
+                closeProductFilterSidepanel();
             });
 
             // Category filter change: filter Sub Category options
@@ -678,12 +708,7 @@
             $(document).on('click', '#btnApplyFilter', function (e) {
                 e.preventDefault();
                 window.refreshTable();
-                
-                const dropdownToggleEl = document.querySelector('#filterDropdownContainer button[data-bs-toggle="dropdown"]');
-                if (dropdownToggleEl) {
-                    const dropdownInstance = bootstrap.Dropdown.getInstance(dropdownToggleEl) || new bootstrap.Dropdown(dropdownToggleEl);
-                    dropdownInstance.hide();
-                }
+                closeProductFilterSidepanel();
             });
 
             // Clear Filter button handler
@@ -702,13 +727,7 @@
                 $('#filter-sale-product').val('');
                 $('#filter-location').val('');
                 window.refreshTable();
-                
-                // Close the dropdown after clearing
-                const dropdownToggleEl = document.querySelector('#filterDropdownContainer button[data-bs-toggle="dropdown"]');
-                if (dropdownToggleEl) {
-                    const dropdownInstance = bootstrap.Dropdown.getInstance(dropdownToggleEl) || new bootstrap.Dropdown(dropdownToggleEl);
-                    dropdownInstance.hide();
-                }
+                closeProductFilterSidepanel();
             });
 
             window.buildBarcodeLabelsHtml = function(items) {
