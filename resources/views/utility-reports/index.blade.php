@@ -135,7 +135,7 @@
                         <th>Module</th>
                         <th>Action</th>
                         <th>Description</th>
-                        <th>Details</th>
+                        <th>Action</th>
                         <th class="d-none">Date Sort</th>
                     </tr>
                 </thead>
