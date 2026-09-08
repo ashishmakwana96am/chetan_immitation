@@ -687,10 +687,11 @@ class PurchaseBillController extends Controller
 
                 $multiplier = $this->stockMultiplierFor($item->product, $item->pair_type, $item->custom_size_value);
                 $stockQty = (int) round($item->quantity * $multiplier);
+                $prodLabel = $item->product ? ($item->product->name . ($item->product->barcode ? ' (' . $item->product->barcode . ')' : '')) : "Product #{$item->product_id}";
 
                 $oldQty = $source->quantity;
                 $source->decrement('quantity', $stockQty);
-                ActivityLogger::log('Inventory', 'update', $source, ['quantity' => $oldQty], ['quantity' => $oldQty - $stockQty], 'Stock moved out from ' . $fromLocName . ' to ' . $toLocName . ' for purchase bill #' . $purchaseBill->transfer_no);
+                ActivityLogger::log('Inventory', 'update', $source, ['quantity' => $oldQty], ['quantity' => $oldQty - $stockQty], 'Stock moved out from ' . $fromLocName . ' to ' . $toLocName . ' for purchase bill #' . $purchaseBill->transfer_no . ' [' . $prodLabel . ']');
 
                 $destination = Inventory::firstOrCreate(
                     [
@@ -704,7 +705,7 @@ class PurchaseBillController extends Controller
                 );
                 $destOldQty = $destination->quantity;
                 $destination->increment('quantity', $stockQty);
-                ActivityLogger::log('Inventory', 'update', $destination, ['quantity' => $destOldQty], ['quantity' => $destOldQty + $stockQty], 'Stock moved in to ' . $toLocName . ' from ' . $fromLocName . ' for purchase bill #' . $purchaseBill->transfer_no);
+                ActivityLogger::log('Inventory', 'update', $destination, ['quantity' => $destOldQty], ['quantity' => $destOldQty + $stockQty], 'Stock moved in to ' . $toLocName . ' from ' . $fromLocName . ' for purchase bill #' . $purchaseBill->transfer_no . ' [' . $prodLabel . ']');
 
                 // Update purchase_batch_stocks: Deduct from source branch, Add to destination branch on ACCEPT
                 $sourceBatchPrice = DB::table('purchase_batch_stocks')
