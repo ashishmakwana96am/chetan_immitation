@@ -1955,7 +1955,11 @@ class SaleController extends Controller
         Cache::store('file')->forget('all_mapped_products_sales');
         Cache::forget('all_mapped_products_sales');
 
-        ActivityLogger::log('Inventory', 'update', $inventory, ['quantity' => $oldQty], ['quantity' => $newQty], $description);
+        $product = Product::withTrashed()->find($productId);
+        $productLabel = $product ? ($product->name . ($product->barcode ? ' (' . $product->barcode . ')' : '')) : "Product #{$productId}";
+        $fullDescription = $description . ' [' . $productLabel . ']';
+
+        ActivityLogger::log('Inventory', 'update', $inventory, ['quantity' => $oldQty], ['quantity' => $newQty], $fullDescription);
     }
 
     /**
