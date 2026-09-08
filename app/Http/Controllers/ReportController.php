@@ -2168,6 +2168,7 @@ class ReportController extends Controller
                 order_items.product_id,
                 products.name,
                 products.barcode,
+                products.pair_product,
                 SUM(
                     order_items.quantity * CASE 
                         WHEN order_items.custom_size_value IS NOT NULL AND order_items.custom_size_value > 0 THEN order_items.custom_size_value
@@ -2180,7 +2181,7 @@ class ReportController extends Controller
                     COALESCE(order_items.purchase_price, order_items.quantity * COALESCE(product_variants.purchase_price, products.purchase_price, 0))
                 ) as total_cost
             ')
-            ->groupBy('order_items.product_id', 'products.name', 'products.barcode')
+            ->groupBy('order_items.product_id', 'products.name', 'products.barcode', 'products.pair_product')
             ->orderByDesc('order_items.product_id')
             ->get();
 
@@ -2313,6 +2314,7 @@ class ReportController extends Controller
                 order_items.product_id,
                 products.name,
                 products.barcode,
+                products.pair_product,
                 SUM(
                     order_items.quantity * CASE 
                         WHEN order_items.custom_size_value IS NOT NULL AND order_items.custom_size_value > 0 THEN order_items.custom_size_value
@@ -2325,7 +2327,7 @@ class ReportController extends Controller
                     COALESCE(order_items.purchase_price, order_items.quantity * COALESCE(product_variants.purchase_price, products.purchase_price, 0))
                 ) as total_cost
             ')
-            ->groupBy('order_items.product_id', 'products.name', 'products.barcode');
+            ->groupBy('order_items.product_id', 'products.name', 'products.barcode', 'products.pair_product');
 
         $recordsTotal = DB::table('order_items')->distinct('product_id')->count('product_id');
         $recordsFiltered = DB::table(DB::raw("({$groupedQuery->toSql()}) as sub"))
@@ -2367,7 +2369,7 @@ class ReportController extends Controller
         } elseif ($sortKey === 'barcode') {
             $groupedQuery->orderBy('products.barcode', $sortDir);
         } elseif ($sortKey === 'qty_sold') {
-            $groupedQuery->orderByRaw("{$qtyExpr} {$sortDir}");
+            $groupedQuery->orderByRaw("COALESCE(products.pair_product, 0) ASC, {$qtyExpr} {$sortDir}");
         } elseif ($sortKey === 'total_revenue') {
             $groupedQuery->orderByRaw("{$revenueExpr} {$sortDir}");
         } elseif ($sortKey === 'total_cost') {
@@ -2544,6 +2546,7 @@ class ReportController extends Controller
                 order_items.product_id,
                 products.name,
                 products.barcode,
+                products.pair_product,
                 SUM(
                     order_items.quantity * CASE 
                         WHEN order_items.custom_size_value IS NOT NULL AND order_items.custom_size_value > 0 THEN order_items.custom_size_value
@@ -2554,8 +2557,8 @@ class ReportController extends Controller
                 SUM(order_items.total) as total_revenue,
                 SUM(order_items.quantity * COALESCE(product_variants.purchase_price, products.purchase_price, 0)) as total_cost
             ')
-            ->groupBy('order_items.product_id', 'products.name', 'products.barcode')
-            ->orderByDesc('order_items.product_id')
+            ->groupBy('order_items.product_id', 'products.name', 'products.barcode', 'products.pair_product')
+            ->orderByRaw('COALESCE(products.pair_product, 0) ASC, SUM(order_items.total) DESC')
             ->get();
 
         $totalCogs = (float) $productProfitability->sum('total_cost');
@@ -4409,7 +4412,7 @@ class ReportController extends Controller
             return $q;
         };
 
-        $query = Order::with(['customer', 'payment'])
+        $query = Order::with(['customer', 'payment', 'cancellationRequest'])
             ->where('orders.order_type', 'sale')
             ->whereIn('orders.status', [
                 Order::STATUS_APPROVE,
@@ -4482,9 +4485,15 @@ class ReportController extends Controller
         } elseif ($sortKey === 'order_no') {
             $query->orderByRaw("LENGTH(orders.order_no) {$sortDir}")->orderBy("orders.order_no", $sortDir);
             $refundQuery->orderByRaw("LENGTH(orders.order_no) {$sortDir}")->orderBy("orders.order_no", $sortDir);
-        } else {
+        } elseif ($sortKey === 'refund_amount') {
+            $query->orderBy('orders.created_at', 'desc');
+            $refundQuery->orderBy('orders.created_at', 'desc');
+        } elseif (in_array($sortKey, ['source', 'payment_method', 'payment_status', 'final_amount', 'created_at'])) {
             $query->orderBy("orders.{$sortKey}", $sortDir);
             $refundQuery->orderBy("orders.{$sortKey}", $sortDir);
+        } else {
+            $query->orderBy("orders.created_at", $sortDir);
+            $refundQuery->orderBy("orders.created_at", $sortDir);
         }
 
         $orders = $query->get();
@@ -4492,26 +4501,71 @@ class ReportController extends Controller
 
         $allOrders = $orders->merge($refundedOrders);
 
+        $getRefundAmount = function ($order) {
+            $c = $order->cancellationRequest;
+            return ($c && $c->status === \App\Models\OrderCancellationRequest::STATUS_APPROVED) ? (float) $c->refund_amount : 0.0;
+        };
+
         if ($sortKey === 'customer') {
             $allOrders = $sortDir === 'asc'
-                ? $allOrders->sortBy(fn($o) => strtolower($o->customer?->name ?? 'Walk-in Customer'))
-                : $allOrders->sortByDesc(fn($o) => strtolower($o->customer?->name ?? 'Walk-in Customer'));
+                ? $allOrders->sortBy(fn($o) => strtolower($o->customer?->name ?? 'Walk-in Customer'))->values()
+                : $allOrders->sortByDesc(fn($o) => strtolower($o->customer?->name ?? 'Walk-in Customer'))->values();
         } elseif ($sortKey === 'order_no') {
             $allOrders = $sortDir === 'asc'
-                ? $allOrders->sortBy(fn($o) => sprintf('%10d_%s', strlen($o->order_no), $o->order_no))
-                : $allOrders->sortByDesc(fn($o) => sprintf('%10d_%s', strlen($o->order_no), $o->order_no));
+                ? $allOrders->sortBy(fn($o) => sprintf('%10d_%s', strlen($o->order_no), $o->order_no))->values()
+                : $allOrders->sortByDesc(fn($o) => sprintf('%10d_%s', strlen($o->order_no), $o->order_no))->values();
         } elseif ($sortKey === 'final_amount') {
             $allOrders = $sortDir === 'asc'
-                ? $allOrders->sortBy(fn($o) => (float) $o->final_amount)
-                : $allOrders->sortByDesc(fn($o) => (float) $o->final_amount);
+                ? $allOrders->sort(function ($a, $b) {
+                    $fA = (float) $a->final_amount;
+                    $fB = (float) $b->final_amount;
+                    if ($fA === $fB) {
+                        return $b->created_at <=> $a->created_at;
+                    }
+                    return $fA <=> $fB;
+                })->values()
+                : $allOrders->sort(function ($a, $b) {
+                    $fA = (float) $a->final_amount;
+                    $fB = (float) $b->final_amount;
+                    if ($fA === $fB) {
+                        return $b->created_at <=> $a->created_at;
+                    }
+                    return $fB <=> $fA;
+                })->values();
         } elseif ($sortKey === 'refund_amount') {
             $allOrders = $sortDir === 'asc'
-                ? $allOrders->sortBy(fn($o) => (float) ($o->cancellationRequest?->refund_amount ?? 0))
-                : $allOrders->sortByDesc(fn($o) => (float) ($o->cancellationRequest?->refund_amount ?? 0));
+                ? $allOrders->sort(function ($a, $b) use ($getRefundAmount) {
+                    $rA = $getRefundAmount($a);
+                    $rB = $getRefundAmount($b);
+                    if ($rA === $rB) {
+                        return $b->created_at <=> $a->created_at;
+                    }
+                    return $rA <=> $rB;
+                })->values()
+                : $allOrders->sort(function ($a, $b) use ($getRefundAmount) {
+                    $rA = $getRefundAmount($a);
+                    $rB = $getRefundAmount($b);
+                    if ($rA === $rB) {
+                        return $b->created_at <=> $a->created_at;
+                    }
+                    return $rB <=> $rA;
+                })->values();
+        } elseif ($sortKey === 'source') {
+            $allOrders = $sortDir === 'asc'
+                ? $allOrders->sortBy(fn($o) => strtolower($o->source ?? 'POS'))->values()
+                : $allOrders->sortByDesc(fn($o) => strtolower($o->source ?? 'POS'))->values();
+        } elseif ($sortKey === 'payment_method') {
+            $allOrders = $sortDir === 'asc'
+                ? $allOrders->sortBy(fn($o) => strtolower($o->payment_method ?? ''))->values()
+                : $allOrders->sortByDesc(fn($o) => strtolower($o->payment_method ?? ''))->values();
+        } elseif ($sortKey === 'payment_status') {
+            $allOrders = $sortDir === 'asc'
+                ? $allOrders->sortBy(fn($o) => (int) ($o->payment_status ?? 0))->values()
+                : $allOrders->sortByDesc(fn($o) => (int) ($o->payment_status ?? 0))->values();
         } else {
             $allOrders = $sortDir === 'asc'
-                ? $allOrders->sortBy(fn($o) => $o->created_at)
-                : $allOrders->sortByDesc(fn($o) => $o->created_at);
+                ? $allOrders->sortBy(fn($o) => $o->created_at)->values()
+                : $allOrders->sortByDesc(fn($o) => $o->created_at)->values();
         }
 
         $recordsTotal = $allOrders->count();
