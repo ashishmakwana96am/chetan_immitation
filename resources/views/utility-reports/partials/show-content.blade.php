@@ -264,32 +264,119 @@
         return $val;
     };
 
-    $formatSingleValue = function($key, $val, $log) use ($resolveValue) {
+    // Helper closure to detect if a value is an image path/filename
+    $isImageValue = function($key, $val) {
+        if (!is_string($val) || empty(trim($val))) {
+            return false;
+        }
+        $valTrim = trim($val);
+        $imageExtensions = ['jpg', 'jpeg', 'png', 'webp', 'gif', 'svg', 'avif', 'bmp'];
+        $pathInfo = pathinfo($valTrim);
+        $ext = strtolower($pathInfo['extension'] ?? '');
+        if (in_array($ext, $imageExtensions)) {
+            return true;
+        }
+        $imageKeys = ['image', 'image_path', 'banner_image', 'avatar', 'logo', 'icon', 'photo', 'thumbnail', 'profile_photo', 'product_image', 'category_image'];
+        if (in_array($key, $imageKeys) && !is_numeric($valTrim) && (str_contains($valTrim, '/') || in_array($ext, $imageExtensions))) {
+            return true;
+        }
+        return false;
+    };
+
+    // Helper closure to get valid asset image URL
+    $getImageUrl = function($val) {
+        if (empty($val) || !is_string($val)) return null;
+        $val = trim($val);
+        if (str_starts_with($val, 'http://') || str_starts_with($val, 'https://')) {
+            return $val;
+        }
+        if (str_starts_with($val, 'uploads/')) {
+            return asset($val);
+        }
+        if (str_starts_with($val, '/uploads/')) {
+            return asset(ltrim($val, '/'));
+        }
+        return asset('uploads/' . ltrim($val, '/'));
+    };
+
+    // Helper closure to render a neat image thumbnail with link
+    $renderImageThumbnail = function($val) use ($getImageUrl) {
+        $url = $getImageUrl($val);
+        if (!$url) {
+            return '<span class="text-muted small">-</span>';
+        }
+        $filename = basename($val);
+        return '<div class="d-inline-flex align-items-center gap-2 p-1 bg-white rounded border shadow-xs" style="max-width: 100%;">'
+            . '<a href="' . e($url) . '" target="_blank" rel="noopener noreferrer" class="d-inline-block text-decoration-none flex-shrink-0" title="Click to view full image">'
+            . '<img src="' . e($url) . '" alt="' . e($filename) . '" class="rounded object-fit-cover" style="width: 50px; height: 50px; border: 1px solid rgba(0,0,0,0.08); background: #f8f9fa;" onerror="this.onerror=null; this.src=\'' . asset('assets/img/illustrations/page-misc-error-light.png') . '\'; this.style.opacity=\'0.5\';" />'
+            . '</a>'
+            . '<div class="d-flex flex-column" style="min-width: 0;">'
+            . '<a href="' . e($url) . '" target="_blank" rel="noopener noreferrer" class="small fw-semibold text-truncate text-dark text-decoration-none" style="max-width: 220px;" title="' . e($val) . '">'
+            . e($filename)
+            . '</a>'
+            . '<small class="text-muted" style="font-size: 0.725rem;"><i class="ti ti-external-link me-1 fs-tiny"></i>View Image</small>'
+            . '</div>'
+            . '</div>';
+    };
+
+    $formatSingleValue = function($key, $val, $log) use ($resolveValue, $isImageValue, $renderImageThumbnail) {
         if (is_null($val) || $val === '') {
             return '<span class="text-muted small">-</span>';
+        }
+
+        if ($isImageValue($key, $val)) {
+            return $renderImageThumbnail($val);
         }
 
         $resolved = $resolveValue($key, $val, $log);
 
         if (is_string($resolved) && str_contains($resolved, '<') && str_contains($resolved, '>')) {
-            return strip_tags($resolved, '<p><br><ul><ol><li><strong><b><em><i><span><div><a><code>');
+            return strip_tags($resolved, '<p><br><ul><ol><li><strong><b><em><i><span><div><a><code><img>');
         }
 
         return e($resolved);
     };
 
     // Helper closure to format any array/JSON value into clean human-readable HTML (NO raw JSON dumps)
-    $renderArrayValue = function($key, $val, $log) use ($resolveValue, $renameKey) {
+    $renderArrayValue = function($key, $val, $log) use ($resolveValue, $renameKey, $isImageValue, $renderImageThumbnail) {
         if (is_null($val) || $val === '') {
             return '<span class="text-muted small">-</span>';
         }
 
         if (!is_array($val)) {
+            if ($isImageValue($key, $val)) {
+                return $renderImageThumbnail($val);
+            }
             return e($resolveValue($key, $val, $log));
         }
 
         if (empty($val)) {
             return '<span class="text-muted small">-</span>';
+        }
+
+        // Check if array is a list of image paths or image objects
+        $isImageList = true;
+        foreach ($val as $item) {
+            if (is_string($item) && $isImageValue($key, $item)) {
+                continue;
+            } elseif (is_array($item) && (isset($item['image_path']) || isset($item['image']))) {
+                continue;
+            } else {
+                $isImageList = false;
+                break;
+            }
+        }
+
+        if ($isImageList) {
+            $html = '<div class="d-flex flex-wrap gap-2">';
+            foreach ($val as $item) {
+                $imgPath = is_array($item) ? ($item['image_path'] ?? $item['image'] ?? '') : $item;
+                if ($imgPath) {
+                    $html .= $renderImageThumbnail($imgPath);
+                }
+            }
+            $html .= '</div>';
+            return $html;
         }
 
         if ($key === 'purchase_details' && is_array($val)) {
@@ -421,8 +508,12 @@
             $html = '<div class="d-flex flex-column gap-1 small">';
             foreach ($val as $subKey => $subVal) {
                 $label = $renameKey($subKey);
-                $resolved = is_array($subVal) ? implode(', ', array_map('strval', $subVal)) : $resolveValue($subKey, $subVal, $log);
-                $html .= '<div><span class="text-muted me-1">' . e($label) . ':</span> <span class="fw-semibold">' . e($resolved) . '</span></div>';
+                if (is_string($subVal) && $isImageValue($subKey, $subVal)) {
+                    $html .= '<div class="d-flex align-items-center gap-2"><span class="text-muted me-1">' . e($label) . ':</span> ' . $renderImageThumbnail($subVal) . '</div>';
+                } else {
+                    $resolved = is_array($subVal) ? implode(', ', array_map('strval', $subVal)) : $resolveValue($subKey, $subVal, $log);
+                    $html .= '<div><span class="text-muted me-1">' . e($label) . ':</span> <span class="fw-semibold">' . e($resolved) . '</span></div>';
+                }
             }
             $html .= '</div>';
             return $html;
@@ -443,7 +534,9 @@
                 foreach ($headers as $h) {
                     $cellVal = $row[$h] ?? '-';
 
-                    if (is_array($cellVal)) {
+                    if (is_string($cellVal) && $isImageValue($h, $cellVal)) {
+                        $html .= '<td>' . $renderImageThumbnail($cellVal) . '</td>';
+                    } elseif (is_array($cellVal)) {
                         $resolvedCell = collect($cellVal)
                             ->map(function ($item) {
                                 if (is_array($item)) {
@@ -455,16 +548,14 @@
                                 return is_scalar($item) ? (string) $item : json_encode($item);
                             })
                             ->implode(', ');
+                        $html .= '<td>' . e((string) $resolvedCell) . '</td>';
                     } else {
                         $resolvedCell = $resolveValue($h, $cellVal, $log);
+                        if (is_array($resolvedCell)) {
+                            $resolvedCell = json_encode($resolvedCell);
+                        }
+                        $html .= '<td>' . e((string) $resolvedCell) . '</td>';
                     }
-
-                    // Final safety check in case resolveValue() itself returns an array
-                    if (is_array($resolvedCell)) {
-                        $resolvedCell = json_encode($resolvedCell);
-                    }
-
-                    $html .= '<td>' . e((string) $resolvedCell) . '</td>';
                 }
 
                 $html .= '</tr>';
