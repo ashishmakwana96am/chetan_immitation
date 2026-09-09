@@ -340,7 +340,7 @@
                                 </div>
                             </div>
 
-                            <div class="col-md-6">
+                            <div class="col-md-6 filter-product-top-mobile">
                                 <div class="mb-2 text-start">
                                     <label class="form-label fw-medium text-muted mb-1" for="filter-product">Product</label>
                                     <div class="w-100">
@@ -505,6 +505,7 @@
 
             $('#filter-product').on('select2:open', function () {
                 isSelect2Open = true;
+                $('.filter-sidepanel-body').animate({ scrollTop: 0 }, 150);
             }).on('select2:close', function () {
                 setTimeout(function () {
                     isSelect2Open = false;

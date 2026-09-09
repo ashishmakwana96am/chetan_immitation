@@ -215,7 +215,7 @@
                             </select>
                         </div>
 
-                        <div class="mb-3 text-start position-relative">
+                        <div class="mb-3 text-start position-relative filter-product-top-mobile">
                             <label class="form-label fw-medium text-muted mb-1" for="filter-product">Product</label>
                             <select id="filter-product" class="form-select product-search-select" style="width: 100%;">
                                 <option value="">All Products</option>

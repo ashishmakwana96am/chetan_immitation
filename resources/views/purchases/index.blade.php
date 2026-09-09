@@ -242,7 +242,7 @@
                         </div>
 
                         {{-- Product --}}
-                        <div class="mb-3 text-start position-relative">
+                        <div class="mb-3 text-start position-relative filter-product-top-mobile">
                             <label class="form-label fw-medium text-muted mb-1" for="filter-product">Product</label>
                             <select id="filter-product" class="form-select product-search-select" style="width: 100%;">
                                 <option value="">All Products</option>
@@ -737,6 +737,7 @@
             $('#filter-product').on('select2:open', function () {
                 isSelect2Open = true;
                 $('.select2-container--open, .select2-dropdown').css('z-index', 99999);
+                $('.filter-sidepanel-body').animate({ scrollTop: 0 }, 150);
             });
             $('#filter-product').on('select2:close', function () {
                 setTimeout(function () {
