@@ -511,12 +511,6 @@
                 }, 150);
             });
 
-            $('.filter-sidepanel-body').on('scroll', function () {
-                if ($('#filter-product').data('select2') && $('#filter-product').data('select2').isOpen()) {
-                    $('#filter-product').select2('close');
-                }
-            });
-
             $('#filterDropdownContainer').on('hide.bs.dropdown', function (e) {
                 if (isForceClosing) {
                     return true;

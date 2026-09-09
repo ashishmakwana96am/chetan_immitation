@@ -10,8 +10,21 @@
         .ledger-line {
             display: flex;
             justify-content: space-between;
+            align-items: center;
+            gap: 12px;
             padding: 8px 12px;
             border-bottom: 1px dashed #e6e6e6;
+            font-size: 0.9rem;
+        }
+        .ledger-line span:first-child {
+            flex: 1;
+            min-width: 0;
+            word-break: break-word;
+        }
+        .ledger-line span:last-child {
+            flex-shrink: 0;
+            text-align: right;
+            font-weight: 500;
         }
         .ledger-line.total-line {
             font-weight: 700;
@@ -19,6 +32,9 @@
             border-bottom: 2px solid #5d596c;
             background-color: #f8f7fa;
             margin-top: 10px;
+        }
+        .ledger-line.total-line span:last-child {
+            font-weight: 700;
         }
         .ledger-line.net-profit-line {
             font-weight: 700;
@@ -46,6 +62,27 @@
             margin-top: 15px;
             margin-bottom: 5px;
             padding-left: 12px;
+        }
+
+        @media (max-width: 575.98px) {
+            .ledger-line {
+                padding: 7px 8px;
+                font-size: 0.8125rem;
+                gap: 8px;
+            }
+            .ledger-line.total-line {
+                font-size: 0.84rem;
+            }
+            .ledger-line.net-profit-line,
+            .ledger-line.net-loss-line {
+                font-size: 0.95rem;
+                padding: 9px 8px;
+            }
+            .ledger-header {
+                font-size: 0.775rem;
+                padding-left: 8px;
+                margin-top: 10px;
+            }
         }
     </style>
 @endsection
@@ -297,6 +334,24 @@
     <script>
     let revenueCogsChart = null;
 
+    function formatCompactIndian(val) {
+        val = parseFloat(val);
+        if (isNaN(val)) return '{{ currency_symbol() }}0';
+        const isNegative = val < 0;
+        const absVal = Math.abs(val);
+        let formatted = '';
+        if (absVal >= 10000000) {
+            formatted = (absVal / 10000000).toFixed(absVal % 10000000 === 0 ? 0 : 2) + ' Cr';
+        } else if (absVal >= 100000) {
+            formatted = (absVal / 100000).toFixed(absVal % 100000 === 0 ? 0 : 2) + ' L';
+        } else if (absVal >= 1000) {
+            formatted = (absVal / 1000).toFixed(absVal % 1000 === 0 ? 0 : 2) + ' K';
+        } else {
+            formatted = absVal.toLocaleString('en-IN');
+        }
+        return (isNegative ? '-' : '') + '{{ currency_symbol() }}' + formatted;
+    }
+
     function initReport() {
         if ($.fn.DataTable.isDataTable('#profitabilityTable')) {
             $('#profitabilityTable').DataTable().destroy();
@@ -415,24 +470,120 @@
         }
         if (months.length > 0) {
             revenueCogsChart = new ApexCharts(document.getElementById('revenueCogsChart'), {
-                chart: { type: 'bar', height: 320, toolbar: { show: false } },
+                chart: {
+                    type: 'bar',
+                    height: 350,
+                    toolbar: { show: false },
+                    parentHeightOffset: 0
+                },
                 series: [
                     { name: 'Revenue', data: revenueValues },
                     { name: 'COGS (Cost)', data: cogsValues },
                     { name: 'Expenses', data: expensesValues },
-                    { name: 'Tax / GST', data: taxValues }
+                    { name: 'Taxable Amount', data: taxValues }
                 ],
-                xaxis: { categories: months },
+                xaxis: {
+                    categories: months,
+                    labels: {
+                        style: { colors: '#5d596c', fontFamily: 'Public Sans', fontSize: '11px', fontWeight: 500 }
+                    },
+                    axisBorder: { show: false },
+                    axisTicks: { show: false }
+                },
                 colors: ['#28c76f', '#ea5455', '#ff9f43', '#00cfe8'],
-                plotOptions: { bar: { borderRadius: 4, columnWidth: '55%' } },
+                plotOptions: {
+                    bar: {
+                        borderRadius: 4,
+                        columnWidth: '60%'
+                    }
+                },
+                legend: {
+                    position: 'top',
+                    horizontalAlign: 'left',
+                    labels: { colors: '#5d596c' }
+                },
                 dataLabels: { enabled: false },
                 yaxis: {
                     labels: {
                         formatter: function (val) {
+                            return formatCompactIndian(val);
+                        },
+                        style: { colors: '#5d596c', fontFamily: 'Public Sans', fontSize: '11px', fontWeight: 500 }
+                    }
+                },
+                tooltip: {
+                    shared: true,
+                    intersect: false,
+                    y: {
+                        formatter: function (val) {
                             return '{{ currency_symbol() }}' + parseFloat(val).toLocaleString('en-IN', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
                         }
                     }
-                }
+                },
+                responsive: [
+                    {
+                        breakpoint: 768,
+                        options: {
+                            chart: { height: 350 },
+                            plotOptions: { bar: { columnWidth: '80%', borderRadius: 2 } },
+                            legend: {
+                                position: 'bottom',
+                                horizontalAlign: 'center',
+                                fontSize: '11px',
+                                itemMargin: { horizontal: 6, vertical: 2 }
+                            },
+                            xaxis: {
+                                labels: {
+                                    rotate: -45,
+                                    rotateAlways: true,
+                                    hideOverlappingLabels: true,
+                                    trim: true,
+                                    maxHeight: 60,
+                                    style: { colors: '#5d596c', fontSize: '10px', fontWeight: 500 }
+                                }
+                            },
+                            yaxis: {
+                                labels: {
+                                    formatter: function (val) {
+                                        return formatCompactIndian(val);
+                                    },
+                                    style: { colors: '#5d596c', fontSize: '10px', fontWeight: 500 }
+                                }
+                            }
+                        }
+                    },
+                    {
+                        breakpoint: 480,
+                        options: {
+                            chart: { height: 340 },
+                            plotOptions: { bar: { columnWidth: '88%', borderRadius: 2 } },
+                            legend: {
+                                position: 'bottom',
+                                horizontalAlign: 'center',
+                                fontSize: '10px',
+                                itemMargin: { horizontal: 4, vertical: 2 }
+                            },
+                            xaxis: {
+                                labels: {
+                                    rotate: -45,
+                                    rotateAlways: true,
+                                    hideOverlappingLabels: true,
+                                    trim: true,
+                                    maxHeight: 55,
+                                    style: { colors: '#5d596c', fontSize: '9px', fontWeight: 500 }
+                                }
+                            },
+                            yaxis: {
+                                labels: {
+                                    formatter: function (val) {
+                                        return formatCompactIndian(val);
+                                    },
+                                    style: { colors: '#5d596c', fontSize: '9px', fontWeight: 500 }
+                                }
+                            }
+                        }
+                    }
+                ]
             });
             revenueCogsChart.render();
         } else {

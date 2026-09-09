@@ -245,7 +245,12 @@
             const locationNames = @json($locations->pluck('name'));
 
             chartLocation = new ApexCharts(document.getElementById('locationStockChart'), {
-                chart  : { type: 'bar', height: 380, toolbar: { show: false } },
+                chart  : {
+                    type: 'bar',
+                    height: 380,
+                    toolbar: { show: false },
+                    parentHeightOffset: 0
+                },
                 plotOptions: {
                     bar: {
                         horizontal: true,
@@ -258,13 +263,18 @@
                 series : [{ name: 'Total Stock', data: locationChartData.map(l => l.stock) }],
                 xaxis  : {
                     categories: locationChartData.map(l => l.name),
+                    tickAmount: 4,
                     labels: {
-                        style: { colors: '#5d596c', fontFamily: 'Public Sans' },
+                        style: { colors: '#5d596c', fontFamily: 'Public Sans', fontSize: '11px' },
                         formatter: function(val) { return parseInt(val); }
                     }
                 },
                 yaxis  : {
-                    labels: { style: { colors: '#5d596c', fontFamily: 'Public Sans', fontWeight: 500 } }
+                    labels: {
+                        style: { colors: '#5d596c', fontFamily: 'Public Sans', fontWeight: 500, fontSize: '11px' },
+                        maxWidth: 130,
+                        trim: true
+                    }
                 },
                 dataLabels : {
                     enabled: true,
@@ -277,8 +287,31 @@
                     borderColor: '#e5e5e5',
                     xaxis: { lines: { show: true } },
                     yaxis: { lines: { show: false } },
-                    padding: { top: -15, right: 10, bottom: -10, left: 10 }
-                }
+                    padding: { top: -10, right: 15, bottom: -5, left: 5 }
+                },
+                responsive: [
+                    {
+                        breakpoint: 768,
+                        options: {
+                            xaxis: {
+                                tickAmount: 3,
+                                labels: {
+                                    style: { fontSize: '10px' }
+                                }
+                            },
+                            yaxis: {
+                                labels: {
+                                    maxWidth: 95,
+                                    trim: true,
+                                    style: { fontSize: '10px' }
+                                }
+                            },
+                            grid: {
+                                padding: { top: -10, right: 10, bottom: -5, left: 0 }
+                            }
+                        }
+                    }
+                ]
             });
             chartLocation.render();
 
@@ -290,17 +323,28 @@
             });
 
             chartStacked = new ApexCharts(document.getElementById('stackedStockChart'), {
-                chart  : { type: 'bar', height: 380, stacked: true, toolbar: { show: false } },
+                chart  : {
+                    type: 'bar',
+                    height: 380,
+                    stacked: true,
+                    toolbar: { show: false },
+                    parentHeightOffset: 0
+                },
                 series : stackedSeries,
                 xaxis  : {
                     categories: stackedChartData.map(p => p.name),
+                    tickAmount: 4,
                     labels: {
-                        style: { colors: '#5d596c', fontFamily: 'Public Sans' },
+                        style: { colors: '#5d596c', fontFamily: 'Public Sans', fontSize: '11px' },
                         formatter: function(val) { return parseInt(val); }
                     }
                 },
                 yaxis  : {
-                    labels: { style: { colors: '#5d596c', fontFamily: 'Public Sans', fontWeight: 500 } }
+                    labels: {
+                        style: { colors: '#5d596c', fontFamily: 'Public Sans', fontWeight: 500, fontSize: '11px' },
+                        maxWidth: 140,
+                        trim: true
+                    }
                 },
                 plotOptions: { bar: { horizontal: true, borderRadius: 4, barHeight: '60%' } },
                 dataLabels : {
@@ -319,9 +363,32 @@
                     borderColor: '#e5e5e5',
                     xaxis: { lines: { show: true } },
                     yaxis: { lines: { show: false } },
-                    padding: { top: -15, right: 10, bottom: -10, left: 10 }
+                    padding: { top: -10, right: 15, bottom: -5, left: 5 }
                 },
-                tooltip: { y: { formatter: function(val) { return val + ' Units'; } } }
+                tooltip: { y: { formatter: function(val) { return val + ' Units'; } } },
+                responsive: [
+                    {
+                        breakpoint: 768,
+                        options: {
+                            xaxis: {
+                                tickAmount: 3,
+                                labels: {
+                                    style: { fontSize: '10px' }
+                                }
+                            },
+                            yaxis: {
+                                labels: {
+                                    maxWidth: 95,
+                                    trim: true,
+                                    style: { fontSize: '10px' }
+                                }
+                            },
+                            grid: {
+                                padding: { top: -10, right: 10, bottom: -5, left: 0 }
+                            }
+                        }
+                    }
+                ]
             });
             chartStacked.render();
         }
@@ -364,13 +431,13 @@
         });
 
         $(document).on('click', '#clearFiltersBtn', function() {
-            $('#filterCategory').val('').trigger('change.select2');
-            $('#filterLocation').val('').trigger('change.select2');
-            $('#filterStock').val('').trigger('change.select2');
-            $('#filterAge').val('').trigger('change.select2');
+            $('#filterCategory').val('').trigger('change');
+            $('#filterLocation').val('').trigger('change');
+            $('#filterStock').val('');
+            $('#filterAge').val('');
             $('#filterAgeCustom').val('');
             $('#customAgeWrapper').addClass('d-none');
-            $('#sortBy').val('').trigger('change.select2');
+            $('#sortBy').val('');
             $('#filterForm .flatpickr').each(function () {
                 if (this._flatpickr) this._flatpickr.clear();
             });

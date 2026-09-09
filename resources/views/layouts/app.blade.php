@@ -92,7 +92,7 @@
         display: flex !important;
         align-items: center !important;
         position: relative !important;
-        border: 1px solid #dbade9;
+        border: 1px solid #dbdade;
     }
     .select2-container--default.select2-container--focus .select2-selection--multiple,
     .select2-container--default.select2-container--open .select2-selection--multiple {
@@ -602,6 +602,22 @@
             $(document).ajaxComplete(function() {
                 initGlobalSelect2();
                 setTimeout(initGlobalSelect2, 50);
+            });
+
+            $(document).on('select2:open', function(e) {
+                const $select = $(e.target);
+                const $container = $select.next('.select2-container');
+
+                if (window.innerWidth < 768 && $container.length) {
+                    const scrollParent = $container.closest('.filter-sidepanel-body, .offcanvas-body, .modal-body');
+                    if (scrollParent.length) {
+                        const containerTop = $container.position().top;
+                        const currentScroll = scrollParent.scrollTop();
+                        scrollParent.animate({
+                            scrollTop: Math.max(0, currentScroll + containerTop - 15)
+                        }, 250);
+                    }
+                }
             });
 
 

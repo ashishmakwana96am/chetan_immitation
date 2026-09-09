@@ -164,7 +164,7 @@
                     @if($isSuperAdmin)
                     <div class="col-md-3 col-sm-6">
                         <label class="form-label">Location</label>
-                        <select name="location_id" class="form-select no-select2">
+                        <select name="location_id" id="filterLocation" class="form-select select2" data-placeholder="All Locations">
                             <option value="">All Locations</option>
                             @foreach($locations as $loc)
                                 <option value="{{ $loc->id }}" {{ $locationId == $loc->id ? 'selected' : '' }}>{{ $loc->name }}</option>
@@ -245,6 +245,7 @@
 @section('page-js')
     <script src="{{ asset('assets/vendor/libs/datatables-bs5/datatables-bootstrap5.js') }}"></script>
     <script src="{{ asset('assets/vendor/libs/apex-charts/apexcharts.js') }}"></script>
+    <script src="{{ asset('assets/vendor/libs/flatpickr/flatpickr.js') }}"></script>
     <script>
     let paymentTrendChart  = null;
     let paymentMethodChart = null;
@@ -253,14 +254,19 @@
     function formatCompactIndian(val) {
         val = parseFloat(val);
         if (isNaN(val)) return '{{ currency_symbol() }}0';
-        if (val >= 10000000) {
-            return '{{ currency_symbol() }}' + (val / 10000000).toFixed(val % 10000000 === 0 ? 0 : 2) + ' Cr';
-        } else if (val >= 100000) {
-            return '{{ currency_symbol() }}' + (val / 100000).toFixed(val % 100000 === 0 ? 0 : 2) + ' L';
-        } else if (val >= 1000) {
-            return '{{ currency_symbol() }}' + (val / 1000).toFixed(val % 1000 === 0 ? 0 : 2) + ' K';
+        const isNegative = val < 0;
+        const absVal = Math.abs(val);
+        let formatted = '';
+        if (absVal >= 10000000) {
+            formatted = (absVal / 10000000).toFixed(absVal % 10000000 === 0 ? 0 : 2) + ' Cr';
+        } else if (absVal >= 100000) {
+            formatted = (absVal / 100000).toFixed(absVal % 100000 === 0 ? 0 : 2) + ' L';
+        } else if (absVal >= 1000) {
+            formatted = (absVal / 1000).toFixed(absVal % 1000 === 0 ? 0 : 2) + ' K';
+        } else {
+            formatted = absVal.toLocaleString('en-IN');
         }
-        return '{{ currency_symbol() }}' + val.toLocaleString('en-IN');
+        return (isNegative ? '-' : '') + '{{ currency_symbol() }}' + formatted;
     }
 
     function renderDonutChart(containerId, chartInstance, dataObj, colors) {
@@ -285,7 +291,31 @@
                         formatter: (val) => '{{ currency_symbol() }}' + parseFloat(val).toLocaleString('en-IN', { minimumFractionDigits: 2, maximumFractionDigits: 2 })
                     }
                 },
-                noData: { text: 'No data available' }
+                noData: { text: 'No data available' },
+                responsive: [
+                    {
+                        breakpoint: 768,
+                        options: {
+                            chart: { height: 290 },
+                            legend: {
+                                position: 'bottom',
+                                fontSize: '11px',
+                                itemMargin: { horizontal: 6, vertical: 2 }
+                            }
+                        }
+                    },
+                    {
+                        breakpoint: 480,
+                        options: {
+                            chart: { height: 260 },
+                            legend: {
+                                position: 'bottom',
+                                fontSize: '10px',
+                                itemMargin: { horizontal: 4, vertical: 2 }
+                            }
+                        }
+                    }
+                ]
             });
             chartInstance.render();
         } else {
@@ -311,22 +341,78 @@
 
         if (months.length > 0) {
             paymentTrendChart = new ApexCharts(document.getElementById('paymentTrendChart'), {
-                chart: { type: 'bar', height: 320, toolbar: { show: false } },
+                chart: { type: 'bar', height: 320, toolbar: { show: false }, parentHeightOffset: 0 },
                 series: [{ name: 'Payments', data: values }],
-                xaxis: { categories: months },
+                xaxis: {
+                    categories: months,
+                    labels: {
+                        style: { colors: '#5d596c', fontFamily: 'Public Sans', fontSize: '11px', fontWeight: 500 }
+                    },
+                    axisBorder: { show: false },
+                    axisTicks: { show: false }
+                },
                 colors: ['#7367f0'],
-                plotOptions: { bar: { borderRadius: 4, columnWidth: '45%' } },
+                plotOptions: { bar: { borderRadius: 4, columnWidth: '50%' } },
                 dataLabels: { enabled: false },
                 yaxis: {
                     labels: {
-                        formatter: (val) => formatCompactIndian(val)
+                        formatter: (val) => formatCompactIndian(val),
+                        style: { colors: '#5d596c', fontFamily: 'Public Sans', fontSize: '11px', fontWeight: 500 }
                     }
                 },
                 tooltip: {
                     y: {
                         formatter: (val) => '{{ currency_symbol() }}' + parseFloat(val).toLocaleString('en-IN', { minimumFractionDigits: 2, maximumFractionDigits: 2 })
                     }
-                }
+                },
+                responsive: [
+                    {
+                        breakpoint: 768,
+                        options: {
+                            chart: { height: 320 },
+                            plotOptions: { bar: { columnWidth: '70%', borderRadius: 2 } },
+                            xaxis: {
+                                labels: {
+                                    rotate: -45,
+                                    rotateAlways: true,
+                                    hideOverlappingLabels: true,
+                                    trim: true,
+                                    maxHeight: 60,
+                                    style: { colors: '#5d596c', fontSize: '10px', fontWeight: 500 }
+                                }
+                            },
+                            yaxis: {
+                                labels: {
+                                    formatter: (val) => formatCompactIndian(val),
+                                    style: { colors: '#5d596c', fontSize: '10px', fontWeight: 500 }
+                                }
+                            }
+                        }
+                    },
+                    {
+                        breakpoint: 480,
+                        options: {
+                            chart: { height: 300 },
+                            plotOptions: { bar: { columnWidth: '80%', borderRadius: 2 } },
+                            xaxis: {
+                                labels: {
+                                    rotate: -45,
+                                    rotateAlways: true,
+                                    hideOverlappingLabels: true,
+                                    trim: true,
+                                    maxHeight: 55,
+                                    style: { colors: '#5d596c', fontSize: '9px', fontWeight: 500 }
+                                }
+                            },
+                            yaxis: {
+                                labels: {
+                                    formatter: (val) => formatCompactIndian(val),
+                                    style: { colors: '#5d596c', fontSize: '9px', fontWeight: 500 }
+                                }
+                            }
+                        }
+                    }
+                ]
             });
             paymentTrendChart.render();
         } else {
@@ -480,6 +566,7 @@
                 const startPicker = $(startEl).flatpickr({
                     altInput: true, altFormat: 'd-m-Y', dateFormat: 'Y-m-d', allowInput: false, maxDate: 'today',
                     onChange: function (selectedDates, dateStr, instance) {
+                        $(instance.element).closest('form').trigger('change');
                         if (selectedDates.length) {
                             endPicker.set('minDate', selectedDates[0]);
                         } else {
@@ -491,6 +578,7 @@
                 const endPicker = $(endEl).flatpickr({
                     altInput: true, altFormat: 'd-m-Y', dateFormat: 'Y-m-d', allowInput: false, maxDate: 'today',
                     onChange: function (selectedDates, dateStr, instance) {
+                        $(instance.element).closest('form').trigger('change');
                         if (selectedDates.length) {
                             startPicker.set('maxDate', selectedDates[0]);
                         } else {
@@ -508,9 +596,27 @@
             } else {
                 $('.flatpickr').each(function () { if (this._flatpickr) this._flatpickr.destroy(); });
                 $('.flatpickr').flatpickr({
-                    altInput: true, altFormat: 'd-m-Y', dateFormat: 'Y-m-d', allowInput: false, maxDate: 'today'
+                    altInput: true, altFormat: 'd-m-Y', dateFormat: 'Y-m-d', allowInput: false, maxDate: 'today',
+                    onChange: function (selectedDates, dateStr, instance) {
+                        $(instance.element).closest('form').trigger('change');
+                    }
                 });
             }
+        }
+    }
+
+    function initSelect2() {
+        if (typeof $.fn.select2 !== 'undefined') {
+            $('#filterLocation').each(function () {
+                if ($(this).hasClass('select2-hidden-accessible')) {
+                    $(this).select2('destroy');
+                }
+                $(this).select2({
+                    placeholder: $(this).data('placeholder') || 'All Locations',
+                    allowClear: true,
+                    dropdownParent: $(this).parent()
+                });
+            });
         }
     }
 
@@ -531,6 +637,7 @@
     $(document).ready(function () {
         initReport();
         initDatePickers();
+        initSelect2();
 
         function loadReport(url) {
             $('#report-results').css('opacity', 0.5);
@@ -543,6 +650,7 @@
                 $('#report-results').html(newResults);
                 initReport();
                 initDatePickers();
+                initSelect2();
                 updateFilterButtonsVisibility();
             }).always(function () {
                 $('#report-results').css('opacity', 1);
@@ -550,6 +658,9 @@
         }
 
         $(document).on('input change', '#filterForm', function () {
+            updateFilterButtonsVisibility();
+        });
+        $(document).on('change', '#filterLocation', function () {
             updateFilterButtonsVisibility();
         });
         updateFilterButtonsVisibility();
@@ -573,7 +684,7 @@
                 }
             });
             form.find('input').val('');
-            form.find('select').val('').trigger('change.select2');
+            form.find('select').val('').trigger('change');
             updateFilterButtonsVisibility();
             loadReport(form.attr('action'));
         });

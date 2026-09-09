@@ -458,12 +458,6 @@
                 isSelect2Open = false;
             });
 
-            $('.filter-sidepanel-body').on('scroll', function () {
-                if (isSelect2Open && $('#filter-product').hasClass('select2-hidden-accessible')) {
-                    $('#filter-product').select2('close');
-                }
-            });
-
             $(document).on('click mousedown touchstart pointerdown', '.select2-selection__clear, #filterDropdownContainer .select2-container, #filterDropdownMenu .select2-container, .select2-dropdown, .select2-results, .select2-search', function (e) {
                 e.stopPropagation();
             });

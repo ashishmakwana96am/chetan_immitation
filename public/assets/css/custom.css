@@ -585,3 +585,102 @@ body.offcanvas-open {
   overflow-y: auto !important;
   overflow-x: hidden !important;
 }
+
+/*
+* Mobile Keyboard & Responsive Select2 Dropdown Positioning
+******************************************************************************/
+.select2-container--open,
+.select2-dropdown {
+  z-index: 99999 !important;
+}
+
+.select2-dropdown {
+  border: 1px solid #dbdade !important;
+  border-radius: 6px !important;
+  box-shadow: 0 6px 20px rgba(0, 0, 0, 0.12) !important;
+  background-color: #fff !important;
+}
+
+.select2-container--default.select2-container--focus .select2-selection,
+.select2-container--default.select2-container--open .select2-selection {
+  border-color: #B4771E !important;
+}
+
+.select2-dropdown .select2-search--dropdown {
+  padding: 8px !important;
+  background: #fff !important;
+}
+
+.select2-dropdown .select2-search--dropdown .select2-search__field {
+  border: 1px solid #dbdade !important;
+  border-radius: 4px !important;
+  padding: 6px 10px !important;
+  outline: none !important;
+  width: 100% !important;
+  font-size: 0.875rem !important;
+  transition: border-color 0.2s ease !important;
+}
+
+.select2-dropdown .select2-search--dropdown .select2-search__field:focus {
+  border-color: #B4771E !important;
+}
+
+.select2-results__options {
+  max-height: 180px !important;
+  overscroll-behavior: contain !important;
+  -webkit-overflow-scrolling: touch !important;
+}
+
+/*
+* Report Header Action Buttons on Mobile (50%-50% flexible fit)
+******************************************************************************/
+.report-header-actions {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.5rem;
+}
+
+@media (max-width: 575.98px) {
+  .report-header-actions {
+    width: 100% !important;
+    display: flex !important;
+    gap: 0.5rem !important;
+    margin-top: 0.25rem !important;
+  }
+  .report-header-actions .btn,
+  .report-header-actions .report-export-btn {
+    flex: 1 1 0% !important;
+    width: calc(50% - 0.25rem) !important;
+    min-width: 0 !important;
+    display: inline-flex !important;
+    align-items: center !important;
+    justify-content: center !important;
+    padding: 0.55rem 0.5rem !important;
+    font-size: 0.875rem !important;
+    font-weight: 500 !important;
+    white-space: nowrap !important;
+    box-sizing: border-box !important;
+  }
+  .report-header-actions .btn i,
+  .report-header-actions .report-export-btn i {
+    font-size: 1.05rem !important;
+    margin-right: 0.35rem !important;
+    flex-shrink: 0 !important;
+  }
+}
+
+@media (max-width: 360px) {
+  .report-header-actions .btn,
+  .report-header-actions .report-export-btn {
+    font-size: 0.8125rem !important;
+    padding: 0.5rem 0.25rem !important;
+  }
+  .report-header-actions .btn i,
+  .report-header-actions .report-export-btn i {
+    font-size: 0.95rem !important;
+    margin-right: 0.2rem !important;
+  }
+}
+
+
+

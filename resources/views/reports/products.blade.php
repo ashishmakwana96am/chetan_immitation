@@ -458,7 +458,12 @@
         const categoryChartEl = document.getElementById('categoryPieChart');
         if (categoryChartEl) {
             new ApexCharts(categoryChartEl, {
-                chart   : { type: 'bar', height: Math.max(300, catKeys.length * 32 + 60), toolbar: { show: false } },
+                chart   : {
+                    type: 'bar',
+                    height: Math.max(320, catKeys.length * 32 + 60),
+                    toolbar: { show: false },
+                    parentHeightOffset: 0
+                },
                 plotOptions: {
                     bar: {
                         horizontal: true,
@@ -474,10 +479,12 @@
                 }],
                 xaxis   : {
                     categories: catKeys,
+                    tickAmount: 4,
                     labels: {
                         style: {
                             colors: '#5d596c',
-                            fontFamily: 'Public Sans'
+                            fontFamily: 'Public Sans',
+                            fontSize: '11px'
                         },
                         formatter: function(val) {
                             return parseInt(val);
@@ -489,8 +496,11 @@
                         style: {
                             colors: '#5d596c',
                             fontFamily: 'Public Sans',
-                            fontWeight: 500
-                        }
+                            fontWeight: 500,
+                            fontSize: '11px'
+                        },
+                        maxWidth: 140,
+                        trim: true
                     }
                 },
                 dataLabels: {
@@ -518,8 +528,31 @@
                     borderColor: '#e5e5e5',
                     xaxis: { lines: { show: true } },
                     yaxis: { lines: { show: false } },
-                    padding: { top: -15, right: 10, bottom: -10, left: 10 }
+                    padding: { top: -10, right: 15, bottom: -5, left: 5 }
                 },
+                responsive: [
+                    {
+                        breakpoint: 768,
+                        options: {
+                            xaxis: {
+                                tickAmount: 3,
+                                labels: {
+                                    style: { fontSize: '10px' }
+                                }
+                            },
+                            yaxis: {
+                                labels: {
+                                    maxWidth: 95,
+                                    trim: true,
+                                    style: { fontSize: '10px' }
+                                }
+                            },
+                            grid: {
+                                padding: { top: -10, right: 10, bottom: -5, left: 0 }
+                            }
+                        }
+                    }
+                ]
             }).render();
         }
 
@@ -534,23 +567,36 @@
         const topStockChartEl = document.getElementById('topStockChart');
         if (topStockChartEl) {
             new ApexCharts(topStockChartEl, {
-                chart  : { type: 'bar', height: 340, toolbar: { show: false } },
+                chart  : {
+                    type: 'bar',
+                    height: 360,
+                    toolbar: { show: false },
+                    parentHeightOffset: 0
+                },
                 series : [{ name: 'Stock', data: top10Stock }],
                 xaxis  : {
                     categories: top10Names,
+                    tickAmount: 4,
                     labels: {
-                        style: { colors: '#5d596c', fontFamily: 'Public Sans' },
+                        style: { colors: '#5d596c', fontFamily: 'Public Sans', fontSize: '11px' },
                         formatter: function (val) { return parseInt(val); }
                     }
                 },
                 yaxis  : {
                     labels: {
-                        style: { colors: '#5d596c', fontFamily: 'Public Sans', fontWeight: 500 },
-                        maxWidth: 220
+                        style: { colors: '#5d596c', fontFamily: 'Public Sans', fontWeight: 500, fontSize: '11px' },
+                        maxWidth: 140,
+                        trim: true
                     }
                 },
                 colors : ['#B4771E'],
-                plotOptions: { bar: { horizontal: true, borderRadius: 4, barHeight: '55%' } },
+                plotOptions: {
+                    bar: {
+                        horizontal: true,
+                        borderRadius: 4,
+                        barHeight: '60%'
+                    }
+                },
                 dataLabels : {
                     enabled: true,
                     style: { fontSize: '11px', fontFamily: 'Public Sans', fontWeight: '600', colors: ['#fff'] },
@@ -561,11 +607,35 @@
                     borderColor: '#e5e5e5',
                     xaxis: { lines: { show: true } },
                     yaxis: { lines: { show: false } },
-                    padding: { top: -15, right: 10, bottom: -10, left: 10 }
+                    padding: { top: -10, right: 15, bottom: -5, left: 5 }
                 },
                 tooltip: {
                     y: { formatter: function (val) { return val + ' units'; } }
                 },
+                responsive: [
+                    {
+                        breakpoint: 768,
+                        options: {
+                            chart: { height: 380 },
+                            xaxis: {
+                                tickAmount: 3,
+                                labels: {
+                                    style: { fontSize: '10px' }
+                                }
+                            },
+                            yaxis: {
+                                labels: {
+                                    maxWidth: 95,
+                                    trim: true,
+                                    style: { fontSize: '10px' }
+                                }
+                            },
+                            grid: {
+                                padding: { top: -10, right: 10, bottom: -5, left: 0 }
+                            }
+                        }
+                    }
+                ]
             }).render();
         }
 

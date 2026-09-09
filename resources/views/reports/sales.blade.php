@@ -129,13 +129,61 @@
             border-bottom: 2px solid #B4771E !important;
             background: transparent !important;
         }
+
+        .report-header-actions {
+            display: inline-flex;
+            align-items: center;
+            gap: 0.5rem;
+        }
+
+        @media (max-width: 575.98px) {
+            .report-header-actions {
+                width: 100% !important;
+                display: flex !important;
+                gap: 0.5rem !important;
+                margin-top: 0.25rem !important;
+            }
+            .report-header-actions .btn,
+            .report-header-actions .report-export-btn {
+                flex: 1 1 0% !important;
+                width: calc(50% - 0.25rem) !important;
+                min-width: 0 !important;
+                display: inline-flex !important;
+                align-items: center !important;
+                justify-content: center !important;
+                padding: 0.55rem 0.5rem !important;
+                font-size: 0.875rem !important;
+                font-weight: 500 !important;
+                white-space: nowrap !important;
+                box-sizing: border-box !important;
+            }
+            .report-header-actions .btn i,
+            .report-header-actions .report-export-btn i {
+                font-size: 1.05rem !important;
+                margin-right: 0.35rem !important;
+                flex-shrink: 0 !important;
+            }
+        }
+
+        @media (max-width: 360px) {
+            .report-header-actions .btn,
+            .report-header-actions .report-export-btn {
+                font-size: 0.8125rem !important;
+                padding: 0.5rem 0.25rem !important;
+            }
+            .report-header-actions .btn i,
+            .report-header-actions .report-export-btn i {
+                font-size: 0.95rem !important;
+                margin-right: 0.2rem !important;
+            }
+        }
     </style>
 @endsection
 
 @section('content')
     <div class="d-flex justify-content-between align-items-center mb-4 flex-wrap gap-2">
         <h4 class="fw-semibold mb-0">Sales Report</h4>
-        <div class="d-flex gap-2">
+        <div class="report-header-actions">
             <button type="button" id="exportExcelBtn" class="btn btn-success report-export-btn">
                 <i class="ti ti-file-spreadsheet me-1"></i> Export to Excel
             </button>
@@ -488,6 +536,19 @@
     <script src="{{ asset('assets/vendor/libs/datatables-bs5/datatables-bootstrap5.js') }}"></script>
     <script src="{{ asset('assets/vendor/libs/apex-charts/apexcharts.js') }}"></script>
     <script>
+    function formatCompactIndian(val) {
+        val = parseFloat(val);
+        if (isNaN(val)) return '{{ currency_symbol() }}0';
+        if (val >= 10000000) {
+            return '{{ currency_symbol() }}' + (val / 10000000).toFixed(val % 10000000 === 0 ? 0 : 2) + ' Cr';
+        } else if (val >= 100000) {
+            return '{{ currency_symbol() }}' + (val / 100000).toFixed(val % 100000 === 0 ? 0 : 2) + ' L';
+        } else if (val >= 1000) {
+            return '{{ currency_symbol() }}' + (val / 1000).toFixed(val % 1000 === 0 ? 0 : 2) + ' K';
+        }
+        return '{{ currency_symbol() }}' + val.toLocaleString('en-IN');
+    }
+
     let salesTrendChart = null;
     let paymentMethodChart = null;
 
@@ -684,7 +745,12 @@
             salesTrendChart = new ApexCharts(document.getElementById('salesTrendChart'), {
                 chart: { type: 'area', height: 320, toolbar: { show: false } },
                 series: [{ name: 'Sales', data: values }],
-                xaxis: { categories: months },
+                xaxis: {
+                    categories: months,
+                    labels: {
+                        style: { colors: '#5d596c', fontFamily: 'Public Sans', fontSize: '11px' }
+                    }
+                },
                 colors: ['#28c76f'],
                 stroke: { curve: 'smooth', width: 3 },
                 fill: {
@@ -699,11 +765,39 @@
                 dataLabels: { enabled: false },
                 yaxis: {
                     labels: {
+                        style: { colors: '#5d596c', fontFamily: 'Public Sans', fontSize: '11px' },
+                        formatter: function (val) {
+                            return formatCompactIndian(val);
+                        }
+                    }
+                },
+                tooltip: {
+                    y: {
                         formatter: function (val) {
                             return '{{ currency_symbol() }}' + parseFloat(val).toLocaleString('en-IN', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
                         }
                     }
-                }
+                },
+                responsive: [
+                    {
+                        breakpoint: 768,
+                        options: {
+                            chart: { height: 290 },
+                            xaxis: {
+                                labels: {
+                                    rotate: -45,
+                                    rotateAlways: false,
+                                    style: { colors: '#5d596c', fontSize: '10px', fontWeight: 500 }
+                                }
+                            },
+                            yaxis: {
+                                labels: {
+                                    style: { colors: '#5d596c', fontSize: '10px', fontWeight: 500 }
+                                }
+                            }
+                        }
+                    }
+                ]
             });
             salesTrendChart.render();
         } else {
@@ -723,8 +817,20 @@
                 chart: { type: 'donut', height: 320 },
                 series: methodValues,
                 labels: methods.map(m => m.toUpperCase().replace('_', ' ')),
-                legend: { position: 'bottom' },
-                dataLabels: { enabled: true },
+                colors: ['#B4771E', '#28c76f', '#328693', '#ff9f43', '#ea5455', '#a873ff', '#4b9bfa', '#ff5c9f', '#ffc107', '#17a2b8'],
+                legend: {
+                    position: 'bottom',
+                    labels: {
+                        colors: '#5d596c',
+                        fontFamily: 'Public Sans'
+                    }
+                },
+                dataLabels: {
+                    enabled: true,
+                    formatter: function(val, opts) {
+                        return val.toFixed(1) + '%';
+                    }
+                },
                 tooltip: {
                     y: {
                         formatter: function (val) {
@@ -732,6 +838,19 @@
                         }
                     }
                 },
+                responsive: [
+                    {
+                        breakpoint: 768,
+                        options: {
+                            chart: { height: 300 },
+                            legend: {
+                                position: 'bottom',
+                                fontSize: '11px',
+                                itemMargin: { horizontal: 6, vertical: 2 }
+                            }
+                        }
+                    }
+                ]
             });
             paymentMethodChart.render();
         } else {
@@ -852,7 +971,7 @@
                 }
             });
             form.find('input').val('');
-            form.find('select').val('').trigger('change.select2');
+            form.find('select').val('').trigger('change');
             updateFilterButtonsVisibility();
 
             loadReport(form.attr('action'));

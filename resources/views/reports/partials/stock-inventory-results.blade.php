@@ -157,7 +157,7 @@
             @endif
             <div class="col-md-3">
                 <label class="form-label">Filter by Stock</label>
-                <select id="filterStock" class="form-select">
+                <select id="filterStock" class="form-select no-select2">
                     <option value="">All</option>
                     <option value="in">In Stock</option>
                     <option value="low">Low Stock (≤ 5)</option>
@@ -166,7 +166,7 @@
             </div>
             <div class="col-md-3">
                 <label class="form-label">Show Products Older Than</label>
-                <select id="filterAge" class="form-select">
+                <select id="filterAge" class="form-select no-select2">
                     <option value="">Any Age</option>
                     <option value="30">30 Days</option>
                     <option value="60">60 Days</option>
@@ -182,7 +182,7 @@
             </div>
             <div class="col-md-3">
                 <label class="form-label">Sort By</label>
-                <select id="sortBy" class="form-select">
+                <select id="sortBy" class="form-select no-select2">
                     <option value="">Default</option>
                     <option value="age_desc">Inventory Age (Oldest First)</option>
                     <option value="age_asc">Inventory Age (Newest First)</option>
