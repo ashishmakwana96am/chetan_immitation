@@ -394,35 +394,161 @@
         const monthlySales = @json($monthlySales);
         const salesByLocation = @json($salesByLocation);
 
+        function formatCompactIndian(val) {
+            val = parseFloat(val);
+            if (isNaN(val)) return '₹0';
+            const isNegative = val < 0;
+            const absVal = Math.abs(val);
+            let formatted = '';
+            if (absVal >= 10000000) {
+                formatted = (absVal / 10000000).toFixed(absVal % 10000000 === 0 ? 0 : 2) + ' Cr';
+            } else if (absVal >= 100000) {
+                formatted = (absVal / 100000).toFixed(absVal % 100000 === 0 ? 0 : 2) + ' L';
+            } else if (absVal >= 1000) {
+                formatted = (absVal / 1000).toFixed(absVal % 1000 === 0 ? 0 : 2) + ' K';
+            } else {
+                formatted = absVal.toLocaleString('en-IN');
+            }
+            return (isNegative ? '-' : '') + '₹' + formatted;
+        }
+
         // Monthly Sales Chart
         new ApexCharts(document.getElementById('monthlySalesChart'), {
-            chart   : { type: 'area', height: 260, toolbar: { show: false }, sparkline: { enabled: false } },
+            chart   : {
+                type: 'area',
+                height: 280,
+                toolbar: { show: false },
+                parentHeightOffset: 0,
+                sparkline: { enabled: false }
+            },
             series  : [
                 { name: 'Received', data: monthlySales.map(m => m.received) },
                 { name: 'Pending',  data: monthlySales.map(m => m.pending) },
                 { name: 'Revenue',  data: monthlySales.map(m => m.amount) },
                 { name: 'Orders',   data: monthlySales.map(m => m.count) },
             ],
-            xaxis   : { categories: monthlySales.map(m => m.month) },
+            xaxis   : {
+                categories: monthlySales.map(m => m.month),
+                labels: {
+                    style: { colors: '#5d596c', fontFamily: 'Public Sans', fontSize: '11px', fontWeight: 500 }
+                },
+                axisBorder: { show: false },
+                axisTicks: { show: false }
+            },
             colors  : ['#28c76f', '#ff9f43', '#B4771E', '#7367f0'],
             stroke  : { curve: 'smooth', width: 2 },
             fill    : { type: 'gradient', gradient: { opacityFrom: 0.35, opacityTo: 0.05 } },
             dataLabels: { enabled: false },
-            legend  : { position: 'top' },
+            legend  : {
+                position: 'top',
+                horizontalAlign: 'left',
+                fontFamily: 'Public Sans',
+                labels: { colors: '#5d596c' },
+                itemMargin: { horizontal: 8, vertical: 2 }
+            },
             yaxis   : [
-                { title: { text: 'Amount (₹)' } },
-                { opposite: true, title: { text: 'Orders' } },
+                {
+                    labels: {
+                        formatter: (val) => formatCompactIndian(val),
+                        style: { colors: '#5d596c', fontFamily: 'Public Sans', fontSize: '11px', fontWeight: 500 }
+                    }
+                },
+                {
+                    opposite: true,
+                    labels: {
+                        formatter: (val) => parseInt(val) || 0,
+                        style: { colors: '#5d596c', fontFamily: 'Public Sans', fontSize: '11px', fontWeight: 500 }
+                    }
+                },
             ],
             tooltip : {
+                shared: true,
+                intersect: false,
                 y: {
                     formatter: function(val, { seriesIndex }) {
                         if (seriesIndex === 3) {
                             return val + ' orders';
                         }
-                        return '₹' + val.toLocaleString('en-IN');
+                        return '₹' + parseFloat(val).toLocaleString('en-IN', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
                     }
                 }
-            }
+            },
+            responsive: [
+                {
+                    breakpoint: 768,
+                    options: {
+                        chart: { height: 300 },
+                        legend: {
+                            position: 'bottom',
+                            horizontalAlign: 'center',
+                            fontSize: '11px',
+                            itemMargin: { horizontal: 6, vertical: 2 }
+                        },
+                        xaxis: {
+                            labels: {
+                                rotate: -45,
+                                rotateAlways: true,
+                                hideOverlappingLabels: true,
+                                trim: true,
+                                maxHeight: 60,
+                                style: { colors: '#5d596c', fontSize: '10px', fontWeight: 500 }
+                            }
+                        },
+                        yaxis: [
+                            {
+                                labels: {
+                                    formatter: (val) => formatCompactIndian(val),
+                                    style: { colors: '#5d596c', fontSize: '10px', fontWeight: 500 }
+                                }
+                            },
+                            {
+                                opposite: true,
+                                labels: {
+                                    formatter: (val) => parseInt(val) || 0,
+                                    style: { colors: '#5d596c', fontSize: '10px', fontWeight: 500 }
+                                }
+                            }
+                        ]
+                    }
+                },
+                {
+                    breakpoint: 480,
+                    options: {
+                        chart: { height: 290 },
+                        legend: {
+                            position: 'bottom',
+                            horizontalAlign: 'center',
+                            fontSize: '10px',
+                            itemMargin: { horizontal: 4, vertical: 2 }
+                        },
+                        xaxis: {
+                            labels: {
+                                rotate: -45,
+                                rotateAlways: true,
+                                hideOverlappingLabels: true,
+                                trim: true,
+                                maxHeight: 55,
+                                style: { colors: '#5d596c', fontSize: '9px', fontWeight: 500 }
+                            }
+                        },
+                        yaxis: [
+                            {
+                                labels: {
+                                    formatter: (val) => formatCompactIndian(val),
+                                    style: { colors: '#5d596c', fontSize: '9px', fontWeight: 500 }
+                                }
+                            },
+                            {
+                                opposite: true,
+                                labels: {
+                                    formatter: (val) => parseInt(val) || 0,
+                                    style: { colors: '#5d596c', fontSize: '9px', fontWeight: 500 }
+                                }
+                            }
+                        ]
+                    }
+                }
+            ]
         }).render();
 
         // Sales by Location Pie Chart

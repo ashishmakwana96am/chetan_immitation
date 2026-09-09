@@ -442,12 +442,18 @@
             purchasesTrendChart = new ApexCharts(document.getElementById('purchasesTrendChart'), {
                 chart: { type: 'bar', height: 320, toolbar: { show: false } },
                 series: [{ name: 'Purchases', data: values }],
-                xaxis: { categories: months },
+                xaxis: {
+                    categories: months,
+                    labels: {
+                        style: { colors: '#5d596c', fontFamily: 'Public Sans', fontSize: '11px' }
+                    }
+                },
                 colors: ['#B4771E'],
                 plotOptions: { bar: { borderRadius: 4, columnWidth: '45%' } },
                 dataLabels: { enabled: false },
                 yaxis: {
                     labels: {
+                        style: { colors: '#5d596c', fontFamily: 'Public Sans', fontSize: '11px' },
                         formatter: function (val) {
                             return formatCompactIndian(val);
                         }
@@ -459,7 +465,28 @@
                             return '{{ currency_symbol() }}' + parseFloat(val).toLocaleString('en-IN', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
                         }
                     }
-                }
+                },
+                responsive: [
+                    {
+                        breakpoint: 768,
+                        options: {
+                            chart: { height: 290 },
+                            plotOptions: { bar: { columnWidth: '60%' } },
+                            xaxis: {
+                                labels: {
+                                    rotate: -45,
+                                    rotateAlways: false,
+                                    style: { colors: '#5d596c', fontSize: '10px', fontWeight: 500 }
+                                }
+                            },
+                            yaxis: {
+                                labels: {
+                                    style: { colors: '#5d596c', fontSize: '10px', fontWeight: 500 }
+                                }
+                            }
+                        }
+                    }
+                ]
             });
             purchasesTrendChart.render();
         } else {
@@ -517,7 +544,20 @@
                         }
                     }
                 },
-                noData: { text: 'No data available' }
+                noData: { text: 'No data available' },
+                responsive: [
+                    {
+                        breakpoint: 768,
+                        options: {
+                            chart: { height: 300 },
+                            legend: {
+                                position: 'bottom',
+                                fontSize: '11px',
+                                itemMargin: { horizontal: 6, vertical: 2 }
+                            }
+                        }
+                    }
+                ]
             });
             supplierChart.render();
         } else {
@@ -639,7 +679,7 @@
                 }
             });
             form.find('input').val('');
-            form.find('select').val('').trigger('change.select2');
+            form.find('select').val('').trigger('change');
             updateFilterButtonsVisibility();
 
             loadReport(form.attr('action'));
