@@ -1516,11 +1516,47 @@ class ProductController extends Controller
         $this->authorize('delete products');
 
         DB::transaction(function () use ($product) {
-            $inventories = Inventory::where('product_id', $product->id)->where('quantity', '>', 0)->get();
+            $inventories = Inventory::where('product_id', $product->id)->where('quantity', '>', 0)->with('location')->get();
+            $prodLabel = $product->name . ($product->barcode ? ' (' . $product->barcode . ')' : '');
+            $stockChanges = [];
             foreach ($inventories as $inventory) {
-                $oldQty = $inventory->quantity;
+                $oldQty = (int) $inventory->quantity;
                 $inventory->update(['quantity' => 0]);
-                ActivityLogger::log('Inventory', 'update', $inventory, ['quantity' => $oldQty], ['quantity' => 0], 'Stock cleared for deleted product ' . $product->name);
+                $locationName = $inventory->location?->name ?? ('Location #' . $inventory->location_id);
+                $stockChanges[] = [
+                    'product_name' => $product->name,
+                    'barcode'      => $product->barcode ?: '-',
+                    'location'     => $locationName,
+                    'old_quantity' => $oldQty,
+                    'new_quantity' => 0,
+                    'delta'        => -$oldQty,
+                ];
+            }
+
+            if (!empty($stockChanges)) {
+                $oldStockSnapshot = array_map(fn($sc) => [
+                    'product_name' => $sc['product_name'],
+                    'barcode'      => $sc['barcode'],
+                    'location'     => $sc['location'],
+                    'stock'        => $sc['old_quantity'],
+                ], $stockChanges);
+
+                $newStockSnapshot = array_map(fn($sc) => [
+                    'product_name' => $sc['product_name'],
+                    'barcode'      => $sc['barcode'],
+                    'location'     => $sc['location'],
+                    'stock'        => 0,
+                    'qty_change'   => '-' . $sc['old_quantity'],
+                ], $stockChanges);
+
+                ActivityLogger::log(
+                    'Inventory',
+                    'update',
+                    $product,
+                    ['stock_items' => $oldStockSnapshot],
+                    ['stock_items' => $newStockSnapshot],
+                    'Stock cleared for deleted product ' . $prodLabel
+                );
             }
 
             $product->delete();

@@ -643,6 +643,7 @@ class SaleController extends Controller
                 }
             }
 
+            $stockChanges = [];
             foreach ($itemsData as $item) {
                 OrderItem::create([
                     'order_id' => $order->id,
@@ -663,10 +664,14 @@ class SaleController extends Controller
 
                 if ($isApprove) {
                     $stockDeduct = (int) round($item['quantity'] * $this->stockMultiplierFor((int) $item['product_id'], $item['pair_type'], $item['custom_size_value']));
-                    $this->logInventoryChange((int) $item['product_id'], (int) $request->location_id, -$stockDeduct, 'Stock deducted for new sale #' . $order->order_no);
+                    $this->applyInventoryChange((int) $item['product_id'], (int) $request->location_id, -$stockDeduct, $stockChanges);
                     $unitPrice = $stockDeduct > 0 ? ((float)$item['purchase_price'] / $stockDeduct) : (float)$item['purchase_price'];
                     \App\Services\PurchaseBatchService::deductBatchStock((int)$request->location_id, (int)$item['product_id'], !empty($item['product_variant_id']) ? (int)$item['product_variant_id'] : null, $unitPrice, (float)$stockDeduct);
                 }
+            }
+
+            if (!empty($stockChanges)) {
+                $this->logBulkInventoryChanges($stockChanges, $order, 'Stock deducted for new sale #' . $order->order_no);
             }
         });
 
@@ -710,11 +715,12 @@ class SaleController extends Controller
         $oldStatus = (int) $sale->status;
         $stockAdjustedStatuses = [Order::STATUS_APPROVE, Order::STATUS_SHIPPED, Order::STATUS_OUT_FOR_DELIVERY, Order::STATUS_DELIVERED];
 
-        DB::transaction(function () use ($sale, $stockAdjustedStatuses) {
+        $stockChanges = [];
+        DB::transaction(function () use ($sale, $stockAdjustedStatuses, &$stockChanges) {
             if (in_array((int) $sale->status, $stockAdjustedStatuses, true)) {
                 foreach ($sale->items as $item) {
                     $stockRestore = (int) round($item->quantity * $this->stockMultiplierFor((int) $item->product_id, $item->pair_type, $item->custom_size_value));
-                    $this->logInventoryChange((int) $item->product_id, (int) $sale->location_id, $stockRestore, 'Stock restored for deleted sale #' . $sale->order_no);
+                    $this->applyInventoryChange((int) $item->product_id, (int) $sale->location_id, $stockRestore, $stockChanges);
                     $unitPrice = $stockRestore > 0 ? ((float)$item->purchase_price / $stockRestore) : (float)$item->purchase_price;
                     \App\Services\PurchaseBatchService::addBatchStock((int)$sale->location_id, (int)$item->product_id, !empty($item->product_variant_id) ? (int)$item->product_variant_id : null, $item->purchase_item_id, $unitPrice, (float)$stockRestore);
                 }
@@ -722,6 +728,10 @@ class SaleController extends Controller
 
             $sale->delete();
         });
+
+        if (!empty($stockChanges)) {
+            $this->logBulkInventoryChanges($stockChanges, $sale, 'Stock restored for deleted sale #' . $sale->order_no);
+        }
 
         ActivityLogger::log('Sales', 'delete', $sale, ['status' => $oldStatus], null, 'Sale #' . $orderNo . ' deleted');
 
@@ -1150,14 +1160,16 @@ class SaleController extends Controller
             }
         }
 
+        $stockRestoreChanges = [];
+        $stockDeductChanges = [];
         try {
-            DB::transaction(function () use ($request, $isApprove, $isCancelled, $sale, $wasApproved, $oldLocationId, $oldItemsSnapshot) {
+            DB::transaction(function () use ($request, $isApprove, $isCancelled, $sale, $wasApproved, $oldLocationId, $oldItemsSnapshot, &$stockRestoreChanges, &$stockDeductChanges) {
                 // Sale was already approved (stock deducted) — restore it before applying the edited items.
                 if ($wasApproved) {
                     foreach ($oldItemsSnapshot as $old) {
                         $multiplier = $this->stockMultiplierFor((int) $old['product_id'], $old['pair_type'], $old['custom_size_value'] ? (float) $old['custom_size_value'] : null);
                         $stockRestore = (int) round($old['quantity'] * $multiplier);
-                        $this->logInventoryChange((int) $old['product_id'], $oldLocationId, $stockRestore, 'Stock restored for edited sale #' . $sale->order_no);
+                        $this->applyInventoryChange((int) $old['product_id'], $oldLocationId, $stockRestore, $stockRestoreChanges);
                         $oldUnitPrice = $stockRestore > 0 ? ((float)($old['purchase_price'] ?? 0) / $stockRestore) : (float)($old['purchase_price'] ?? 0);
                         \App\Services\PurchaseBatchService::addBatchStock($oldLocationId, (int)$old['product_id'], !empty($old['product_variant_id']) ? (int)$old['product_variant_id'] : null, $old['purchase_item_id'] ?? null, $oldUnitPrice, (float)$stockRestore);
                     }
@@ -1419,7 +1431,7 @@ class SaleController extends Controller
 
                     if ($isApprove) {
                         $stockDeduct = (int) round($item['quantity'] * $this->stockMultiplierFor((int) $item['product_id'], $item['pair_type'], $item['custom_size_value']));
-                        $this->logInventoryChange((int) $item['product_id'], (int) $request->location_id, -$stockDeduct, 'Stock deducted for updated sale #' . $sale->order_no);
+                        $this->applyInventoryChange((int) $item['product_id'], (int) $request->location_id, -$stockDeduct, $stockDeductChanges);
                         $unitPrice = $stockDeduct > 0 ? ((float)$item['purchase_price'] / $stockDeduct) : (float)$item['purchase_price'];
                         \App\Services\PurchaseBatchService::deductBatchStock((int)$request->location_id, (int)$item['product_id'], !empty($item['product_variant_id']) ? (int)$item['product_variant_id'] : null, $unitPrice, (float)$stockDeduct);
                     }
@@ -1433,6 +1445,13 @@ class SaleController extends Controller
                         'price' => (float) $item['price'],
                     ];
                 })->values()->all();
+
+                if (!empty($stockRestoreChanges)) {
+                    $this->logBulkInventoryChanges($stockRestoreChanges, $sale, 'Stock restored for edited sale #' . $sale->order_no);
+                }
+                if (!empty($stockDeductChanges)) {
+                    $this->logBulkInventoryChanges($stockDeductChanges, $sale, 'Stock deducted for updated sale #' . $sale->order_no);
+                }
 
                 ActivityLogger::log(
                     'Sales',
@@ -1490,9 +1509,11 @@ class SaleController extends Controller
 
         $preStatus = (int) $sale->status;
         $prePaymentStatus = (int) $sale->payment_status;
+        $stockDeductChanges = [];
+        $stockRestoreChanges = [];
 
         try {
-            DB::transaction(function () use ($request, $sale) {
+            DB::transaction(function () use ($request, $sale, &$stockDeductChanges, &$stockRestoreChanges) {
                 if ($request->filled('status')) {
                     $newStatus = (int) $request->status;
                     $oldStatus = (int) $sale->status;
@@ -1567,7 +1588,7 @@ class SaleController extends Controller
                             // Deduct stock
                             foreach ($sale->items as $item) {
                                 $stockDeduct = (int) round($item->quantity * $this->stockMultiplierFor((int) $item->product_id, $item->pair_type, $item->custom_size_value));
-                                $this->logInventoryChange((int) $item->product_id, (int) $sale->location_id, -$stockDeduct, 'Stock deducted for sale #' . $sale->order_no . ' status change');
+                                $this->applyInventoryChange((int) $item->product_id, (int) $sale->location_id, -$stockDeduct, $stockDeductChanges);
                                 $unitPrice = $stockDeduct > 0 ? ((float)$item->purchase_price / $stockDeduct) : (float)$item->purchase_price;
                                 \App\Services\PurchaseBatchService::deductBatchStock((int)$sale->location_id, (int)$item->product_id, !empty($item->product_variant_id) ? (int)$item->product_variant_id : null, $unitPrice, (float)$stockDeduct);
                             }
@@ -1577,7 +1598,7 @@ class SaleController extends Controller
                             // Restore stock
                             foreach ($sale->items as $item) {
                                 $stockRestore = (int) round($item->quantity * $this->stockMultiplierFor((int) $item->product_id, $item->pair_type, $item->custom_size_value));
-                                $this->logInventoryChange((int) $item->product_id, (int) $sale->location_id, $stockRestore, 'Stock restored for sale #' . $sale->order_no . ' status change');
+                                $this->applyInventoryChange((int) $item->product_id, (int) $sale->location_id, $stockRestore, $stockRestoreChanges);
                                 $unitPrice = $stockRestore > 0 ? ((float)$item->purchase_price / $stockRestore) : (float)$item->purchase_price;
                                 \App\Services\PurchaseBatchService::addBatchStock((int)$sale->location_id, (int)$item->product_id, !empty($item->product_variant_id) ? (int)$item->product_variant_id : null, $item->purchase_item_id, $unitPrice, (float)$stockRestore);
                             }
@@ -1819,6 +1840,13 @@ class SaleController extends Controller
             return response()->json(['status' => 'error', 'message' => $e->getMessage()], 422);
         }
 
+        if (!empty($stockDeductChanges)) {
+            $this->logBulkInventoryChanges($stockDeductChanges, $sale, 'Stock deducted for sale #' . $sale->order_no . ' status change');
+        }
+        if (!empty($stockRestoreChanges)) {
+            $this->logBulkInventoryChanges($stockRestoreChanges, $sale, 'Stock restored for sale #' . $sale->order_no . ' status change');
+        }
+
         $logOld = [];
         $logNew = [];
         if ((int) $sale->status !== $preStatus) {
@@ -1941,7 +1969,7 @@ class SaleController extends Controller
         return [$paymentMethod, $paidCash, $paidOnline];
     }
 
-    private function logInventoryChange(int $productId, int $locationId, int $delta, string $description): void
+    private function applyInventoryChange(int $productId, int $locationId, int $delta, array &$stockChanges): void
     {
         $inventory = Inventory::where('product_id', $productId)
             ->where('location_id', $locationId)
@@ -1951,14 +1979,62 @@ class SaleController extends Controller
             return;
         }
 
-        $oldQty = $inventory->quantity;
+        $oldQty = (int) $inventory->quantity;
         $inventory->increment('quantity', $delta);
         $newQty = $oldQty + $delta;
+
+        $product = Product::withTrashed()->find($productId);
+        $location = Location::find($locationId);
+        $locationName = $location?->name ?? ('Location #' . $locationId);
+        $productLabel = $product ? $product->name : "Product #{$productId}";
+        $barcode = $product?->barcode ?: '-';
+
+        $stockChanges[] = [
+            'product_id'   => $productId,
+            'product_name' => $productLabel,
+            'barcode'      => $barcode,
+            'location'     => $locationName,
+            'old_quantity' => $oldQty,
+            'new_quantity' => $newQty,
+            'delta'        => $delta,
+        ];
+    }
+
+    private function logBulkInventoryChanges(array $stockChanges, ?Order $order, string $baseDescription): void
+    {
+        if (empty($stockChanges)) {
+            return;
+        }
 
         Cache::store('file')->forget('all_mapped_products_sales');
         Cache::forget('all_mapped_products_sales');
 
-        ActivityLogger::log('Inventory', 'update', $inventory, ['quantity' => $oldQty], ['quantity' => $newQty], $description);
+        $oldStockSnapshot = array_map(fn($sc) => [
+            'product_name' => $sc['product_name'],
+            'barcode'      => $sc['barcode'],
+            'location'     => $sc['location'],
+            'stock'        => $sc['old_quantity'],
+        ], $stockChanges);
+
+        $newStockSnapshot = array_map(fn($sc) => [
+            'product_name' => $sc['product_name'],
+            'barcode'      => $sc['barcode'],
+            'location'     => $sc['location'],
+            'stock'        => $sc['new_quantity'],
+            'qty_change'   => ($sc['delta'] >= 0 ? '+' : '') . $sc['delta'],
+        ], $stockChanges);
+
+        $count = count($stockChanges);
+        $suffix = ' (' . $count . ' ' . ($count > 1 ? 'items' : 'item') . ')';
+
+        ActivityLogger::log(
+            'Inventory',
+            'update',
+            $order,
+            ['stock_items' => $oldStockSnapshot],
+            ['stock_items' => $newStockSnapshot],
+            $baseDescription . $suffix
+        );
     }
 
     /**
@@ -2296,11 +2372,10 @@ class SaleController extends Controller
             }
 
             // Restore Stock/Inventory
+            $stockChanges = [];
             foreach ($sale->items as $item) {
                 $stockRestore = (int) round($item->quantity * $this->stockMultiplierFor((int) $item->product_id, $item->pair_type, $item->custom_size_value));
-                Inventory::where('product_id', $item->product_id)
-                    ->where('location_id', $sale->location_id)
-                    ->increment('quantity', $stockRestore);
+                $this->applyInventoryChange((int) $item->product_id, (int) $sale->location_id, $stockRestore, $stockChanges);
             }
 
             // Update cancellation request status
@@ -2318,6 +2393,10 @@ class SaleController extends Controller
             ]));
 
             DB::commit();
+
+            if (!empty($stockChanges)) {
+                $this->logBulkInventoryChanges($stockChanges, $sale, 'Stock restored for cancelled sale #' . $sale->order_no);
+            }
 
             // Send status mail
             if ($sale->customer && $sale->customer->email) {

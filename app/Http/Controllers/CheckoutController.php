@@ -632,6 +632,7 @@ class CheckoutController extends Controller
                     'currency'           => 'INR',
                 ]);
 
+                $stockChanges = [];
                 foreach ($pendingPayment['cart_items'] as $item) {
                     OrderItem::create([
                         'order_id'           => $order->id,
@@ -651,15 +652,27 @@ class CheckoutController extends Controller
                         $inventoryRow = Inventory::where('product_id', $item['product_id'])
                             ->where('location_id', $order->location_id)
                             ->first();
-                        $oldQty = $inventoryRow?->quantity;
+                        $oldQty = $inventoryRow ? (int) $inventoryRow->quantity : 0;
                         Inventory::where('product_id', $item['product_id'])
                             ->where('location_id', $order->location_id)
                             ->decrement('quantity', $deductQty);
 
                         if ($inventoryRow) {
-                            ActivityLogger::log('Inventory', 'update', $inventoryRow, ['quantity' => $oldQty], ['quantity' => $oldQty - $deductQty], 'Stock deducted for order #' . $order->order_no);
+                            $location = Location::find($order->location_id);
+                            $stockChanges[] = [
+                                'product_name' => $itemProduct ? $itemProduct->name : "Product #{$item['product_id']}",
+                                'barcode'      => $itemProduct?->barcode ?: '-',
+                                'location'     => $location?->name ?? ('Location #' . $order->location_id),
+                                'old_quantity' => $oldQty,
+                                'new_quantity' => $oldQty - $deductQty,
+                                'quantity'     => $deductQty,
+                            ];
                         }
                     }
+                }
+
+                if (!empty($stockChanges)) {
+                    $this->logBulkInventoryDeduction($stockChanges, $order);
                 }
 
                 if ($pendingPayment['type'] === 'checkout') {
@@ -1317,6 +1330,7 @@ class CheckoutController extends Controller
                     'coupon_id' => $coupon ? $coupon->id : null,
                 ]);
 
+                $stockChanges = [];
                 foreach ($cartItems as $item) {
                     $price = $item->getPrice();
 
@@ -1337,15 +1351,27 @@ class CheckoutController extends Controller
                         $inventoryRow = Inventory::where('product_id', $item->product_id)
                             ->where('location_id', $order->location_id)
                             ->first();
-                        $oldQty = $inventoryRow?->quantity;
+                        $oldQty = $inventoryRow ? (int) $inventoryRow->quantity : 0;
                         Inventory::where('product_id', $item->product_id)
                             ->where('location_id', $order->location_id)
                             ->decrement('quantity', $deductQty);
 
                         if ($inventoryRow) {
-                            ActivityLogger::log('Inventory', 'update', $inventoryRow, ['quantity' => $oldQty], ['quantity' => $oldQty - $deductQty], 'Stock deducted for order #' . $order->order_no);
+                            $location = Location::find($order->location_id);
+                            $stockChanges[] = [
+                                'product_name' => $item->product ? $item->product->name : "Product #{$item->product_id}",
+                                'barcode'      => $item->product?->barcode ?: '-',
+                                'location'     => $location?->name ?? ('Location #' . $order->location_id),
+                                'old_quantity' => $oldQty,
+                                'new_quantity' => $oldQty - $deductQty,
+                                'quantity'     => $deductQty,
+                            ];
                         }
                     }
+                }
+
+                if (!empty($stockChanges)) {
+                    $this->logBulkInventoryDeduction($stockChanges, $order);
                 }
 
                 CartItem::where('customer_id', $customer->id)->delete();
@@ -1490,5 +1516,42 @@ class CheckoutController extends Controller
         }
 
         return [$value, null];
+    }
+
+    private function logBulkInventoryDeduction(array $stockChanges, Order $order): void
+    {
+        if (empty($stockChanges)) {
+            return;
+        }
+
+        Cache::store('file')->forget('all_mapped_products_sales');
+        Cache::forget('all_mapped_products_sales');
+
+        $oldStockSnapshot = array_map(fn($sc) => [
+            'product_name' => $sc['product_name'],
+            'barcode'      => $sc['barcode'],
+            'location'     => $sc['location'],
+            'stock'        => $sc['old_quantity'],
+        ], $stockChanges);
+
+        $newStockSnapshot = array_map(fn($sc) => [
+            'product_name' => $sc['product_name'],
+            'barcode'      => $sc['barcode'],
+            'location'     => $sc['location'],
+            'stock'        => $sc['new_quantity'],
+            'qty_change'   => '-' . $sc['quantity'],
+        ], $stockChanges);
+
+        $count = count($stockChanges);
+        $suffix = ' (' . $count . ' ' . ($count > 1 ? 'items' : 'item') . ')';
+
+        ActivityLogger::log(
+            'Inventory',
+            'update',
+            $order,
+            ['stock_items' => $oldStockSnapshot],
+            ['stock_items' => $newStockSnapshot],
+            'Stock deducted for order #' . $order->order_no . $suffix
+        );
     }
 }
