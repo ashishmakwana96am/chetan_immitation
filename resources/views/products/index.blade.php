@@ -59,6 +59,21 @@
             }
         }
 
+        .filter-action-buttons {
+            display: flex;
+            width: 100%;
+            gap: 0.625rem;
+        }
+
+        .filter-action-buttons button {
+            flex: 1 1 50%;
+            width: 50%;
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+            white-space: nowrap;
+        }
+
         body.filter-sidepanel-open {
             overflow: hidden !important;
             touch-action: none !important;
@@ -145,16 +160,6 @@
                 background: #fff;
                 flex-shrink: 0;
                 box-shadow: 0 -4px 12px rgba(0, 0, 0, 0.05);
-            }
-
-            .filter-action-buttons {
-                display: flex;
-                width: 100%;
-                gap: 0.5rem;
-            }
-
-            .filter-action-buttons button {
-                flex: 1;
             }
 
             .filter-mobile-backdrop {
@@ -350,12 +355,12 @@
                     </div>
 
                     <div class="filter-sidepanel-footer">
-                        <div class="d-flex justify-content-end gap-2 filter-action-buttons">
-                            <button type="button" class="btn btn-label-secondary btn-sm px-3" id="btnClearFilter">
-                                <i class="ti ti-refresh me-1"></i> Clear Filter
+                        <div class="filter-action-buttons">
+                            <button type="button" class="btn btn-label-secondary btn-sm" id="btnClearFilter">
+                                <i class="ti ti-refresh me-1"></i> Clear
                             </button>
-                            <button type="button" class="btn btn-primary btn-sm px-4" id="btnApplyFilter">
-                                <i class="ti ti-check me-1"></i> Apply Filter
+                            <button type="button" class="btn btn-primary btn-sm" id="btnApplyFilter">
+                                <i class="ti ti-check me-1"></i> Apply
                             </button>
                         </div>
                     </div>
