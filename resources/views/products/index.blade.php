@@ -565,8 +565,15 @@
                 }
             });
 
+            // Close select2 when scrolling the sidepanel body to prevent misalignment
+            $('.filter-sidepanel-body').on('scroll', function () {
+                if (isSelect2Open && $('#filter-sub-category').hasClass('select2-hidden-accessible')) {
+                    $('#filter-sub-category').select2('close');
+                }
+            });
+
             // Prevent touch and click event propagation from closing dropdown when interacting inside Select2
-            $(document).on('click mousedown touchstart pointerdown', '#filterDropdownContainer .select2-container, #filterDropdownContainer .select2-dropdown, .select2-results, .select2-search', function (e) {
+            $(document).on('click mousedown touchstart pointerdown', '.select2-selection__clear, #filterDropdownContainer .select2-container, #filterDropdownContainer .select2-dropdown, .select2-results, .select2-search', function (e) {
                 e.stopPropagation();
             });
 

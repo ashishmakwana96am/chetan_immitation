@@ -7,6 +7,7 @@
     <link rel="stylesheet" href="{{ asset('assets/vendor/libs/datatables-responsive-bs5/responsive.bootstrap5.css') }}" />
     <link rel="stylesheet" href="{{ asset('assets/vendor/libs/datatables-rowgroup-bs5/rowgroup.bootstrap5.css') }}" />
     <link rel="stylesheet" href="{{ asset('assets/vendor/libs/select2/select2.css') }}" />
+    <link rel="stylesheet" href="{{ asset('assets/vendor/libs/flatpickr/flatpickr.css') }}" />
     <style>
         #ordersTable tbody tr.group-header td {
             background-color: #f0f2f5;
@@ -107,6 +108,165 @@
             padding: 1px 10px;
             line-height: 1.4;
         }
+
+        /* Desktop: Standard Dropdown Menu */
+        #filterDropdownContainer {
+            position: relative;
+        }
+        @media (min-width: 768px) {
+            .sale-filter-dropdown {
+                min-width: 660px;
+                width: 660px;
+                max-width: 95vw;
+                max-height: 90vh;
+                overflow-y: auto;
+                overflow-x: hidden;
+                box-shadow: 0 10px 30px rgba(0, 0, 0, 0.15);
+                border: 1px solid rgba(0, 0, 0, 0.08);
+                border-radius: 10px;
+                padding: 1.5rem;
+                z-index: 1060;
+            }
+            .filter-sidepanel-header {
+                display: flex;
+                align-items: center;
+                justify-content: space-between;
+                margin-bottom: 1rem;
+            }
+            .filter-sidepanel-body {
+                padding: 0;
+            }
+            .filter-sidepanel-footer {
+                margin-top: 1rem;
+                padding-top: 1rem;
+                border-top: 1px solid rgba(0, 0, 0, 0.08);
+            }
+        }
+
+        .filter-action-buttons {
+            display: flex;
+            width: 100%;
+            gap: 0.625rem;
+        }
+
+        .filter-action-buttons button {
+            flex: 1 1 50%;
+            width: 50%;
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+            white-space: nowrap;
+        }
+
+        body.filter-sidepanel-open {
+            overflow: hidden !important;
+            touch-action: none !important;
+        }
+
+        /* Mobile / Phone View: Full Screen Modal Drawer */
+        @media (max-width: 767.98px) {
+            #filterDropdownContainer .dropdown-menu.sale-filter-dropdown {
+                position: fixed !important;
+                inset: 0 !important;
+                top: 0 !important;
+                right: 0 !important;
+                bottom: 0 !important;
+                left: 0 !important;
+                width: 100vw !important;
+                max-width: 100vw !important;
+                height: 100% !important;
+                height: 100dvh !important;
+                max-height: 100% !important;
+                max-height: 100dvh !important;
+                margin: 0 !important;
+                border: none !important;
+                border-radius: 0 !important;
+                box-shadow: none !important;
+                padding: 0 !important;
+                display: flex !important;
+                flex-direction: column !important;
+                z-index: 1090 !important;
+                transform: translateX(100%) !important;
+                transition: transform 0.28s ease-in-out, visibility 0.28s !important;
+                visibility: hidden !important;
+                overscroll-behavior: contain !important;
+                background: #fff !important;
+            }
+
+            #filterDropdownContainer .dropdown-menu.sale-filter-dropdown.show {
+                transform: translateX(0) !important;
+                visibility: visible !important;
+            }
+
+            .filter-sidepanel-header {
+                padding: 1.15rem 1.25rem;
+                margin-bottom: 0;
+                border-bottom: 1px solid rgba(0, 0, 0, 0.08);
+                flex-shrink: 0;
+                display: flex;
+                align-items: center;
+                justify-content: space-between;
+                background: #fff;
+            }
+
+            .filter-sidepanel-body {
+                flex: 1 1 auto;
+                min-height: 0;
+                overflow-y: auto !important;
+                overflow-x: hidden !important;
+                padding: 1.25rem;
+                -webkit-overflow-scrolling: touch;
+                overscroll-behavior: contain !important;
+            }
+
+            .filter-sidepanel-body .row {
+                --bs-gutter-y: 0.5rem;
+            }
+
+            .filter-sidepanel-body .mb-3 {
+                margin-bottom: 0.75rem !important;
+            }
+
+            .filter-sidepanel-footer {
+                margin-top: 0;
+                padding: 0.85rem 1.25rem;
+                padding-bottom: max(0.85rem, env(safe-area-inset-bottom, 0.85rem));
+                border-top: 1px solid rgba(0, 0, 0, 0.08);
+                background: #fff;
+                flex-shrink: 0;
+                box-shadow: 0 -4px 12px rgba(0, 0, 0, 0.05);
+            }
+
+            .filter-mobile-backdrop {
+                position: fixed;
+                inset: 0;
+                top: 0;
+                left: 0;
+                width: 100vw;
+                height: 100% !important;
+                height: 100dvh !important;
+                background: rgba(0, 0, 0, 0.45);
+                backdrop-filter: blur(1px);
+                z-index: 1085;
+                opacity: 0;
+                transition: opacity 0.25s ease;
+                pointer-events: none;
+            }
+
+            .filter-mobile-backdrop.show {
+                opacity: 1;
+                pointer-events: auto;
+            }
+        }
+
+        /* Select2 Dropdown and Flatpickr on top */
+        .select2-container--open,
+        .select2-dropdown,
+        #filterDropdownContainer .select2-container--open,
+        #filterDropdownContainer .select2-dropdown,
+        .flatpickr-calendar {
+            z-index: 99999 !important;
+        }
     </style>
 @endsection
 
@@ -115,78 +275,131 @@
         <h4 class="fw-semibold mb-0">Sales</h4>
         <div class="d-flex gap-2 align-items-center">
             
+            {{-- Filter Dropdown / Side Panel on Mobile --}}
             <div class="dropdown d-inline-block" id="filterDropdownContainer">
                 <button type="button" class="btn btn-outline-primary" data-bs-toggle="dropdown" data-bs-auto-close="outside" data-bs-boundary="viewport" aria-expanded="false">
                     <i class="ti ti-filter me-1"></i> Filter
                 </button>
-                <div class="dropdown-menu dropdown-menu-end p-4" style="min-width: 400px; box-shadow: 0 10px 30px rgba(0,0,0,0.1); border: 1px solid rgba(0,0,0,0.05); border-radius: 8px;">
-                    <h5 class="dropdown-header px-0 mb-3 text-start fw-semibold fs-5 text-dark">Filters</h5>
-                    
-                    @if($isSuperAdmin)
-                    <div class="mb-3 text-start">
-                        <label class="form-label fw-medium text-muted mb-1" for="filter-location">Location</label>
-                        <select id="filter-location" class="form-select">
-                            <option value="">All Locations</option>
-                            @foreach($locations as $location)
-                                <option value="{{ $location->id }}">{{ $location->name }}</option>
-                            @endforeach
-                        </select>
-                    </div>
-                    @endif
-
-                    <div class="mb-3 text-start">
-                        <label class="form-label fw-medium text-muted mb-1" for="filter-status">Sale Status</label>
-                        <select id="filter-status" class="form-select">
-                            <option value="">All Statuses</option>
-                            <option value="1">Pending</option>
-                            <option value="2">Approved</option>
-                            <option value="3">Shipped</option>
-                            <option value="4">Out for delivery</option>
-                            <option value="5">Delivered</option>
-                            <option value="6">Cancelled</option>
-                        </select>
+                <div class="dropdown-menu dropdown-menu-end shadow-lg sale-filter-dropdown" id="filterDropdownMenu">
+                    <div class="filter-sidepanel-header">
+                        <h5 class="dropdown-header px-0 mb-0 fw-semibold fs-5 text-dark">
+                            <i class="ti ti-filter me-1 text-primary"></i> Filters
+                        </h5>
+                        <button type="button" class="btn-close d-md-none" id="btnCloseFilterDropdown" aria-label="Close"></button>
                     </div>
 
-                    <div class="mb-3 text-start">
-                        <label class="form-label fw-medium text-muted mb-1" for="filter-payment-status">Payment Status</label>
-                        <select id="filter-payment-status" class="form-select">
-                            <option value="">All Payments</option>
-                            <option value="1">Pending</option>
-                            <option value="3">Partially Paid</option>
-                            <option value="2">Paid</option>
-                        </select>
-                    </div>
+                    <div class="filter-sidepanel-body">
+                        <div class="row g-3">
+                            @if($isSuperAdmin)
+                                <div class="col-md-6">
+                                    <div class="mb-2 text-start">
+                                        <label class="form-label fw-medium text-muted mb-1" for="filter-location">Location</label>
+                                        <select id="filter-location" class="form-select">
+                                            <option value="">All Locations</option>
+                                            @foreach($locations as $location)
+                                                <option value="{{ $location->id }}">{{ $location->name }}</option>
+                                            @endforeach
+                                        </select>
+                                    </div>
+                                </div>
+                                <div class="col-md-6">
+                                    <div class="mb-2 text-start">
+                                        <label class="form-label fw-medium text-muted mb-1" for="filter-source">Source</label>
+                                        <select id="filter-source" class="form-select">
+                                            <option value="">All Sources</option>
+                                            <option value="POS">POS</option>
+                                            <option value="ONLINE">ONLINE</option>
+                                        </select>
+                                    </div>
+                                </div>
+                            @else
+                                <div class="col-md-6">
+                                    <div class="mb-2 text-start">
+                                        <label class="form-label fw-medium text-muted mb-1" for="filter-source">Source</label>
+                                        <select id="filter-source" class="form-select">
+                                            <option value="">All Sources</option>
+                                            <option value="POS">POS</option>
+                                            <option value="ONLINE">ONLINE</option>
+                                        </select>
+                                    </div>
+                                </div>
+                            @endif
 
-                    <div class="mb-3 text-start">
-                        <label class="form-label fw-medium text-muted mb-1" for="filter-source">Source</label>
-                        <select id="filter-source" class="form-select">
-                            <option value="">All Sources</option>
-                            <option value="POS">POS</option>
-                            <option value="ONLINE">ONLINE</option>
-                        </select>
-                    </div>
+                            <div class="col-md-6">
+                                <div class="mb-2 text-start">
+                                    <label class="form-label fw-medium text-muted mb-1" for="filter-status">Sale Status</label>
+                                    <select id="filter-status" class="form-select">
+                                        <option value="">All Statuses</option>
+                                        <option value="1">Pending</option>
+                                        <option value="2">Approved</option>
+                                        <option value="3">Shipped</option>
+                                        <option value="4">Out for delivery</option>
+                                        <option value="5">Delivered</option>
+                                        <option value="6">Cancelled</option>
+                                    </select>
+                                </div>
+                            </div>
 
-                    <div class="mb-3 text-start">
-                        <label class="form-label fw-medium text-muted mb-1" for="filter-product">Product</label>
-                        <select id="filter-product" class="form-select product-search-select" style="width: 100%;">
-                            <option value="">All Products</option>
-                        </select>
-                    </div>
+                            <div class="col-md-6">
+                                <div class="mb-2 text-start">
+                                    <label class="form-label fw-medium text-muted mb-1" for="filter-product">Product</label>
+                                    <div class="w-100">
+                                        <select id="filter-product" class="form-select product-search-select" style="width: 100%;">
+                                            <option value="">All Products</option>
+                                        </select>
+                                    </div>
+                                </div>
+                            </div>
 
-                    <div class="mb-3 text-start">
-                        <label class="form-label fw-medium text-muted mb-1">Date Range</label>
-                        <div class="w-100">
-                            <input type="text" id="filter-start-date" class="form-control flatpickr-sales mb-2" placeholder="Start Date" readonly style="width: 100% !important; display: block; margin-left: 0px !important;" />
-                            <div class="text-center text-muted small mb-2">to</div>
-                            <input type="text" id="filter-end-date" class="form-control flatpickr-sales" placeholder="End Date" readonly style="width: 100% !important; display: block; margin-left: 0px !important;" />
+                            <div class="col-md-6">
+                                <div class="mb-2 text-start">
+                                    <label class="form-label fw-medium text-muted mb-1" for="filter-payment-status">Payment Status</label>
+                                    <select id="filter-payment-status" class="form-select">
+                                        <option value="">All Payments</option>
+                                        <option value="1">Pending</option>
+                                        <option value="3">Partially Paid</option>
+                                        <option value="2">Paid</option>
+                                    </select>
+                                </div>
+                            </div>
+
+                            <div class="col-md-6">
+                                <div class="mb-2 text-start">
+                                    <label class="form-label fw-medium text-muted mb-1" for="filter-is-gst">GST Bill</label>
+                                    <select id="filter-is-gst" class="form-select">
+                                        <option value="">All</option>
+                                        <option value="1">Yes (GST Bill)</option>
+                                        <option value="0">No (Non-GST Bill)</option>
+                                    </select>
+                                </div>
+                            </div>
+
+                            <div class="col-12">
+                                <div class="mb-1 text-start">
+                                    <label class="form-label fw-medium text-muted mb-1">Date Range</label>
+                                    <div class="d-flex align-items-center gap-2">
+                                        <div class="flex-grow-1">
+                                            <input type="text" id="filter-start-date" class="form-control flatpickr-sales" placeholder="Start Date" readonly style="width: 100% !important;" />
+                                        </div>
+                                        <span class="text-muted small px-1">to</span>
+                                        <div class="flex-grow-1">
+                                            <input type="text" id="filter-end-date" class="form-control flatpickr-sales" placeholder="End Date" readonly style="width: 100% !important;" />
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
                         </div>
                     </div>
 
-                    <div class="dropdown-divider"></div>
-
-                    <div class="d-flex justify-content-between gap-2 pt-2">
-                        <button type="button" class="btn btn-label-secondary btn-sm flex-grow-1" id="btnClearFilter">Clear Filter</button>
-                        <button type="button" class="btn btn-primary btn-sm flex-grow-1" id="btnApplyFilter">Apply Filter</button>
+                    <div class="filter-sidepanel-footer">
+                        <div class="filter-action-buttons">
+                            <button type="button" class="btn btn-label-secondary btn-sm" id="btnClearFilter">
+                                <i class="ti ti-refresh me-1"></i> Clear
+                            </button>
+                            <button type="button" class="btn btn-primary btn-sm" id="btnApplyFilter">
+                                <i class="ti ti-check me-1"></i> Apply
+                            </button>
+                        </div>
                     </div>
                 </div>
             </div>
@@ -228,9 +441,12 @@
 @section('page-js')
     <script src="{{ asset('assets/vendor/libs/datatables-bs5/datatables-bootstrap5.js') }}"></script>
     <script src="{{ asset('assets/vendor/libs/select2/select2.js') }}"></script>
+    <script src="{{ asset('assets/vendor/libs/flatpickr/flatpickr.js') }}"></script>
     <script>
         $(document).ready(function () {
             let flatpickrOpen = false;
+            let isSelect2Open = false;
+            let isForceClosing = false;
             const isSuperAdmin = {{ $isSuperAdmin ? 'true' : 'false' }};
 
             const startPicker = $('#filter-start-date').flatpickr({
@@ -263,16 +479,6 @@
                 }
             });
 
-            $('#filterDropdownContainer').on('hide.bs.dropdown', function (e) {
-                if (flatpickrOpen) {
-                    e.preventDefault();
-                    return false;
-                }
-            });
-
-            $(document).on('mousedown', '.flatpickr-calendar', function (e) {
-                e.stopPropagation();
-            });
             $('#filter-product').select2({
                 ajax: {
                     url: '{{ route('admin.products.search') }}',
@@ -294,15 +500,91 @@
                 placeholder: 'Search products...',
                 allowClear: true,
                 width: '100%',
-                dropdownParent: $('#filterDropdownContainer')
+                dropdownParent: $('#filter-product').parent()
             });
 
-            $('#filterDropdownContainer').on('click', '.select2-container', function (e) {
-                e.stopPropagation();
+            $('#filter-product').on('select2:open', function () {
+                isSelect2Open = true;
+            }).on('select2:close', function () {
+                setTimeout(function () {
+                    isSelect2Open = false;
+                }, 150);
+            });
+
+            $('.filter-sidepanel-body').on('scroll', function () {
+                if ($('#filter-product').data('select2') && $('#filter-product').data('select2').isOpen()) {
+                    $('#filter-product').select2('close');
+                }
+            });
+
+            $('#filterDropdownContainer').on('hide.bs.dropdown', function (e) {
+                if (isForceClosing) {
+                    return true;
+                }
+                if (flatpickrOpen || isSelect2Open) {
+                    e.preventDefault();
+                    return false;
+                }
+                if (e.clickEvent && $(e.clickEvent.target).closest('#filterDropdownContainer, #filterDropdownMenu, .select2-container, .select2-dropdown, .flatpickr-calendar').length) {
+                    e.preventDefault();
+                    return false;
+                }
             });
 
             $(document).on('mousedown', '.flatpickr-calendar', function (e) {
                 e.stopPropagation();
+            });
+
+            function closeSaleFilterSidepanel() {
+                isForceClosing = true;
+
+                const dropdownToggleEl = document.querySelector('#filterDropdownContainer button[data-bs-toggle="dropdown"]');
+                if (dropdownToggleEl) {
+                    try {
+                        const dropdownInstance = bootstrap.Dropdown.getInstance(dropdownToggleEl);
+                        if (dropdownInstance) {
+                            dropdownInstance.hide();
+                        }
+                    } catch (err) {}
+                }
+
+                $('body').removeClass('filter-sidepanel-open');
+                $('#filterDropdownContainer').removeClass('show');
+                $('#filterDropdownContainer > button[data-bs-toggle="dropdown"]').removeClass('show').attr('aria-expanded', 'false');
+                $('#filterDropdownContainer .dropdown-menu').removeClass('show');
+
+                $('.filter-mobile-backdrop').removeClass('show');
+                setTimeout(function () {
+                    $('.filter-mobile-backdrop').remove();
+                    isForceClosing = false;
+                }, 280);
+            }
+
+            $('#filterDropdownContainer').on('show.bs.dropdown', function () {
+                if (window.innerWidth < 768) {
+                    $('body').addClass('filter-sidepanel-open');
+                    if ($('.filter-mobile-backdrop').length === 0) {
+                        const $backdrop = $('<div class="filter-mobile-backdrop"></div>');
+                        $('body').append($backdrop);
+                        setTimeout(function () {
+                            $backdrop.addClass('show');
+                        }, 10);
+                    }
+                }
+            });
+
+            $('#filterDropdownContainer').on('hidden.bs.dropdown', function () {
+                $('body').removeClass('filter-sidepanel-open');
+                $('.filter-mobile-backdrop').removeClass('show');
+                setTimeout(function () {
+                    $('.filter-mobile-backdrop').remove();
+                }, 280);
+            });
+
+            $(document).on('click', '#btnCloseFilterDropdown, .filter-mobile-backdrop', function (e) {
+                e.preventDefault();
+                e.stopPropagation();
+                closeSaleFilterSidepanel();
             });
 
             const dateSortColIndex = isSuperAdmin ? 11 : 10;
@@ -317,12 +599,13 @@
                     dataSrc: 'data',
                     cache: false,
                     data: function (d) {
-                        d.status = $('#filter-status').val();
+                        d.status         = $('#filter-status').val();
                         d.payment_status = $('#filter-payment-status').val();
-                        d.source = $('#filter-source').val();
-                        d.product_id = $('#filter-product').val();
-                        d.start_date = $('#filter-start-date').val();
-                        d.end_date = $('#filter-end-date').val();
+                        d.source         = $('#filter-source').val();
+                        d.is_gst         = $('#filter-is-gst').val();
+                        d.product_id     = $('#filter-product').val();
+                        d.start_date     = $('#filter-start-date').val();
+                        d.end_date       = $('#filter-end-date').val();
                         if (isSuperAdmin) {
                             d.location_id = $('#filter-location').val();
                         }
@@ -763,12 +1046,7 @@
             $(document).on('click', '#btnApplyFilter', function (e) {
                 e.preventDefault();
                 window.refreshTable();
-                
-                const dropdownToggleEl = document.querySelector('#filterDropdownContainer button[data-bs-toggle="dropdown"]');
-                if (dropdownToggleEl) {
-                    const dropdownInstance = bootstrap.Dropdown.getInstance(dropdownToggleEl) || new bootstrap.Dropdown(dropdownToggleEl);
-                    dropdownInstance.hide();
-                }
+                closeSaleFilterSidepanel();
             });
 
             $(document).on('click', '#btnClearFilter', function (e) {
@@ -776,6 +1054,7 @@
                 $('#filter-status').val('');
                 $('#filter-payment-status').val('');
                 $('#filter-source').val('');
+                $('#filter-is-gst').val('');
                 $('#filter-product').val('').trigger('change');
                 if (isSuperAdmin) {
                     $('#filter-location').val('');
@@ -785,12 +1064,7 @@
                 startPicker.set('maxDate', null);
                 endPicker.set('minDate', null);
                 window.refreshTable();
-                
-                const dropdownToggleEl = document.querySelector('#filterDropdownContainer button[data-bs-toggle="dropdown"]');
-                if (dropdownToggleEl) {
-                    const dropdownInstance = bootstrap.Dropdown.getInstance(dropdownToggleEl) || new bootstrap.Dropdown(dropdownToggleEl);
-                    dropdownInstance.hide();
-                }
+                closeSaleFilterSidepanel();
             });
         });
     </script>

@@ -63,6 +63,9 @@ class SaleController extends Controller
             ->when($request->source, function ($q) use ($request) {
                 $q->where('source', $request->source);
             })
+            ->when($request->filled('is_gst'), function ($q) use ($request) {
+                $q->where('is_gst', $request->is_gst);
+            })
             ->when($request->product_id, function ($q) use ($request) {
                 $q->whereHas('items', function ($sub) use ($request) {
                     $sub->where('product_id', $request->product_id);

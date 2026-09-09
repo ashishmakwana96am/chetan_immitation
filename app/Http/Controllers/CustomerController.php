@@ -39,6 +39,9 @@ class CustomerController extends Controller
         if ($request->filled('status')) {
             $query->where('status', $request->status);
         }
+        if ($request->filled('is_credit_customer')) {
+            $query->where('is_credit_customer', $request->is_credit_customer);
+        }
         if ($request->filled('start_date')) {
             $query->whereDate('created_at', '>=', $request->start_date);
         }
