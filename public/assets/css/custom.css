@@ -682,5 +682,17 @@ body.offcanvas-open {
   }
 }
 
+/* Move Product search field to top only on mobile */
+@media (max-width: 767.98px) {
+  .filter-sidepanel-body {
+    display: flex !important;
+    flex-direction: column !important;
+  }
+  .filter-product-top-mobile {
+    order: -1 !important;
+  }
+}
+
+
 
 
