@@ -790,7 +790,12 @@ $(document).ready(function () {
     function buildSizeToggleHtml(sizes, defSize) {
         let sizeHtml = `<div class="size-toggle mt-1">`;
         sizes.forEach(cs => {
-            const active = (defSize != null && String(defSize) === String(cs.size)) ? 'active' : '';
+            const isMatch = defSize != null && (
+                String(defSize) === String(cs.size) ||
+                parseFloat(defSize) === parseFloat(cs.size) ||
+                Number(defSize) === Number(cs.size)
+            );
+            const active = isMatch ? 'active' : '';
             const csMrp = cs.mrp != null ? cs.mrp : '';
             sizeHtml += `<button type="button" class="size-btn ${active}" data-value="${cs.size}" data-price="${cs.sale_price}" data-mrp="${csMrp}">${cs.size} pcs</button>`;
         });
@@ -976,11 +981,11 @@ $(document).ready(function () {
         if (product.pair_product) {
             const effectiveSizes = getEffectiveCustomSizes(product, row.data('variant-id'));
             if (effectiveSizes.length) {
-                const defSize = customSizeValue || effectiveSizes[0].size;
+                const defSize = customSizeValue != null ? customSizeValue : effectiveSizes[0].size;
                 row.find('.pair-type-container').html(buildSizeToggleHtml(effectiveSizes, defSize));
                 row.find('.custom-size-value-input').val(defSize);
 
-                const matchedSize = defSize ? effectiveSizes.find(cs => cs.size == defSize) : null;
+                const matchedSize = defSize != null ? effectiveSizes.find(cs => String(cs.size) === String(defSize) || parseFloat(cs.size) === parseFloat(defSize)) : null;
                 if (matchedSize) {
                     if (matchedSize.mrp != null) {
                         row.data('mrp', matchedSize.mrp);
@@ -1049,12 +1054,12 @@ $(document).ready(function () {
         if (product && product.pair_product) {
             const effectiveSizes = getEffectiveCustomSizes(product, variantId);
             if (effectiveSizes.length) {
-                const currentSize = parseFloat(row.find('.custom-size-value-input').val());
-                const stillValid = effectiveSizes.find(cs => cs.size == currentSize);
-                const defSize = stillValid ? currentSize : effectiveSizes[0].size;
+                const currentSize = row.find('.custom-size-value-input').val();
+                const stillValid = (currentSize != null && currentSize !== '') ? effectiveSizes.find(cs => String(cs.size) === String(currentSize) || parseFloat(cs.size) === parseFloat(currentSize)) : null;
+                const defSize = stillValid ? stillValid.size : effectiveSizes[0].size;
                 row.find('.pair-type-container').html(buildSizeToggleHtml(effectiveSizes, defSize));
                 row.find('.custom-size-value-input').val(defSize);
-                const matchedSize = effectiveSizes.find(cs => cs.size == defSize);
+                const matchedSize = effectiveSizes.find(cs => String(cs.size) === String(defSize) || parseFloat(cs.size) === parseFloat(defSize));
                 if (matchedSize && matchedSize.mrp != null) {
                     row.data('mrp', matchedSize.mrp);
                     row.find('.item-mrp-display').text(symbol + ' ' + formatPrice(matchedSize.mrp));
