@@ -306,17 +306,9 @@
             return '<span class="text-muted small">-</span>';
         }
         $filename = basename($val);
-        return '<div class="d-inline-flex align-items-center gap-2 p-1 bg-white rounded border shadow-xs" style="max-width: 100%;">'
-            . '<a href="' . e($url) . '" target="_blank" rel="noopener noreferrer" class="d-inline-block text-decoration-none flex-shrink-0" title="Click to view full image">'
-            . '<img src="' . e($url) . '" alt="' . e($filename) . '" class="rounded object-fit-cover" style="width: 50px; height: 50px; border: 1px solid rgba(0,0,0,0.08); background: #f8f9fa;" onerror="this.onerror=null; this.src=\'' . asset('assets/img/illustrations/page-misc-error-light.png') . '\'; this.style.opacity=\'0.5\';" />'
-            . '</a>'
-            . '<div class="d-flex flex-column" style="min-width: 0;">'
-            . '<a href="' . e($url) . '" target="_blank" rel="noopener noreferrer" class="small fw-semibold text-truncate text-dark text-decoration-none" style="max-width: 220px;" title="' . e($val) . '">'
-            . e($filename)
-            . '</a>'
-            . '<small class="text-muted" style="font-size: 0.725rem;"><i class="ti ti-external-link me-1 fs-tiny"></i>View Image</small>'
-            . '</div>'
-            . '</div>';
+        return '<a href="' . e($url) . '" target="_blank" rel="noopener noreferrer" class="d-inline-block text-decoration-none" title="Click to view image: ' . e($filename) . '">'
+            . '<img src="' . e($url) . '" alt="' . e($filename) . '" class="img-thumbnail rounded shadow-xs object-fit-cover" style="width: 52px; height: 52px; min-width: 52px; border: 1px solid rgba(0,0,0,0.12); background: #f8f9fa; cursor: pointer;" onerror="this.onerror=null; this.src=\'' . asset('assets/img/illustrations/page-misc-error-light.png') . '\'; this.style.opacity=\'0.5\';" />'
+            . '</a>';
     };
 
     $formatSingleValue = function($key, $val, $log) use ($resolveValue, $isImageValue, $renderImageThumbnail) {
