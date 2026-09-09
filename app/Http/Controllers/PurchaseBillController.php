@@ -658,8 +658,7 @@ class PurchaseBillController extends Controller
             return response()->json(['status' => 'error', 'message' => $stockError], 422);
         }
 
-        $stockChanges = [];
-        DB::transaction(function () use ($purchaseBill, &$stockChanges) {
+        DB::transaction(function () use ($purchaseBill) {
             $totalAmount = 0.0;
             foreach ($purchaseBill->items as $item) {
                 $totalAmount += $this->purchasePriceForPurchaseBillItem($item) * $item->quantity;
@@ -688,18 +687,10 @@ class PurchaseBillController extends Controller
 
                 $multiplier = $this->stockMultiplierFor($item->product, $item->pair_type, $item->custom_size_value);
                 $stockQty = (int) round($item->quantity * $multiplier);
-                $prodLabel = $item->product ? ($item->product->name . ($item->product->barcode ? ' (' . $item->product->barcode . ')' : '')) : "Product #{$item->product_id}";
-                $productName = $item->product ? $item->product->name : "Product #{$item->product_id}";
-                $barcode = $item->product?->barcode ?: '-';
-                if ($item->product_variant_id && $item->variant) {
-                    $vLabel = trim((string)($item->variant->name ?? $item->variant->attributeValue?->value ?? ''));
-                    if ($vLabel !== '') {
-                        $productName .= ' (' . $vLabel . ')';
-                    }
-                }
 
                 $oldQty = $source->quantity;
                 $source->decrement('quantity', $stockQty);
+                ActivityLogger::log('Inventory', 'update', $source, ['quantity' => $oldQty], ['quantity' => $oldQty - $stockQty], 'Stock moved out from ' . $fromLocName . ' to ' . $toLocName . ' for purchase bill #' . $purchaseBill->transfer_no);
 
                 $destination = Inventory::firstOrCreate(
                     [
@@ -713,26 +704,7 @@ class PurchaseBillController extends Controller
                 );
                 $destOldQty = $destination->quantity;
                 $destination->increment('quantity', $stockQty);
-
-                $stockChanges[] = [
-                    'product_id'   => $item->product_id,
-                    'product_name' => $productName,
-                    'barcode'      => $barcode,
-                    'location'     => $fromLocName,
-                    'old_quantity' => $oldQty,
-                    'new_quantity' => $oldQty - $stockQty,
-                    'delta'        => -$stockQty,
-                ];
-
-                $stockChanges[] = [
-                    'product_id'   => $item->product_id,
-                    'product_name' => $productName,
-                    'barcode'      => $barcode,
-                    'location'     => $toLocName,
-                    'old_quantity' => $destOldQty,
-                    'new_quantity' => $destOldQty + $stockQty,
-                    'delta'        => $stockQty,
-                ];
+                ActivityLogger::log('Inventory', 'update', $destination, ['quantity' => $destOldQty], ['quantity' => $destOldQty + $stockQty], 'Stock moved in to ' . $toLocName . ' from ' . $fromLocName . ' for purchase bill #' . $purchaseBill->transfer_no);
 
                 // Update purchase_batch_stocks: Deduct from source branch, Add to destination branch on ACCEPT
                 $sourceBatchPrice = DB::table('purchase_batch_stocks')
@@ -767,33 +739,6 @@ class PurchaseBillController extends Controller
                 $this->applyLocationBalanceTransfer($purchaseBill, $totalAmount);
             }
         });
-
-        if (!empty($stockChanges)) {
-            $oldStockSnapshot = array_map(fn($sc) => [
-                'product_name' => $sc['product_name'],
-                'barcode'      => $sc['barcode'],
-                'location'     => $sc['location'],
-                'stock'        => $sc['old_quantity'],
-            ], $stockChanges);
-
-            $newStockSnapshot = array_map(fn($sc) => [
-                'product_name' => $sc['product_name'],
-                'barcode'      => $sc['barcode'],
-                'location'     => $sc['location'],
-                'stock'        => $sc['new_quantity'],
-                'qty_change'   => ($sc['delta'] >= 0 ? '+' : '') . $sc['delta'],
-            ], $stockChanges);
-
-            $itemCount = count($purchaseBill->items);
-            ActivityLogger::log(
-                'Inventory',
-                'update',
-                $purchaseBill,
-                ['stock_items' => $oldStockSnapshot],
-                ['stock_items' => $newStockSnapshot],
-                'Stock transferred for purchase bill #' . $purchaseBill->transfer_no . ' (' . $itemCount . ' ' . ($itemCount > 1 ? 'items' : 'item') . ')'
-            );
-        }
 
         ActivityLogger::log(
             'Purchase Bill',
