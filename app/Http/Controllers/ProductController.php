@@ -98,11 +98,12 @@ class ProductController extends Controller
             })
             ->when($request->sale_product !== null && $request->sale_product !== '', function($q) use ($request) {
                 if ($request->sale_product == '1') {
-                    $q->where('products.sale', 1);
+                    $q->whereColumn('products.mrp', '>', 'products.sale_price')->where('products.mrp', '>', 0);
                 } elseif ($request->sale_product == '0') {
                     $q->where(function($sub) {
-                        $sub->where('products.sale', 0)
-                            ->orWhereNull('products.sale');
+                        $sub->whereColumn('products.mrp', '<=', 'products.sale_price')
+                            ->orWhereNull('products.mrp')
+                            ->orWhere('products.mrp', 0);
                     });
                 }
             })
