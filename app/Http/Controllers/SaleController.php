@@ -1154,19 +1154,6 @@ class SaleController extends Controller
 
         try {
             DB::transaction(function () use ($request, $isApprove, $isCancelled, $sale, $wasApproved, $oldLocationId, $oldItemsSnapshot) {
-                // Sale was already approved (stock deducted) — restore it before applying the edited items.
-                if ($wasApproved) {
-                    foreach ($oldItemsSnapshot as $old) {
-                        $multiplier = $this->stockMultiplierFor((int) $old['product_id'], $old['pair_type'], $old['custom_size_value'] ? (float) $old['custom_size_value'] : null);
-                        $stockRestore = (int) round($old['quantity'] * $multiplier);
-                        $this->logInventoryChange((int) $old['product_id'], $oldLocationId, $stockRestore, 'Stock restored for edited sale #' . $sale->order_no);
-                        $oldUnitPrice = $stockRestore > 0 ? ((float)($old['purchase_price'] ?? 0) / $stockRestore) : (float)($old['purchase_price'] ?? 0);
-                        \App\Services\PurchaseBatchService::addBatchStock($oldLocationId, (int)$old['product_id'], !empty($old['product_variant_id']) ? (int)$old['product_variant_id'] : null, $old['purchase_item_id'] ?? null, $oldUnitPrice, (float)$stockRestore);
-                    }
-                }
-
-                $sale->items()->delete();
-
                 $totalAmount = 0.0;
                 $itemsData = [];
 
@@ -1271,6 +1258,54 @@ class SaleController extends Controller
                         'discount_amount' => $discAmount,
                         'total' => $itemTotal,
                     ];
+                }
+
+                // Compare old items vs new items to detect if items actually changed
+                $oldItems = $sale->items()->get();
+                $itemsChanged = false;
+                if ($oldItems->count() !== count($itemsData)) {
+                    $itemsChanged = true;
+                } else {
+                    $oldNorm = $oldItems->map(fn($item) => [
+                        'product_id'         => (int) $item->product_id,
+                        'product_variant_id' => $item->product_variant_id ? (int) $item->product_variant_id : null,
+                        'pair_type'          => $item->pair_type ?? 'single',
+                        'custom_size_value'  => $item->custom_size_value !== null ? round((float) $item->custom_size_value, 3) : null,
+                        'quantity'           => (int) $item->quantity,
+                        'price'              => round((float) $item->price, 2),
+                        'discount_type'      => $item->discount_type ?? 'flat',
+                        'discount_value'     => round((float) ($item->discount_value ?? 0), 2),
+                        'total'              => round((float) $item->total, 2),
+                    ])->sortBy(['product_id', 'product_variant_id', 'price', 'quantity'])->values()->all();
+
+                    $newNorm = collect($itemsData)->map(fn($item) => [
+                        'product_id'         => (int) $item['product_id'],
+                        'product_variant_id' => !empty($item['product_variant_id']) ? (int) $item['product_variant_id'] : null,
+                        'pair_type'          => $item['pair_type'] ?? 'single',
+                        'custom_size_value'  => (isset($item['custom_size_value']) && $item['custom_size_value'] !== '') ? round((float) $item['custom_size_value'], 3) : null,
+                        'quantity'           => (int) $item['quantity'],
+                        'price'              => round((float) $item['price'], 2),
+                        'discount_type'      => $item['discount_type'] ?? 'flat',
+                        'discount_value'     => round((float) ($item['discount_value'] ?? 0), 2),
+                        'total'              => round((float) $item['total'], 2),
+                    ])->sortBy(['product_id', 'product_variant_id', 'price', 'quantity'])->values()->all();
+
+                    if ($oldNorm != $newNorm) {
+                        $itemsChanged = true;
+                    }
+                }
+
+                $locationChanged = ((int) $sale->location_id !== (int) $request->location_id);
+
+                // Sale was already approved (stock deducted) — only restore it if items, location, or status changed
+                if ($wasApproved && ($itemsChanged || $locationChanged || !$isApprove)) {
+                    foreach ($oldItemsSnapshot as $old) {
+                        $multiplier = $this->stockMultiplierFor((int) $old['product_id'], $old['pair_type'], $old['custom_size_value'] ? (float) $old['custom_size_value'] : null);
+                        $stockRestore = (int) round($old['quantity'] * $multiplier);
+                        $this->logInventoryChange((int) $old['product_id'], $oldLocationId, $stockRestore, 'Stock restored for edited sale #' . $sale->order_no);
+                        $oldUnitPrice = $stockRestore > 0 ? ((float)($old['purchase_price'] ?? 0) / $stockRestore) : (float)($old['purchase_price'] ?? 0);
+                        \App\Services\PurchaseBatchService::addBatchStock($oldLocationId, (int)$old['product_id'], !empty($old['product_variant_id']) ? (int)$old['product_variant_id'] : null, $old['purchase_item_id'] ?? null, $oldUnitPrice, (float)$stockRestore);
+                    }
                 }
 
                 $discVal = (float) ($request->order_discount_value ?? 0);
@@ -1379,51 +1414,71 @@ class SaleController extends Controller
                     \Illuminate\Support\Facades\DB::table('orders')->where('id', $sale->id)->update(['created_at' => $orderDate->toDateTimeString()]);
                 }
 
-                if ($resolvedPaymentStatus === Order::PAYMENT_STATUS_PENDING) {
-                    \App\Models\SalePayment::where('order_id', $sale->id)->delete();
-                    $sale->payments()->delete();
-                } else {
-                    $editPaidTotal = $paidCash + $paidOnline;
-                    if ($editPaidTotal > 0) {
+                // Check if payment details changed
+                $paymentChanged = ((int) $sale->getOriginal('payment_status') !== (int) $resolvedPaymentStatus)
+                    || (abs((float) $sale->getOriginal('paid_cash_amount') - (float) $paidCash) >= 0.01)
+                    || (abs((float) $sale->getOriginal('paid_online_amount') - (float) $paidOnline) >= 0.01)
+                    || ($sale->getOriginal('payment_method') !== $paymentMethod)
+                    || isset($orderDate);
+
+                if ($paymentChanged) {
+                    if ($resolvedPaymentStatus === Order::PAYMENT_STATUS_PENDING) {
                         \App\Models\SalePayment::where('order_id', $sale->id)->delete();
                         $sale->payments()->delete();
-                        $sp = \App\Models\SalePayment::create([
-                            'order_id'       => $sale->id,
-                            'amount'         => $editPaidTotal,
-                            'cash_amount'    => $paidCash,
-                            'online_amount'  => $paidOnline,
-                            'payment_method' => $paymentMethod,
-                            'created_by'     => auth()->id(),
-                        ]);
-                        if (isset($orderDate)) {
-                            \Illuminate\Support\Facades\DB::table('sale_payments')->where('id', $sp->id)->update(['created_at' => $orderDate->toDateTimeString()]);
+                    } else {
+                        $editPaidTotal = $paidCash + $paidOnline;
+                        if ($editPaidTotal > 0) {
+                            \App\Models\SalePayment::where('order_id', $sale->id)->delete();
+                            $sale->payments()->delete();
+                            $sp = \App\Models\SalePayment::create([
+                                'order_id'       => $sale->id,
+                                'amount'         => $editPaidTotal,
+                                'cash_amount'    => $paidCash,
+                                'online_amount'  => $paidOnline,
+                                'payment_method' => $paymentMethod,
+                                'created_by'     => auth()->id(),
+                            ]);
+                            if (isset($orderDate)) {
+                                \Illuminate\Support\Facades\DB::table('sale_payments')->where('id', $sp->id)->update(['created_at' => $orderDate->toDateTimeString()]);
+                            }
                         }
                     }
                 }
 
-                foreach ($itemsData as $item) {
-                    OrderItem::create([
-                        'order_id' => $sale->id,
-                        'product_id' => $item['product_id'],
-                        'product_variant_id' => $item['product_variant_id'],
-                        'purchase_item_id' => $item['purchase_item_id'],
-                        'purchase_price' => $item['purchase_price'],
-                        'pair_type' => $item['pair_type'],
-                        'custom_size_value' => $item['custom_size_value'],
-                        'mrp' => $item['mrp'],
-                        'quantity' => $item['quantity'],
-                        'price' => $item['price'],
-                        'discount_type' => $item['discount_type'],
-                        'discount_value' => $item['discount_value'],
-                        'discount_amount' => $item['discount_amount'],
-                        'total' => $item['total'],
-                    ]);
+                if ($itemsChanged) {
+                    $sale->items()->delete();
 
-                    if ($isApprove) {
-                        $stockDeduct = (int) round($item['quantity'] * $this->stockMultiplierFor((int) $item['product_id'], $item['pair_type'], $item['custom_size_value']));
-                        $this->logInventoryChange((int) $item['product_id'], (int) $request->location_id, -$stockDeduct, 'Stock deducted for updated sale #' . $sale->order_no);
-                        $unitPrice = $stockDeduct > 0 ? ((float)$item['purchase_price'] / $stockDeduct) : (float)$item['purchase_price'];
-                        \App\Services\PurchaseBatchService::deductBatchStock((int)$request->location_id, (int)$item['product_id'], !empty($item['product_variant_id']) ? (int)$item['product_variant_id'] : null, $unitPrice, (float)$stockDeduct);
+                    foreach ($itemsData as $item) {
+                        OrderItem::create([
+                            'order_id' => $sale->id,
+                            'product_id' => $item['product_id'],
+                            'product_variant_id' => $item['product_variant_id'],
+                            'purchase_item_id' => $item['purchase_item_id'],
+                            'purchase_price' => $item['purchase_price'],
+                            'pair_type' => $item['pair_type'],
+                            'custom_size_value' => $item['custom_size_value'],
+                            'mrp' => $item['mrp'],
+                            'quantity' => $item['quantity'],
+                            'price' => $item['price'],
+                            'discount_type' => $item['discount_type'],
+                            'discount_value' => $item['discount_value'],
+                            'discount_amount' => $item['discount_amount'],
+                            'total' => $item['total'],
+                        ]);
+
+                        if ($isApprove) {
+                            $stockDeduct = (int) round($item['quantity'] * $this->stockMultiplierFor((int) $item['product_id'], $item['pair_type'], $item['custom_size_value']));
+                            $this->logInventoryChange((int) $item['product_id'], (int) $request->location_id, -$stockDeduct, 'Stock deducted for updated sale #' . $sale->order_no);
+                            $unitPrice = $stockDeduct > 0 ? ((float)$item['purchase_price'] / $stockDeduct) : (float)$item['purchase_price'];
+                            \App\Services\PurchaseBatchService::deductBatchStock((int)$request->location_id, (int)$item['product_id'], !empty($item['product_variant_id']) ? (int)$item['product_variant_id'] : null, $unitPrice, (float)$stockDeduct);
+                        }
+                    }
+                } elseif (!$wasApproved && $isApprove) {
+                    foreach ($sale->items as $item) {
+                        $stockDeduct = (int) round($item->quantity * $this->stockMultiplierFor((int) $item->product_id, $item->pair_type, $item->custom_size_value));
+                        $this->logInventoryChange((int) $item->product_id, (int) $request->location_id, -$stockDeduct, 'Stock deducted for updated sale #' . $sale->order_no);
+                        $unitPrice = $stockDeduct > 0 ? ((float)$item->purchase_price / $stockDeduct) : (float)$item->purchase_price;
+                        \App\Services\PurchaseBatchService::deductBatchStock((int)$request->location_id, (int)$item->product_id, !empty($item->product_variant_id) ? (int)$item->product_variant_id : null, $unitPrice, (float)$stockDeduct);
                     }
                 }
 
@@ -1436,14 +1491,23 @@ class SaleController extends Controller
                     ];
                 })->values()->all();
 
-                ActivityLogger::log(
-                    'Sales',
-                    'update',
-                    $sale,
-                    ['fields' => $oldFieldsSnapshot, 'items' => $oldItemsSnapshot],
-                    ['fields' => $updateData, 'items' => $newItemsSnapshot],
-                    'Order #' . $sale->order_no . ' updated'
-                );
+                $fieldsDiff = array_udiff_assoc($updateData, $oldFieldsSnapshot, function ($a, $b) {
+                    if (is_numeric($a) && is_numeric($b)) {
+                        return abs((float)$a - (float)$b) < 0.001 ? 0 : 1;
+                    }
+                    return (string)$a === (string)$b ? 0 : 1;
+                });
+
+                if ($itemsChanged || !empty($fieldsDiff)) {
+                    ActivityLogger::log(
+                        'Sales',
+                        'update',
+                        $sale,
+                        ['fields' => $oldFieldsSnapshot, 'items' => $oldItemsSnapshot],
+                        ['fields' => $updateData, 'items' => $newItemsSnapshot],
+                        'Order #' . $sale->order_no . ' updated'
+                    );
+                }
             });
         } catch (\RuntimeException $e) {
             return response()->json([

@@ -1,7 +1,9 @@
 <div id="chart-data"
      data-total-sales="{{ $totalSales }}"
      data-total-purchases="{{ $totalPurchases }}"
-     data-total-expenses="{{ $totalExpenses }}">
+     data-total-expenses="{{ $totalExpenses }}"
+     data-total-transfers="{{ $totalBalanceTransfersAmount ?? 0 }}"
+     data-total-payments-out="{{ $totalOverallPaymentsOut ?? 0 }}">
 </div>
 
 <!-- Stats Cards -->
@@ -13,7 +15,7 @@
                     <div>
                         <span class="text-muted">Total Sales</span>
                         <h4 class="mb-0 mt-1" id="totalSalesAmount">{{ format_price($totalSales) }}</h4>
-                        <small class="text-muted d-block mt-1">Pending Amount: <span class="fw-semibold text-warning" id="totalPendingSalesAmount">{{ format_price($totalPendingSales ?? 0) }}</span></small>
+                        <small class="text-muted d-block mt-1">Pending: <span class="fw-semibold text-warning" id="totalPendingSalesAmount">{{ format_price($totalPendingSales ?? 0) }}</span></small>
                     </div>
                     <span class="badge bg-label-success rounded p-2"><i class="ti ti-shopping-cart ti-sm"></i></span>
                 </div>
@@ -27,7 +29,7 @@
                     <div>
                         <span class="text-muted">Total Purchases</span>
                         <h4 class="mb-0 mt-1" id="totalPurchasesAmount">{{ format_price($totalPurchases) }}</h4>
-                        <small class="text-muted d-block mt-1">Pending Amount: <span class="fw-semibold text-warning" id="totalPendingPurchasesAmount">{{ format_price($totalPendingPurchases ?? 0) }}</span></small>
+                        <small class="text-muted d-block mt-1">Pending: <span class="fw-semibold text-warning" id="totalPendingPurchasesAmount">{{ format_price($totalPendingPurchases ?? 0) }}</span></small>
                     </div>
                     <span class="badge bg-label-info rounded p-2"><i class="ti ti-truck-delivery ti-sm"></i></span>
                 </div>
@@ -52,10 +54,36 @@
             <div class="card-body">
                 <div class="d-flex align-items-start justify-content-between">
                     <div>
-                        <span class="text-muted">Total Purchase Bill</span>
+                        <span class="text-muted">Purchase Bills</span>
                         <h4 class="mb-0 mt-1" id="totalTransfersCount">{{ $totalTransfersCount }}</h4>
                     </div>
                     <span class="badge bg-label-warning rounded p-2"><i class="ti ti-file-invoice ti-sm"></i></span>
+                </div>
+            </div>
+        </div>
+    </div>
+    <div class="col-sm-6 col-xl-3">
+        <div class="card h-100">
+            <div class="card-body">
+                <div class="d-flex align-items-start justify-content-between">
+                    <div>
+                        <span class="text-muted">Balance Transfer</span>
+                        <h4 class="mb-0 mt-1" id="totalBalanceTransfersAmount">{{ format_price($totalBalanceTransfersAmount ?? 0) }}</h4>
+                    </div>
+                    <span class="badge bg-label-primary rounded p-2"><i class="ti ti-arrows-left-right ti-sm"></i></span>
+                </div>
+            </div>
+        </div>
+    </div>
+    <div class="col-sm-6 col-xl-3">
+        <div class="card h-100">
+            <div class="card-body">
+                <div class="d-flex align-items-start justify-content-between">
+                    <div>
+                        <span class="text-muted">Payments Out</span>
+                        <h4 class="mb-0 mt-1" id="totalOverallPaymentsOut">{{ format_price($totalOverallPaymentsOut ?? 0) }}</h4>
+                    </div>
+                    <span class="badge bg-label-danger rounded p-2"><i class="ti ti-cash-banknote-off ti-sm"></i></span>
                 </div>
             </div>
         </div>
@@ -118,16 +146,25 @@
                     <th class="text-end">Purchases</th>
                     <th class="text-end">Expenses</th>
                     <th class="text-end">Purchase Bill</th>
+                    <th class="text-end">Balance Transfer</th>
+                    <th class="text-end">Payments Out</th>
                 </tr>
             </thead>
             <tbody id="branchBreakdownBody">
                 @foreach($branchRows as $row)
                     <tr>
                         <td class="fw-semibold">{{ $row['location_name'] }}</td>
-                        <td class="text-end">{{ format_price($row['sales_amount']) }} <small class="text-muted">({{ $row['sales_count'] }})</small></td>
-                        <td class="text-end">{{ format_price($row['purchase_amount']) }} <small class="text-muted">({{ $row['purchase_count'] }})</small></td>
-                        <td class="text-end">{{ format_price($row['expense_amount']) }} <small class="text-muted">({{ $row['expense_count'] }})</small></td>
-                        <td class="text-end">{{ $row['transfer_count'] }} <small class="text-muted">({{ $row['transfer_qty'] }} units)</small></td>
+                        <td class="text-end">{{ format_price($row['sales_amount']) }}</td>
+                        <td class="text-end">{{ format_price($row['purchase_amount']) }}</td>
+                        <td class="text-end">{{ format_price($row['expense_amount']) }}</td>
+                        <td class="text-end">{{ $row['transfer_count'] }}</td>
+                        <td class="text-end">
+                            <span class="text-danger" title="Transfer Out">↑ {{ format_price($row['bt_out_amount']) }}</span> /
+                            <span class="text-success" title="Transfer In">↓ {{ format_price($row['bt_in_amount']) }}</span>
+                        </td>
+                        <td class="text-end">
+                            <span class="fw-semibold text-danger">{{ format_price($row['payment_out_total']) }}</span>
+                        </td>
                     </tr>
                 @endforeach
             </tbody>
@@ -196,6 +233,93 @@
                         <td class="text-end" data-order="{{ (float) $row['total_amount'] }}">{{ format_price($row['total_amount']) }}</td>
                         <td data-order="{{ strip_tags($row['status']) }}">{!! $row['status'] !!}</td>
                         <td data-order="{{ strip_tags($row['payment_status']) }}">{!! $row['payment_status'] !!}</td>
+                    </tr>
+                @endforeach
+            </tbody>
+        </table>
+    </div>
+</div>
+
+
+<!-- Bulk Purchase Payments -->
+@if(!empty($isDefaultBranchView))
+<div class="card mb-4">
+    <div class="card-header d-flex justify-content-between align-items-center flex-wrap gap-2">
+        <div>
+            <h5 class="mb-0">Purchase Payments</h5>
+        </div>
+        <span class="badge bg-label-success">{{ $totalBulkPaymentsCount ?? 0 }} Bulk Payments</span>
+    </div>
+    <div class="card-datatable table-responsive">
+        <table class="table border-top" id="dailyBulkPaymentsTable">
+            <thead>
+                <tr>
+                    <th>#</th>
+                    <th>Supplier</th>
+                    <th>Branch</th>
+                    <th>Method</th>
+                    <th class="text-end">Amount Paid</th>
+                    <th>Description</th>
+                    <th>Paid By</th>
+                    <th>Date & Time</th>
+                </tr>
+            </thead>
+            <tbody id="dailyBulkPaymentsBody">
+                @foreach($bulkPurchasePaymentRows as $row)
+                    <tr>
+                        <td>{{ $row['index'] }}</td>
+                        <td data-order="{{ strip_tags($row['supplier']) }}">{{ $row['supplier'] }}</td>
+                        <td data-order="{{ $row['location'] }}">{{ $row['location'] }}</td>
+                        <td data-order="{{ $row['method'] }}">{{ $row['method'] }}</td>
+                        <td class="text-end fw-semibold text-danger" data-order="{{ (float) $row['amount'] }}">{{ format_price($row['amount']) }}</td>
+                        <td data-order="{{ $row['description'] }}">{{ $row['description'] }}</td>
+                        <td data-order="{{ $row['created_by'] }}">{{ $row['created_by'] }}</td>
+                        <td data-order="{{ $row['created_at'] }}">{{ $row['created_at'] }}</td>
+                    </tr>
+                @endforeach
+            </tbody>
+        </table>
+    </div>
+</div>
+@endif
+
+<!-- Branch Balance Transfers -->
+<div class="card mb-4">
+    <div class="card-header d-flex justify-content-between align-items-center">
+        <h5 class="mb-0">Branch Balance Transfers</h5>
+        <span class="badge bg-label-warning">{{ $totalBalanceTransfersCount ?? 0 }} Transfers</span>
+    </div>
+    <div class="card-datatable table-responsive">
+        <table class="table border-top" id="dailyBalanceTransfersTable">
+            <thead>
+                <tr>
+                    <th>#</th>
+                    <th>Transfer No</th>
+                    <th>From Branch</th>
+                    <th>To Branch</th>
+                    <th>Type</th>
+                    <th class="text-end">Amount</th>
+                    <th>Status</th>
+                    <th>Notes</th>
+                    <th>Created By</th>
+                    <th>Actioned By</th>
+                    <th>Date & Time</th>
+                </tr>
+            </thead>
+            <tbody id="dailyBalanceTransfersBody">
+                @foreach($branchBalanceTransferRows as $row)
+                    <tr>
+                        <td>{{ $row['index'] }}</td>
+                        <td data-order="{{ $row['transfer_no'] }}"><code>{{ $row['transfer_no'] }}</code></td>
+                        <td data-order="{{ $row['from_location'] }}">{{ $row['from_location'] }}</td>
+                        <td data-order="{{ $row['to_location'] }}">{{ $row['to_location'] }}</td>
+                        <td data-order="{{ $row['balance_type'] }}">{{ $row['balance_type'] }}</td>
+                        <td class="text-end fw-semibold" data-order="{{ (float) $row['amount'] }}">{{ format_price($row['amount']) }}</td>
+                        <td data-order="{{ strip_tags($row['status']) }}">{!! $row['status'] !!}</td>
+                        <td data-order="{{ $row['notes'] }}">{{ $row['notes'] }}</td>
+                        <td data-order="{{ $row['created_by'] }}">{{ $row['created_by'] }}</td>
+                        <td data-order="{{ $row['actioned_by'] }}">{{ $row['actioned_by'] }}</td>
+                        <td data-order="{{ $row['created_at'] }}">{{ $row['created_at'] }}</td>
                     </tr>
                 @endforeach
             </tbody>

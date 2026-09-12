@@ -5,6 +5,8 @@ namespace App\Models;
 use App\Models\Concerns\LogsActivity;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\SoftDeletes;
+use App\Http\Controllers\DashboardController;
+use Illuminate\Support\Facades\Cache;
 
 class Product extends Model
 {
@@ -16,13 +18,13 @@ class Product extends Model
 
     public static function clearMappedCaches(): void
     {
-        \Illuminate\Support\Facades\Cache::store('file')->forget('all_mapped_products_sales');
-        \Illuminate\Support\Facades\Cache::store('file')->forget('all_mapped_products_purchases');
-        \Illuminate\Support\Facades\Cache::store('file')->forget('all_mapped_products_bills');
-        \Illuminate\Support\Facades\Cache::forget('all_mapped_products_sales');
-        \Illuminate\Support\Facades\Cache::forget('all_mapped_products_purchases');
-        \Illuminate\Support\Facades\Cache::forget('all_mapped_products_bills');
-        \App\Http\Controllers\DashboardController::clearDashboardCaches();
+        Cache::store('file')->forget('all_mapped_products_sales');
+        Cache::store('file')->forget('all_mapped_products_purchases');
+        Cache::store('file')->forget('all_mapped_products_bills');
+        Cache::forget('all_mapped_products_sales');
+        Cache::forget('all_mapped_products_purchases');
+        Cache::forget('all_mapped_products_bills');
+        DashboardController::clearDashboardCaches();
     }
 
     protected static function booted(): void
@@ -366,6 +368,7 @@ class Product extends Model
         static::$preloadedTransferItemsByProduct = null;
         static::$preloadedInventoryQtyByProductLocation = null;
         static::$preloadedLocations = null;
+        static::$variantStockCache = [];
     }
 
     public function getVariantStock($locationId = null)
@@ -378,7 +381,7 @@ class Product extends Model
         return static::$variantStockCache[$cacheKey] = $this->computeVariantStock($locationId);
     }
 
-    private function computeVariantStock($locationId = null)
+    public function computeVariantStock($locationId = null)
     {
         $variants = static::$preloadedVariantsByProduct !== null
             ? collect(static::$preloadedVariantsByProduct[$this->id] ?? [])
@@ -554,7 +557,11 @@ class Product extends Model
             return 1.0;
         }
 
-        return $pairType === 'pair' ? 2.0 : 1.0;
+        if ($pairType === 'single') {
+            return 1.0;
+        }
+
+        return $this->getPairPackSize();
     }
 
     public function getIsVariableAttribute()

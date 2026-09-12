@@ -59,8 +59,30 @@
                     @php
                         $currentSlug = request()->segment(2);
                         $sessionFilters = session('shop_filters', []);
-                        $selectedCats = !empty($sessionFilters['category']) ? explode(',', $sessionFilters['category']) : ($currentSlug ? [$currentSlug] : []);
-                        $selectedSubs = !empty($sessionFilters['sub_category']) ? explode(',', $sessionFilters['sub_category']) : [];
+                        $selectedCats = !empty($sessionFilters['category'])
+                            ? explode(',', $sessionFilters['category'])
+                            : ($currentSlug ? [$currentSlug] : []);
+
+                        $selectedSubs = !empty($sessionFilters['sub_category'])
+                            ? explode(',', $sessionFilters['sub_category'])
+                            : [];
+
+
+                        $searchMatchedCategory = $sessionFilters['search_matched_category'] ?? null;
+                        $searchMatchedSubCategory = $sessionFilters['search_matched_sub_category'] ?? null;
+                        $searchMatchedCollection = $sessionFilters['search_matched_collection'] ?? null;
+
+                        if ($searchMatchedCategory) {
+                            $selectedCats[] = $searchMatchedCategory;
+                        }
+
+
+                        if ($searchMatchedSubCategory) {
+                            $selectedSubs[] = $searchMatchedSubCategory;
+                        }
+
+                        $selectedCats = array_unique($selectedCats);
+                        $selectedSubs = array_unique($selectedSubs);
                         $catSubSlugs = $cat->subCategories->pluck('slug')->all();
                         $selectedSubsInCat = array_values(array_intersect($selectedSubs, $catSubSlugs));
                         $allSubsSelected = empty($catSubSlugs) || empty($selectedSubs) || count($selectedSubsInCat) === count($catSubSlugs);
@@ -72,7 +94,13 @@
                         <div class="w-full flex items-center justify-between gap-2">
                             <label class="flex items-center gap-[15px] min-w-0 flex-1 cursor-pointer select-none">
                                 <span class="custom-checkbox shrink-0">
-                                    <input type="checkbox" class="category-checkbox" value="{{ $cat->slug }}" data-category-id="{{ $cat->id }}" {{ $isCatChecked ? 'checked' : '' }} onchange="handleCategoryFilterChange(this)">
+                                    <input type="checkbox"
+                                        class="category-checkbox"
+                                        value="{{ $cat->slug }}"
+                                        data-category-id="{{ $cat->id }}"
+                                        data-search-auto="{{ $searchMatchedCategory === $cat->slug ? '1' : '0' }}"
+                                        {{ $isCatChecked ? 'checked' : '' }}
+                                        onchange="handleCategoryFilterChange(this)">
                                     <span></span>
                                 </span>
                                 <h3 class="text-base 2xl:text-[18px] text-[#3D403F]">
@@ -96,7 +124,13 @@
                             @foreach($cat->subCategories as $sub)
                             <label class="flex items-center gap-4 cursor-pointer select-none">
                                 <span class="custom-checkbox shrink-0">
-                                    <input type="checkbox" class="subcategory-checkbox" value="{{ $sub->slug }}" data-category-id="{{ $cat->id }}" {{ ($shouldSelectAllSubs || in_array($sub->slug, $selectedSubsInCat)) ? 'checked' : '' }} onchange="handleSubcategoryFilterChange(this)">
+                                    <input type="checkbox"
+                                        class="subcategory-checkbox"
+                                        value="{{ $sub->slug }}"
+                                        data-category-id="{{ $cat->id }}"
+                                        data-search-auto="{{ $searchMatchedSubCategory === $sub->slug ? '1' : '0' }}"
+                                        {{ ($shouldSelectAllSubs || in_array($sub->slug, $selectedSubsInCat)) ? 'checked' : '' }}
+                                        onchange="handleSubcategoryFilterChange(this)">
                                     <span></span>
                                 </span>
                                 <span class="text-base 2xl:text-[18px] text-[#757575]">{{ $sub->name }}</span>
@@ -132,7 +166,12 @@
                     <div class="{{ $loop->last ? 'border-b-0 py-3' : 'border-b border-[#D5D5D5] py-3' }}">
                         <label class="flex items-center gap-[15px] cursor-pointer select-none">
                             <span class="custom-checkbox shrink-0">
-                                <input type="checkbox" class="collection-checkbox" value="{{ $colValue }}" {{ $isColChecked ? 'checked' : '' }} onchange="handleCollectionFilterChange(this)">
+                                <input type="checkbox"
+                                    class="collection-checkbox"
+                                    value="{{ $colValue }}"
+                                    data-search-auto="{{ $searchMatchedCollection == $colValue ? '1' : '0' }}"
+                                    {{ $isColChecked || $searchMatchedCollection == $colValue ? 'checked' : '' }}
+                                    onchange="handleCollectionFilterChange(this)">
                                 <span></span>
                             </span>
                             <h3 class="text-base 2xl:text-[18px] text-[#3D403F]">
@@ -656,36 +695,93 @@
 
     function getFilterData() {
         const cats = [];
-        document.querySelectorAll('.category-checkbox:checked').forEach(cb => cats.push(cb.value));
+
+        document.querySelectorAll('.category-checkbox:checked').forEach(cb => {
+            if (cb.dataset.searchAuto === '1') {
+                return;
+            }
+
+            cats.push(cb.value);
+        });
+
         const uniqueCats = [...new Set(cats)];
 
         const subs = [];
+
         document.querySelectorAll('.subcategory-checkbox:checked').forEach(cb => {
+            if (cb.dataset.searchAuto === '1') {
+                return;
+            }
+
             const parentCatId = cb.dataset.categoryId;
+
             const parentIsChecked = document.querySelector(
-                '.category-checkbox[data-category-id="' + parentCatId + '"]:checked'
+                '.category-checkbox[data-category-id="' +
+                parentCatId +
+                '"]:checked'
             );
+
             if (!parentIsChecked) {
                 subs.push(cb.value);
             }
         });
+
         const uniqueSubs = [...new Set(subs)];
 
         const cols = [];
-        document.querySelectorAll('.collection-checkbox:checked').forEach(cb => cols.push(cb.value));
+
+        document.querySelectorAll('.collection-checkbox:checked').forEach(cb => {
+            if (cb.dataset.searchAuto === '1') {
+                return;
+            }
+
+            cols.push(cb.value);
+        });
+
         const uniqueCols = [...new Set(cols)];
 
-        const minPrice = document.getElementById('minPriceInput').value;
-        const maxPrice = document.getElementById('maxPriceInput').value;
-        const isPriceTouched = priceFilterTouched || (minPrice !== '' && parseInt(minPrice) > catalogMinPrice) || (maxPrice !== '' && parseInt(maxPrice) < catalogMaxPrice);
+        const minPriceEl = document.getElementById('minPriceInput');
+        const maxPriceEl = document.getElementById('maxPriceInput');
+
+        const minPrice = minPriceEl
+            ? minPriceEl.value
+            : '';
+
+        const maxPrice = maxPriceEl
+            ? maxPriceEl.value
+            : '';
+
+        const isPriceTouched =
+            priceFilterTouched ||
+            (
+                minPrice !== '' &&
+                parseInt(minPrice, 10) > catalogMinPrice
+            ) ||
+            (
+                maxPrice !== '' &&
+                parseInt(maxPrice, 10) < catalogMaxPrice
+            );
 
         const sizes = [];
-        document.querySelectorAll('.size-checkbox:checked').forEach(cb => sizes.push(cb.value));
 
-        const sort = document.getElementById('sortSelect').value;
+        document.querySelectorAll('.size-checkbox:checked').forEach(cb => {
+            sizes.push(cb.value);
+        });
 
-        const headerSearchEl = document.getElementById('headerSearch');
-        const search = headerSearchEl ? headerSearchEl.value.trim() : '';
+        const uniqueSizes = [...new Set(sizes)];
+
+        const sortEl = document.getElementById('sortSelect');
+
+        const sort = sortEl
+            ? sortEl.value
+            : 'default';
+
+        const headerSearchEl =
+            document.getElementById('headerSearch');
+
+        const search = headerSearchEl
+            ? headerSearchEl.value.trim()
+            : '';
 
         return {
             category: uniqueCats.join(','),
@@ -693,7 +789,7 @@
             collection: uniqueCols.join(','),
             min_price: isPriceTouched ? minPrice : '',
             max_price: isPriceTouched ? maxPrice : '',
-            size: sizes.join(','),
+            size: uniqueSizes.join(','),
             sort: sort !== 'default' ? sort : '',
             search: search
         };
@@ -803,16 +899,45 @@
     }
 
     function syncResetButton() {
-        const hasCategory = document.querySelectorAll('.category-checkbox:checked').length > 0;
-        const hasSubCategory = document.querySelectorAll('.subcategory-checkbox:checked').length > 0;
-        const hasSize = document.querySelectorAll('.size-checkbox:checked').length > 0;
+        const hasCategory =
+            document.querySelectorAll('.category-checkbox:checked').length > 0;
+
+        const hasSubCategory =
+            document.querySelectorAll('.subcategory-checkbox:checked').length > 0;
+
+        const hasCollection =
+            document.querySelectorAll('.collection-checkbox:checked').length > 0;
+
+        const hasSize =
+            document.querySelectorAll('.size-checkbox:checked').length > 0;
+
         const sortSelect = document.getElementById('sortSelect');
-        const hasSort = sortSelect && sortSelect.value !== 'default';
+
+        const hasSort =
+            sortSelect && sortSelect.value !== 'default';
+
         const hasPrice = priceFilterTouched;
 
-        const btn = document.getElementById('resetFiltersBtn');
+        const headerSearchEl =
+            document.getElementById('headerSearch');
+
+        const hasSearch =
+            headerSearchEl &&
+            headerSearchEl.value.trim() !== '';
+
+        const btn =
+            document.getElementById('resetFiltersBtn');
+
         if (btn) {
-            if (hasCategory || hasSubCategory || hasSize || hasSort || hasPrice) {
+            if (
+                hasCategory ||
+                hasSubCategory ||
+                hasCollection ||
+                hasSize ||
+                hasSort ||
+                hasPrice ||
+                hasSearch
+            ) {
                 btn.classList.remove('hidden');
                 btn.classList.add('flex');
             } else {
