@@ -9,6 +9,7 @@ use App\Models\PurchaseAllocation;
 use App\Models\Purchase;
 use App\Models\PurchaseItem;
 use App\Models\PurchasePayment;
+use App\Models\PurchaseBill;
 use App\Models\Supplier;
 use App\Services\ActivityLogger;
 use Illuminate\Http\Request;
