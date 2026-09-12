@@ -147,8 +147,8 @@ class PurchaseBatchService
             return;
         }
 
-        // 3. Group items by price and calculate available stock
-        $groupedByPrice = [];
+        // 3. Aggregate inbound by price
+        $groupedInbound = [];
         foreach ($items as $item) {
             $rawPrice = (float) $item->purchase_price;
             if ($rawPrice <= 0) {
@@ -178,78 +178,122 @@ class PurchaseBatchService
                 }
             }
 
-            $soldOrderItems = DB::table('order_items')
-                ->join('orders', 'orders.id', '=', 'order_items.order_id')
-                ->where('order_items.product_id', $productId)
-                ->where('orders.location_id', $locationId)
-                ->whereNull('order_items.deleted_at')
-                ->whereNull('orders.deleted_at')
-                ->where('orders.status', Order::STATUS_APPROVE)
-                ->when($productVariantId, fn($q) => $q->where('order_items.product_variant_id', $productVariantId), fn($q) => $q->whereNull('order_items.product_variant_id'))
-                ->select('order_items.*')
-                ->get();
+            if (!isset($groupedInbound[$priceKey])) {
+                $groupedInbound[$priceKey] = [
+                    'purchase_item_id' => (int) $item->purchase_item_id,
+                    'purchase_price'   => $rawPrice,
+                    'inbound_qty'      => 0.0,
+                    'created_at'       => $item->created_at,
+                ];
+            }
+            $groupedInbound[$priceKey]['inbound_qty'] += $allocatedQty;
+        }
 
-            $soldQty = 0.0;
-            foreach ($soldOrderItems as $soi) {
-                $soiPrice = (float) $soi->purchase_price;
-                $soiQty = max(1.0, (float)$soi->quantity);
-                $soiMultiplier = self::multiplierForProduct($product, $soi->pair_type ?? null, $soi->custom_size_value ?? null);
-                $physQty = max(1.0, $soiQty * $soiMultiplier);
+        // Aggregate outbound (sales orders at this location)
+        $soldOrderItems = DB::table('order_items')
+            ->join('orders', 'orders.id', '=', 'order_items.order_id')
+            ->where('order_items.product_id', $productId)
+            ->where('orders.location_id', $locationId)
+            ->whereNull('order_items.deleted_at')
+            ->whereNull('orders.deleted_at')
+            ->where('orders.status', Order::STATUS_APPROVE)
+            ->when($productVariantId, fn($q) => $q->where('order_items.product_variant_id', $productVariantId), fn($q) => $q->whereNull('order_items.product_variant_id'))
+            ->select('order_items.*')
+            ->get();
 
-                $isMatch = (abs($soiPrice - $rawPrice) < 0.05)
-                    || (abs(($soiPrice / $soiQty) - $rawPrice) < 0.05)
-                    || (abs(($soiPrice / $physQty) - $rawPrice) < 0.05)
-                    || (abs(($soiPrice / 2.0) - $rawPrice) < 0.05);
+        $outboundByPrice = [];
+        foreach ($soldOrderItems as $soi) {
+            $soiPrice = (float) $soi->purchase_price;
+            $soiQty = max(1.0, (float)$soi->quantity);
+            $soiMultiplier = self::multiplierForProduct($product, $soi->pair_type ?? null, $soi->custom_size_value ?? null);
+            $physQty = max(1.0, $soiQty * $soiMultiplier);
+
+            // Find matching inbound price key
+            $matchedKey = null;
+            foreach ($groupedInbound as $pKey => $inb) {
+                $inbPrice = (float) $inb['purchase_price'];
+                $isMatch = (abs($soiPrice - $inbPrice) < 0.05)
+                    || (abs(($soiPrice / $soiQty) - $inbPrice) < 0.05)
+                    || (abs(($soiPrice / $physQty) - $inbPrice) < 0.05)
+                    || (abs(($soiPrice / 2.0) - $inbPrice) < 0.05);
 
                 if ($isMatch) {
-                    $soldQty += $physQty;
+                    $matchedKey = $pKey;
+                    break;
                 }
             }
 
-            $transferredOutBills = DB::table('purchase_bill_items')
-                ->join('purchase_bills', 'purchase_bills.id', '=', 'purchase_bill_items.purchase_bill_id')
-                ->where('purchase_bill_items.product_id', $productId)
-                ->where('purchase_bills.from_location_id', $locationId)
-                ->whereNull('purchase_bill_items.deleted_at')
-                ->whereNull('purchase_bills.deleted_at')
-                ->where('purchase_bills.status', PurchaseBill::STATUS_ACCEPTED)
-                ->when($productVariantId, fn($q) => $q->where('purchase_bill_items.product_variant_id', $productVariantId), fn($q) => $q->whereNull('purchase_bill_items.product_variant_id'))
-                ->select('purchase_bill_items.*')
-                ->get();
+            if ($matchedKey !== null) {
+                $outboundByPrice[$matchedKey] = ($outboundByPrice[$matchedKey] ?? 0.0) + $physQty;
+            } else {
+                // If not matched, deduct from oldest inbound batch
+                $oldestKey = array_key_last($groupedInbound);
+                if ($oldestKey) {
+                    $outboundByPrice[$oldestKey] = ($outboundByPrice[$oldestKey] ?? 0.0) + $physQty;
+                }
+            }
+        }
 
-            $transferredOutQty = 0.0;
-            foreach ($transferredOutBills as $tob) {
-                $tPrice = (float) $tob->purchase_price;
-                $tMultiplier = self::multiplierForProduct($product, $tob->pair_type ?? null, $tob->custom_size_value ?? null);
-                $tPhysQty = (float) $tob->quantity * $tMultiplier;
+        // Aggregate outbound (transfers out from this location)
+        $transferredOutBills = DB::table('purchase_bill_items')
+            ->join('purchase_bills', 'purchase_bills.id', '=', 'purchase_bill_items.purchase_bill_id')
+            ->where('purchase_bill_items.product_id', $productId)
+            ->where('purchase_bills.from_location_id', $locationId)
+            ->whereNull('purchase_bill_items.deleted_at')
+            ->whereNull('purchase_bills.deleted_at')
+            ->where('purchase_bills.status', PurchaseBill::STATUS_ACCEPTED)
+            ->when($productVariantId, fn($q) => $q->where('purchase_bill_items.product_variant_id', $productVariantId), fn($q) => $q->whereNull('purchase_bill_items.product_variant_id'))
+            ->select('purchase_bill_items.*')
+            ->get();
 
-                $isMatch = (abs($tPrice - $rawPrice) < 0.05);
+        foreach ($transferredOutBills as $tob) {
+            $tPrice = (float) $tob->purchase_price;
+            $tMultiplier = self::multiplierForProduct($product, $tob->pair_type ?? null, $tob->custom_size_value ?? null);
+            $tPhysQty = (float) $tob->quantity * $tMultiplier;
+
+            $matchedKey = null;
+            foreach ($groupedInbound as $pKey => $inb) {
+                $inbPrice = (float) $inb['purchase_price'];
+                $isMatch = (abs($tPrice - $inbPrice) < 0.05);
 
                 if (!$isMatch && $product && $product->pair_product && !empty($product->custom_sizes)) {
                     $sizes = $product->custom_sizes;
                     $maxSize = collect($sizes)->pluck('size')->map(fn($s) => (float)$s)->filter(fn($s) => $s > 0)->max() ?: 1.0;
                     $tSize = (float) ($tob->custom_size_value ?: $maxSize);
                     $calcBasePrice = ($tSize > 0 && $maxSize > 0) ? ($tPrice * ($maxSize / $tSize)) : $tPrice;
-                    if (abs($calcBasePrice - $rawPrice) < 0.05) {
+                    if (abs($calcBasePrice - $inbPrice) < 0.05) {
                         $isMatch = true;
                     }
                 }
 
                 if ($isMatch) {
-                    $transferredOutQty += $tPhysQty;
+                    $matchedKey = $pKey;
+                    break;
                 }
             }
 
-            $remainingQty = max(0, $allocatedQty - $soldQty - $transferredOutQty);
-
-            if (!isset($groupedByPrice[$priceKey])) {
-                $groupedByPrice[$priceKey] = [
-                    'purchase_item_id' => (int) $item->purchase_item_id,
-                    'purchase_price'   => $rawPrice,
-                    'available_qty'    => 0,
-                ];
+            if ($matchedKey !== null) {
+                $outboundByPrice[$matchedKey] = ($outboundByPrice[$matchedKey] ?? 0.0) + $tPhysQty;
+            } else {
+                $oldestKey = array_key_last($groupedInbound);
+                if ($oldestKey) {
+                    $outboundByPrice[$oldestKey] = ($outboundByPrice[$oldestKey] ?? 0.0) + $tPhysQty;
+                }
             }
-            $groupedByPrice[$priceKey]['available_qty'] += (int) $remainingQty;
+        }
+
+        // Calculate net available stock per price batch
+        $groupedByPrice = [];
+        foreach ($groupedInbound as $priceKey => $inb) {
+            $inbound = (float) $inb['inbound_qty'];
+            $outbound = (float) ($outboundByPrice[$priceKey] ?? 0.0);
+            $available = max(0, $inbound - $outbound);
+
+            $groupedByPrice[$priceKey] = [
+                'purchase_item_id' => (int) $inb['purchase_item_id'],
+                'purchase_price'   => (float) $inb['purchase_price'],
+                'available_qty'    => (int) round($available),
+            ];
         }
 
         // Reset existing batch stock quantities to 0 before waterfall allocation

@@ -625,9 +625,7 @@ class PurchaseController extends Controller
                     $reqVarId = !empty($it['product_variant_id']) ? (int)$it['product_variant_id'] : null;
                     $reqProdId = (int)$it['product_id'];
                     $existVarId = $existingItem->product_variant_id ? (int)$existingItem->product_variant_id : null;
-                    $reqPrice = (float)($it['purchase_price'] ?? 0);
-                    $existPrice = (float)$existingItem->purchase_price;
-                    return $reqProdId === (int)$existingItem->product_id && $reqVarId === $existVarId && abs($reqPrice - $existPrice) < 0.01;
+                    return $reqProdId === (int)$existingItem->product_id && $reqVarId === $existVarId;
                 });
 
                 $prodName = $existingItem->product?->name ?? ('Product #' . $existingItem->product_id);
@@ -782,6 +780,20 @@ class PurchaseController extends Controller
                 }
             }
 
+            $purchaseLocationId = $purchase->items->flatMap->allocations->pluck('location_id')->first()
+                ?? $purchase->location_id
+                ?? $defaultLocation->id;
+
+            $oldProductIds = $purchase->items->pluck('product_id')->unique()->all();
+            $allAffectedLocations = [$purchaseLocationId];
+
+            $transfers = PurchaseBill::where('from_location_id', $purchaseLocationId)
+                ->where('created_at', '>=', $purchase->created_at->subMinutes(5))
+                ->whereNull('deleted_at')
+                ->pluck('to_location_id')
+                ->all();
+            $allAffectedLocations = array_unique(array_merge($allAffectedLocations, $transfers));
+
             if ($itemsChanged && $oldStatus == Purchase::STATUS_APPROVE) {
                 $this->reverseInvoiceStock($purchase);
             } elseif (!$itemsChanged && $oldStatus == Purchase::STATUS_APPROVE && $newStatus != Purchase::STATUS_APPROVE) {
@@ -898,6 +910,8 @@ class PurchaseController extends Controller
             }
 
             if ($itemsChanged) {
+                $itemIds = $purchase->items()->pluck('id');
+                PurchaseAllocation::whereIn('purchase_item_id', $itemIds)->delete();
                 $purchase->items()->delete();
 
                 foreach ($itemsData as $item) {
@@ -916,7 +930,7 @@ class PurchaseController extends Controller
 
                     PurchaseAllocation::create([
                         'purchase_item_id' => $createdItem->id,
-                        'location_id'      => $defaultLocation->id,
+                        'location_id'      => $purchaseLocationId,
                         'quantity'         => $item['quantity'],
                     ]);
 
@@ -924,7 +938,7 @@ class PurchaseController extends Controller
                     $itemMultiplier = \App\Services\PurchaseBatchService::multiplierForProduct($productObj, $item['pair_type'] ?? null, $item['custom_size_value'] ?? null);
                     $batchStockQty = (float) $item['quantity'] * $itemMultiplier;
 
-                    \App\Services\PurchaseBatchService::addBatchStock((int)$defaultLocation->id, (int)$item['product_id'], !empty($item['product_variant_id']) ? (int)$item['product_variant_id'] : null, $createdItem->id, (float)$item['purchase_price'], (float)$batchStockQty);
+                    \App\Services\PurchaseBatchService::addBatchStock((int)$purchaseLocationId, (int)$item['product_id'], !empty($item['product_variant_id']) ? (int)$item['product_variant_id'] : null, $createdItem->id, (float)$item['purchase_price'], (float)$batchStockQty);
                 }
 
                 if ($newStatus == Purchase::STATUS_APPROVE) {
@@ -932,6 +946,61 @@ class PurchaseController extends Controller
                 }
             } elseif ($oldStatus != Purchase::STATUS_APPROVE && $newStatus == Purchase::STATUS_APPROVE) {
                 $this->approveInvoice($purchase);
+            }
+
+            // Track price changes for updating linked transfers and sold items
+            $priceChanges = [];
+            foreach ($oldItems as $oldIt) {
+                $newIt = collect($itemsData)->first(function ($it) use ($oldIt) {
+                    $reqVarId = !empty($it['product_variant_id']) ? (int)$it['product_variant_id'] : null;
+                    $reqProdId = (int)$it['product_id'];
+                    $existVarId = $oldIt->product_variant_id ? (int)$oldIt->product_variant_id : null;
+                    return $reqProdId === (int)$oldIt->product_id && $reqVarId === $existVarId;
+                });
+                if ($newIt) {
+                    $oldP = (float) $oldIt->purchase_price;
+                    $newP = (float) $newIt['purchase_price'];
+                    if (abs($oldP - $newP) >= 0.01) {
+                        $priceChanges[] = [
+                            'product_id'         => (int) $oldIt->product_id,
+                            'product_variant_id' => $oldIt->product_variant_id ? (int) $oldIt->product_variant_id : null,
+                            'old_price'          => $oldP,
+                            'new_price'          => $newP,
+                        ];
+                    }
+                }
+            }
+
+            // Update linked transfer bills (purchase_bill_items) if purchase price was changed
+            if (!empty($priceChanges)) {
+                $transfersQuery = PurchaseBill::where('from_location_id', $purchaseLocationId)
+                    ->where('created_at', '>=', $purchase->created_at->subMinutes(5))
+                    ->whereNull('deleted_at')
+                    ->get();
+
+                foreach ($transfersQuery as $tr) {
+                    foreach ($tr->items as $tbItem) {
+                        foreach ($priceChanges as $pc) {
+                            $varMatch = $pc['product_variant_id']
+                                ? (int)$tbItem->product_variant_id === (int)$pc['product_variant_id']
+                                : empty($tbItem->product_variant_id);
+
+                            if ((int)$tbItem->product_id === (int)$pc['product_id'] && $varMatch && abs((float)$tbItem->purchase_price - $pc['old_price']) < 0.01) {
+                                $tbItem->update(['purchase_price' => $pc['new_price']]);
+                            }
+                        }
+                    }
+                }
+            }
+
+            $newProductIds = collect($itemsData)->pluck('product_id')->unique()->all();
+            $allProductIds = array_unique(array_merge($oldProductIds, $newProductIds));
+            $allLocations = Location::pluck('id')->all();
+
+            foreach ($allLocations as $locId) {
+                foreach ($allProductIds as $prodId) {
+                    \App\Services\PurchaseBatchService::syncProductBatchStocks((int)$locId, (int)$prodId);
+                }
             }
 
             $newItemsSnapshot = collect($itemsData)->map(function ($item) {

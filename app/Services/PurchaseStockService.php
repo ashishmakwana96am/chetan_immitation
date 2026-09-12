@@ -617,10 +617,12 @@ class PurchaseStockService
             }
         }
 
-        $affectedLocations = array_unique($affectedLocations);
-        foreach ($affectedLocations as $locId) {
-            foreach ($productIds as $prodId) {
-                PurchaseBatchService::syncProductBatchStocks($locId, $prodId);
+        if ($reason !== 'edit') {
+            $affectedLocations = array_unique($affectedLocations);
+            foreach ($affectedLocations as $locId) {
+                foreach ($productIds as $prodId) {
+                    PurchaseBatchService::syncProductBatchStocks($locId, $prodId);
+                }
             }
         }
 
