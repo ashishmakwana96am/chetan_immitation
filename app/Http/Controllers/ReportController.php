@@ -5263,58 +5263,56 @@ class ReportController extends Controller
         }
 
         // ============================================================
-        // Sheet 4: Bulk Payments (Default Branch only)
+        // Sheet 4: Purchase Payments (Payments Out)
         // ============================================================
-        if ($data['isDefaultBranchView']) {
-            $sheet4 = $spreadsheet->createSheet();
-            $sheet4->setTitle('Purchase Payments');
-            $sheet4->mergeCells('A1:G1');
-            $sheet4->setCellValue('A1', 'Purchase Payments Data');
-            $sheet4->getStyle('A1:G1')->applyFromArray($titleStyle);
-            $sheet4->getRowDimension(1)->setRowHeight(30);
+        $sheet4 = $spreadsheet->createSheet();
+        $sheet4->setTitle('Purchase Payments');
+        $sheet4->mergeCells('A1:G1');
+        $sheet4->setCellValue('A1', 'Purchase Payments Data');
+        $sheet4->getStyle('A1:G1')->applyFromArray($titleStyle);
+        $sheet4->getRowDimension(1)->setRowHeight(30);
 
-            $headers4 = ['#', 'Supplier', 'Branch', 'Method', 'Amount Paid', 'Description', 'Date & Time'];
-            $cols4 = ['A', 'B', 'C', 'D', 'E', 'F', 'G'];
-            foreach ($headers4 as $cIdx => $hText) {
-                $sheet4->setCellValue($cols4[$cIdx] . '2', $hText);
-            }
-            $sheet4->getStyle('A2:G2')->applyFromArray($headerStyle);
-            $sheet4->getRowDimension(2)->setRowHeight(26);
+        $headers4 = ['#', 'Supplier', 'Branch', 'Method', 'Amount Paid', 'Description', 'Date & Time'];
+        $cols4 = ['A', 'B', 'C', 'D', 'E', 'F', 'G'];
+        foreach ($headers4 as $cIdx => $hText) {
+            $sheet4->setCellValue($cols4[$cIdx] . '2', $hText);
+        }
+        $sheet4->getStyle('A2:G2')->applyFromArray($headerStyle);
+        $sheet4->getRowDimension(2)->setRowHeight(26);
 
-            if ($data['bulkPurchasePaymentRows']->isNotEmpty()) {
-                $r4 = 3;
-                $sumBulkAmount = 0.0;
-                foreach ($data['bulkPurchasePaymentRows'] as $idx => $row) {
-                    $amt = (float) ($row['amount'] ?? 0);
-                    $sumBulkAmount += $amt;
-                    $sheet4->setCellValue('A' . $r4, $idx + 1);
-                    $sheet4->setCellValue('B' . $r4, $row['supplier'] ?? '-');
-                    $sheet4->setCellValue('C' . $r4, $row['location'] ?? '-');
-                    $sheet4->setCellValue('D' . $r4, $row['method'] ?? '-');
-                    $sheet4->setCellValue('E' . $r4, '₹' . number_format($amt, 2));
-                    $sheet4->setCellValue('F' . $r4, $row['description'] ?? '-');
-                    $sheet4->setCellValue('G' . $r4, $row['created_at'] ?? '-');
-                    $sheet4->getRowDimension($r4)->setRowHeight(20);
-                    $r4++;
-                }
-                $sheet4->setCellValue('A' . $r4, 'Total');
-                $sheet4->setCellValue('E' . $r4, '₹' . number_format($sumBulkAmount, 2));
-                $sheet4->getStyle("A{$r4}:G{$r4}")->getFont()->setBold(true);
-                $sheet4->getStyle("A{$r4}:G{$r4}")->getFill()->setFillType(Fill::FILL_SOLID)->getStartColor()->setRGB('EAECF0');
-                $sheet4->getRowDimension($r4)->setRowHeight(24);
-                $sheet4->getStyle("A2:G{$r4}")->applyFromArray($borderStyle);
-                $sheet4->getStyle("A2:A{$r4}")->getAlignment()->setHorizontal(Alignment::HORIZONTAL_CENTER);
-                $sheet4->getStyle("D2:D{$r4}")->getAlignment()->setHorizontal(Alignment::HORIZONTAL_CENTER);
-                $sheet4->getStyle("E2:E{$r4}")->getAlignment()->setHorizontal(Alignment::HORIZONTAL_RIGHT);
-                $sheet4->getStyle("G2:G{$r4}")->getAlignment()->setHorizontal(Alignment::HORIZONTAL_CENTER);
-            } else {
-                $sheet4->setCellValue('A3', 'No purchase payment data available for the selected date.');
-                $sheet4->mergeCells('A3:G3');
-                $sheet4->getStyle('A2:G3')->applyFromArray($borderStyle);
+        if ($data['purchasePaymentRows']->isNotEmpty()) {
+            $r4 = 3;
+            $sumPayOutAmount = 0.0;
+            foreach ($data['purchasePaymentRows'] as $idx => $row) {
+                $amt = (float) ($row['amount'] ?? 0);
+                $sumPayOutAmount += $amt;
+                $sheet4->setCellValue('A' . $r4, $idx + 1);
+                $sheet4->setCellValue('B' . $r4, $row['supplier'] ?? '-');
+                $sheet4->setCellValue('C' . $r4, $row['location'] ?? '-');
+                $sheet4->setCellValue('D' . $r4, $row['method'] ?? '-');
+                $sheet4->setCellValue('E' . $r4, '₹' . number_format($amt, 2));
+                $sheet4->setCellValue('F' . $r4, $row['description'] ?? '-');
+                $sheet4->setCellValue('G' . $r4, $row['created_at'] ?? '-');
+                $sheet4->getRowDimension($r4)->setRowHeight(20);
+                $r4++;
             }
-            foreach ($cols4 as $colLetter) {
-                $sheet4->getColumnDimension($colLetter)->setAutoSize(true);
-            }
+            $sheet4->setCellValue('A' . $r4, 'Total');
+            $sheet4->setCellValue('E' . $r4, '₹' . number_format($sumPayOutAmount, 2));
+            $sheet4->getStyle("A{$r4}:G{$r4}")->getFont()->setBold(true);
+            $sheet4->getStyle("A{$r4}:G{$r4}")->getFill()->setFillType(Fill::FILL_SOLID)->getStartColor()->setRGB('EAECF0');
+            $sheet4->getRowDimension($r4)->setRowHeight(24);
+            $sheet4->getStyle("A2:G{$r4}")->applyFromArray($borderStyle);
+            $sheet4->getStyle("A2:A{$r4}")->getAlignment()->setHorizontal(Alignment::HORIZONTAL_CENTER);
+            $sheet4->getStyle("D2:D{$r4}")->getAlignment()->setHorizontal(Alignment::HORIZONTAL_CENTER);
+            $sheet4->getStyle("E2:E{$r4}")->getAlignment()->setHorizontal(Alignment::HORIZONTAL_RIGHT);
+            $sheet4->getStyle("G2:G{$r4}")->getAlignment()->setHorizontal(Alignment::HORIZONTAL_CENTER);
+        } else {
+            $sheet4->setCellValue('A3', 'No purchase payment data available for the selected date.');
+            $sheet4->mergeCells('A3:G3');
+            $sheet4->getStyle('A2:G3')->applyFromArray($borderStyle);
+        }
+        foreach ($cols4 as $colLetter) {
+            $sheet4->getColumnDimension($colLetter)->setAutoSize(true);
         }
 
         // ============================================================
@@ -5623,17 +5621,57 @@ class ReportController extends Controller
             ->keyBy('to_location_id');
 
         // Direct purchase payments out by location
-        $directPaymentsByLocation = PurchasePayment::whereNull('bulk_purchase_payment_id')
-            ->whereDate('purchase_payments.created_at', $date)
-            ->join('purchases', 'purchases.id', '=', 'purchase_payments.purchase_id')
-            ->whereIn('purchases.location_id', $locationIds)
-            ->selectRaw('purchases.location_id, COUNT(purchase_payments.id) as cnt, SUM(purchase_payments.amount) as total')
-            ->groupBy('purchases.location_id')
-            ->get()
-            ->keyBy('location_id');
+        $directPaymentsRaw = PurchasePayment::with(['purchase.supplier', 'purchase.location', 'purchase.items.allocations.location', 'createdBy'])
+            ->whereNull('bulk_purchase_payment_id')
+            ->whereDate('created_at', $date)
+            ->get();
 
-        $bulkPaymentsTotalForDate = (float) BulkPurchasePayment::whereDate('created_at', $date)->sum('total_amount');
-        $bulkPaymentsCountForDate = (int) BulkPurchasePayment::whereDate('created_at', $date)->count();
+        $mappedDirectPayments = $directPaymentsRaw->map(function ($payment) use ($defaultLocation, $defaultLocationId) {
+            $purchase = $payment->purchase;
+            $allocLoc = $purchase?->items?->flatMap->allocations->first()?->location;
+            $resolvedLocId = $purchase?->location_id ?: ($allocLoc?->id ?: $defaultLocationId);
+            $resolvedLocName = $purchase?->location?->name ?: ($allocLoc?->name ?: ($defaultLocation->name ?? 'Head Office'));
+
+            return [
+                'type'         => 'Direct Payment',
+                'purchase_no'  => $purchase?->invoice_no ?? '-',
+                'supplier'     => $purchase?->supplier?->name ?? '-',
+                'location'     => $resolvedLocName,
+                'location_id'  => $resolvedLocId,
+                'amount'       => (float) $payment->amount,
+                'payment_type' => $payment->is_advance ? 'Advance Settlement' : 'Direct Payment',
+                'method'       => ($purchase && $purchase->payment_method) ? ucwords(str_replace('_', ' ', (string) $purchase->payment_method)) : 'Cash',
+                'description'  => $payment->is_advance ? 'Advance Settlement' : 'Direct Payment',
+                'created_by'   => $payment->createdBy->name ?? '-',
+                'created_at'   => $payment->created_at ? $payment->created_at->format('d M Y h:i A') : '-',
+                'raw_date'     => $payment->created_at,
+            ];
+        });
+
+        $bulkPaymentsRaw = BulkPurchasePayment::with(['supplier', 'createdBy'])
+            ->whereDate('created_at', $date)
+            ->get();
+
+        $mappedBulkPayments = $bulkPaymentsRaw->map(function ($bulkPayment) use ($defaultLocation, $defaultLocationId) {
+            return [
+                'type'         => 'Bulk Payment',
+                'purchase_no'  => '-',
+                'supplier'     => $bulkPayment->supplier->name ?? 'All Suppliers',
+                'location'     => $defaultLocation->name ?? 'Head Office',
+                'location_id'  => $defaultLocationId,
+                'amount'       => (float) $bulkPayment->total_amount,
+                'payment_type' => 'Bulk Supplier Payment',
+                'method'       => $bulkPayment->payment_method ? ucwords(str_replace('_', ' ', (string) $bulkPayment->payment_method)) : 'Cash',
+                'description'  => $bulkPayment->description ?? 'Bulk Supplier Payment',
+                'created_by'   => $bulkPayment->createdBy->name ?? '-',
+                'created_at'   => $bulkPayment->created_at ? $bulkPayment->created_at->format('d M Y h:i A') : '-',
+                'raw_date'     => $bulkPayment->created_at,
+            ];
+        });
+
+        $directPaymentsByLocGroup = $mappedDirectPayments->groupBy('location_id');
+        $bulkPaymentsTotalForDate = (float) $mappedBulkPayments->sum('amount');
+        $bulkPaymentsCountForDate = (int) $mappedBulkPayments->count();
 
         $branchRows = $reportLocations->map(function ($location) use (
             $salesByLocation,
@@ -5642,7 +5680,7 @@ class ReportController extends Controller
             $transfersByLocation,
             $btOutByLocation,
             $btInByLocation,
-            $directPaymentsByLocation,
+            $directPaymentsByLocGroup,
             $defaultLocationId,
             $bulkPaymentsTotalForDate,
             $bulkPaymentsCountForDate
@@ -5653,11 +5691,12 @@ class ReportController extends Controller
             $transfer = $transfersByLocation[$location->id] ?? null;
             $btOut = $btOutByLocation->get($location->id);
             $btIn = $btInByLocation->get($location->id);
-            $directPayment = $directPaymentsByLocation->get($location->id);
+
+            $locDirect = $directPaymentsByLocGroup->get($location->id, collect());
+            $directPaymentAmount = (float) $locDirect->sum('amount');
+            $directPaymentCount = (int) $locDirect->count();
 
             $isDefault = $defaultLocationId && (int) $location->id === (int) $defaultLocationId;
-            $directPaymentAmount = (float) ($directPayment->total ?? 0);
-            $directPaymentCount = (int) ($directPayment->cnt ?? 0);
             $bulkAmount = $isDefault ? $bulkPaymentsTotalForDate : 0.0;
             $bulkCount = $isDefault ? $bulkPaymentsCountForDate : 0;
 
@@ -5900,117 +5939,59 @@ class ReportController extends Controller
         $totalBalanceTransfersCount = $branchBalanceTransferRows->count();
         $totalBalanceTransfersAmount = (float) $branchBalanceTransferRows->sum('amount');
 
-        // ── Purchase Payments Out (Direct / Make Payment) ────────────────
-        $purchasePaymentQuery = PurchasePayment::with(['purchase.supplier', 'purchase.location', 'purchase.items.allocations.location', 'createdBy'])
-            ->whereNull('bulk_purchase_payment_id')
-            ->whereDate('created_at', $date);
-
+        // ── Purchase Payments Out (Combined Direct + Bulk Payments) ──────
         if ($locationId) {
-            $purchasePaymentQuery->whereHas('purchase', function ($q) use ($locationId) {
-                $q->where('location_id', $locationId)
-                  ->orWhere(function ($sub) use ($locationId) {
-                      $sub->whereNull('location_id')
-                          ->whereHas('items.allocations', fn($a) => $a->where('location_id', $locationId));
-                  });
-            });
+            $filteredDirect = $mappedDirectPayments->filter(fn($p) => (int)$p['location_id'] === (int)$locationId);
+            $filteredBulk = ((int)$locationId === (int)$defaultLocationId) ? $mappedBulkPayments : collect();
+            $combinedPayments = $filteredDirect->concat($filteredBulk);
         } else {
-            $purchasePaymentQuery->whereHas('purchase', function ($q) use ($locationIds) {
-                $q->whereIn('location_id', $locationIds)
-                  ->orWhere(function ($sub) use ($locationIds) {
-                      $sub->whereNull('location_id')
-                          ->whereHas('items.allocations', fn($a) => $a->whereIn('location_id', $locationIds));
-                  });
-            });
+            $combinedPayments = $mappedDirectPayments->concat($mappedBulkPayments);
         }
 
-        $purchasePaymentRows = $purchasePaymentQuery
-            ->latest()
-            ->latest('id')
-            ->get()
+        $purchasePaymentRows = $combinedPayments
+            ->sortByDesc(fn($r) => $r['raw_date'] ? $r['raw_date']->timestamp : 0)
             ->values()
-            ->map(function ($payment, $index) {
-                $purchase = $payment->purchase;
-                $locName = $purchase->location->name ?? null;
-                if (!$locName && $purchase && $purchase->items) {
-                    $alloc = $purchase->items->flatMap->allocations->first();
-                    $locName = $alloc?->location?->name;
-                }
-
-                return [
-                    'index'        => $index + 1,
-                    'purchase_no'  => $purchase->invoice_no ?? '-',
-                    'supplier'     => $purchase->supplier->name ?? '-',
-                    'location'     => $locName ?? '-',
-                    'amount'       => (float) $payment->amount,
-                    'payment_type' => $payment->is_advance ? 'Advance Settlement' : 'Direct Payment',
-                    'method'       => ($purchase && $purchase->payment_method) ? ucwords(str_replace('_', ' ', (string) $purchase->payment_method)) : 'Cash',
-                    'created_by'   => $payment->createdBy->name ?? '-',
-                    'created_at'   => $payment->created_at ? $payment->created_at->format('d M Y h:i A') : '-',
-                ];
+            ->map(function ($item, $idx) {
+                $item['index'] = $idx + 1;
+                return $item;
             });
 
-        $totalPurchasePaymentsCount = $purchasePaymentRows->count();
-        $totalPurchasePaymentsAmount = (float) $purchasePaymentRows->sum('amount');
-
-        // ── Bulk Purchase Payments (Centralized: Default Branch Only) ────
-        if ($isDefaultBranchView) {
-            $bulkPaymentQuery = BulkPurchasePayment::with(['supplier', 'createdBy'])
-                ->whereDate('created_at', $date);
-
-            $bulkPurchasePaymentRows = $bulkPaymentQuery
-                ->latest()
-                ->latest('id')
-                ->get()
-                ->values()
-                ->map(function ($bulkPayment, $index) use ($defaultLocation) {
-                    return [
-                        'index'          => $index + 1,
-                        'payment_id'     => 'BP-' . str_pad($bulkPayment->id, 5, '0', STR_PAD_LEFT),
-                        'supplier'       => $bulkPayment->supplier->name ?? 'All Suppliers',
-                        'location'       => $defaultLocation->name ?? 'Head Office',
-                        'amount'         => (float) $bulkPayment->total_amount,
-                        'method'         => $bulkPayment->payment_method ? ucwords(str_replace('_', ' ', (string) $bulkPayment->payment_method)) : 'Cash',
-                        'description'    => $bulkPayment->description ?? '-',
-                        'created_by'     => $bulkPayment->createdBy->name ?? '-',
-                        'created_at'     => $bulkPayment->created_at ? $bulkPayment->created_at->format('d M Y h:i A') : '-',
-                    ];
-                });
-        } else {
-            $bulkPurchasePaymentRows = collect();
-        }
-
-        $totalBulkPaymentsCount = $bulkPurchasePaymentRows->count();
-        $totalBulkPaymentsAmount = (float) $bulkPurchasePaymentRows->sum('amount');
-        $totalOverallPaymentsOut = $totalPurchasePaymentsAmount + $totalBulkPaymentsAmount;
+        $totalPurchasePaymentsCount = (int) $mappedDirectPayments->count();
+        $totalPurchasePaymentsAmount = (float) $mappedDirectPayments->sum('amount');
+        $totalBulkPaymentsCount = (int) $mappedBulkPayments->count();
+        $totalBulkPaymentsAmount = (float) $mappedBulkPayments->sum('amount');
+        $totalOverallPaymentsOut = (float) $purchasePaymentRows->sum('amount');
+        $totalOverallPaymentsOutCount = (int) $purchasePaymentRows->count();
 
         return [
-            'branchRows'                  => $branchRows,
-            'salesRows'                   => $salesRows,
-            'purchaseRows'                => $purchaseRows,
-            'expenseRows'                 => $expenseRows,
-            'purchaseBillRows'            => $purchaseBillRows,
-            'branchBalanceTransferRows'   => $branchBalanceTransferRows,
-            'purchasePaymentRows'         => $purchasePaymentRows,
-            'bulkPurchasePaymentRows'     => $bulkPurchasePaymentRows,
-            'isDefaultBranchView'         => $isDefaultBranchView,
-            'defaultLocationName'         => $defaultLocation->name ?? 'Default Branch',
-            'totalSales'                  => $totalSales,
-            'totalPendingSales'           => $totalPendingSales,
-            'totalSalesCount'             => $totalSalesCount,
-            'totalPurchases'              => $totalPurchases,
-            'totalPendingPurchases'       => $totalPendingPurchases,
-            'totalPurchasesCount'         => $totalPurchasesCount,
-            'totalExpenses'               => $totalExpenses,
-            'totalExpensesCount'          => $totalExpensesCount,
-            'totalTransfersCount'         => $totalTransfersCount,
-            'totalTransfersQty'           => $totalTransfersQty,
-            'totalBalanceTransfersCount'  => $totalBalanceTransfersCount,
-            'totalBalanceTransfersAmount' => $totalBalanceTransfersAmount,
-            'totalPurchasePaymentsCount'  => $totalPurchasePaymentsCount,
-            'totalPurchasePaymentsAmount' => $totalPurchasePaymentsAmount,
-            'totalBulkPaymentsCount'      => $totalBulkPaymentsCount,
-            'totalBulkPaymentsAmount'     => $totalBulkPaymentsAmount,
-            'totalOverallPaymentsOut'     => $totalOverallPaymentsOut,
+            'branchRows'                   => $branchRows,
+            'salesRows'                    => $salesRows,
+            'purchaseRows'                 => $purchaseRows,
+            'expenseRows'                  => $expenseRows,
+            'purchaseBillRows'             => $purchaseBillRows,
+            'branchBalanceTransferRows'    => $branchBalanceTransferRows,
+            'purchasePaymentRows'          => $purchasePaymentRows,
+            'bulkPurchasePaymentRows'      => $mappedBulkPayments,
+            'isDefaultBranchView'          => $isDefaultBranchView,
+            'defaultLocationName'          => $defaultLocation->name ?? 'Default Branch',
+            'totalSales'                   => $totalSales,
+            'totalPendingSales'            => $totalPendingSales,
+            'totalSalesCount'              => $totalSalesCount,
+            'totalPurchases'               => $totalPurchases,
+            'totalPendingPurchases'        => $totalPendingPurchases,
+            'totalPurchasesCount'          => $totalPurchasesCount,
+            'totalExpenses'                => $totalExpenses,
+            'totalExpensesCount'           => $totalExpensesCount,
+            'totalTransfersCount'          => $totalTransfersCount,
+            'totalTransfersQty'            => $totalTransfersQty,
+            'totalBalanceTransfersCount'   => $totalBalanceTransfersCount,
+            'totalBalanceTransfersAmount'  => $totalBalanceTransfersAmount,
+            'totalPurchasePaymentsCount'   => $totalPurchasePaymentsCount,
+            'totalPurchasePaymentsAmount'  => $totalPurchasePaymentsAmount,
+            'totalBulkPaymentsCount'       => $totalBulkPaymentsCount,
+            'totalBulkPaymentsAmount'      => $totalBulkPaymentsAmount,
+            'totalOverallPaymentsOut'      => $totalOverallPaymentsOut,
+            'totalOverallPaymentsOutCount' => $totalOverallPaymentsOutCount,
         ];
     }
 

@@ -241,14 +241,13 @@
 </div>
 
 
-<!-- Bulk Purchase Payments -->
-@if(!empty($isDefaultBranchView))
+<!-- Purchase Payments -->
 <div class="card mb-4">
     <div class="card-header d-flex justify-content-between align-items-center flex-wrap gap-2">
         <div>
             <h5 class="mb-0">Purchase Payments</h5>
         </div>
-        <span class="badge bg-label-success">{{ $totalBulkPaymentsCount ?? 0 }} Bulk Payments</span>
+        <span class="badge bg-label-success">{{ $totalOverallPaymentsOutCount ?? count($purchasePaymentRows) }} Payments</span>
     </div>
     <div class="card-datatable table-responsive">
         <table class="table border-top" id="dailyBulkPaymentsTable">
@@ -265,7 +264,7 @@
                 </tr>
             </thead>
             <tbody id="dailyBulkPaymentsBody">
-                @foreach($bulkPurchasePaymentRows as $row)
+                @foreach($purchasePaymentRows as $row)
                     <tr>
                         <td>{{ $row['index'] }}</td>
                         <td data-order="{{ strip_tags($row['supplier']) }}">{{ $row['supplier'] }}</td>
@@ -281,7 +280,6 @@
         </table>
     </div>
 </div>
-@endif
 
 <!-- Branch Balance Transfers -->
 <div class="card mb-4">
