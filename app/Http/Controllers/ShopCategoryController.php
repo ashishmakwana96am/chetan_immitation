@@ -10,6 +10,7 @@ use App\Models\SubCategory;
 use App\Models\Product;
 use App\Models\Attribute;
 use App\Models\Inventory;
+use Illuminate\Support\Str;
 
 class ShopCategoryController extends Controller
 {
@@ -42,41 +43,97 @@ class ShopCategoryController extends Controller
             if ($request->has('search')) {
                 $searchVal = trim($request->get('search'));
                 $filters['search'] = $searchVal;
+                
+                if ($searchVal !== '') {
+                    $searchValLower = strtolower($searchVal);
+                    $singular = Str::singular($searchValLower);
+                    $plural = Str::plural($searchValLower);
+                    $searchTerms = array_unique([
+                        $searchValLower,
+                        $singular,
+                        $plural
+                    ]);
 
-                $searchValLower = strtolower($searchVal);
-                $singular = \Illuminate\Support\Str::singular($searchValLower);
-                $plural = \Illuminate\Support\Str::plural($searchValLower);
-                $searchTerms = array_unique([$searchValLower, $singular, $plural]);
+                    $matchingCategory = Category::where(
+                            'status',
+                            Category::STATUS_ACTIVE
+                        )
+                        ->where(function ($q) use ($searchTerms) {
 
-                $matchingCategory = Category::where('status', Category::STATUS_ACTIVE)
-                    ->where(function($q) use ($searchTerms) {
-                        foreach ($searchTerms as $term) {
-                            $q->orWhereRaw('LOWER(name) = ?', [$term]);
-                        }
-                    })
-                    ->first();
-
-                if ($matchingCategory) {
-                    $filters['category'] = $matchingCategory->slug;
-                } else {
-                    $matchingSubCategory = SubCategory::where('status', SubCategory::STATUS_ACTIVE)
-                        ->where(function($q) use ($searchTerms) {
                             foreach ($searchTerms as $term) {
-                                $q->orWhereRaw('LOWER(name) = ?', [$term]);
+                                $q->orWhereRaw(
+                                    'LOWER(name) = ?',
+                                    [$term]
+                                );
                             }
+
                         })
                         ->first();
-                    if ($matchingSubCategory) {
-                        $filters['sub_category'] = $matchingSubCategory->slug;
-                    }
-                }
 
-                $redirect = true;
+
+                    if ($matchingCategory) {
+                        $filters['search_matched_category'] = $matchingCategory->slug;
+                    } else {
+                        $matchingSubCategory = SubCategory::where(
+                                'status',
+                                SubCategory::STATUS_ACTIVE
+                            )
+                            ->where(function ($q) use ($searchTerms) {
+
+                                foreach ($searchTerms as $term) {
+                                    $q->orWhereRaw(
+                                        'LOWER(name) = ?',
+                                        [$term]
+                                    );
+                                }
+                            })
+                            ->first();
+                        
+                            if ($matchingSubCategory) {
+                            $filters['search_matched_sub_category'] =
+                                $matchingSubCategory->slug;
+
+                            if ($matchingSubCategory->category_id) {
+                                $parentCategory = Category::where(
+                                        'id',
+                                        $matchingSubCategory->category_id
+                                    )
+                                    ->where(
+                                        'status',
+                                        Category::STATUS_ACTIVE
+                                    )
+                                    ->first();
+
+                                if ($parentCategory) {
+                                    $filters['search_matched_category'] =
+                                        $parentCategory->slug;
+                                }
+                            }
+                        }
+                    }
+
+                    $matchingCollection = Collection::where(function ($q) use ($searchTerms) {
+                        foreach ($searchTerms as $term) {
+                            $q->orWhereRaw('LOWER(name) = ?', [$term])
+                                ->orWhereRaw('LOWER(short_name) = ?', [$term]);
+                        }
+                    })->first();
+
+                    if ($matchingCollection) {
+                        $filters['search_matched_collection'] = $matchingCollection->short_name
+                            ?: (string) $matchingCollection->id;
+                    }
+
+                    $redirect = true;
+                }
             }
 
             if ($redirect) {
-                session(['shop_filters' => $filters]);
-                return redirect()->route('shop-by-category', ['_f' => '1']);
+                session()->put('shop_filters', $filters);
+
+                return redirect()->route('shop-by-category', [
+                    '_f' => '1'
+                ]);
             }
 
             if (!$request->has('_f')) {
@@ -86,8 +143,16 @@ class ShopCategoryController extends Controller
 
         $data = $this->getFilteredProducts($slug);
 
-        if ($data['products']->total() === 0 && !request()->ajax() && !$request->filled('search') && !$slug) {
-            $hasAnyProducts = Product::forWebsite()->has('images')->exists();
+        if (
+            $data['products']->total() === 0
+            && !request()->ajax()
+            && !$request->filled('search')
+            && !$slug
+        ) {
+            $hasAnyProducts = Product::forWebsite()
+                ->has('images')
+                ->exists();
+
             if (!$hasAnyProducts) {
                 return redirect()->route('home');
             }
@@ -98,22 +163,32 @@ class ShopCategoryController extends Controller
         }
 
         if ($request->ajax()) {
-            $gridHtml = view('website.partials.product-grid-items', ['products' => $data['products']])->render();
+
+            $gridHtml = view(
+                'website.partials.product-grid-items',
+                [
+                    'products' => $data['products']
+                ]
+            )->render();
 
             return response()->json([
-                'html'         => $gridHtml,
-                'has_more'     => $data['products']->hasMorePages(),
+                'html' => $gridHtml,
+                'has_more' => $data['products']->hasMorePages(),
                 'current_page' => $data['products']->currentPage(),
-                'last_page'    => $data['products']->lastPage(),
-                'count'        => $data['products']->total(),
-                'price_range'  => [
+                'last_page' => $data['products']->lastPage(),
+                'count' => $data['products']->total(),
+
+                'price_range' => [
                     'min' => $data['catalogMinPrice'],
                     'max' => $data['catalogMaxPrice'],
                 ],
             ]);
         }
 
-        return view('website.shop-by-category', $data);
+        return view(
+            'website.shop-by-category',
+            $data
+        );
     }
 
     public function filter(Request $request)
@@ -306,107 +381,368 @@ class ShopCategoryController extends Controller
 
     private function buildFilteredQuery($slug = null, bool $applyPriceFilter = true)
     {
-        $query = Product::forWebsite()->hasImages();
+        $query = Product::forWebsite()
+            ->hasImages();
 
         $filters = session('shop_filters', []);
 
         $categorySlugs = [];
         if (!empty($filters['category'])) {
-            $categorySlugs = array_values(array_filter(array_map('trim', explode(',', $filters['category']))));
+
+            $categorySlugs = array_values(
+                array_filter(
+                    array_map(
+                        'trim',
+                        explode(',', $filters['category'])
+                    )
+                )
+            );
+
         } elseif ($slug) {
             $categorySlugs = [$slug];
         }
 
         $subSlugs = [];
+
         if (!empty($filters['sub_category'])) {
-            $subSlugs = array_values(array_filter(array_map('trim', explode(',', $filters['sub_category']))));
+
+            $subSlugs = array_values(
+                array_filter(
+                    array_map(
+                        'trim',
+                        explode(',', $filters['sub_category'])
+                    )
+                )
+            );
         }
 
         $catIds = collect();
         if (!empty($categorySlugs)) {
-            $catIds = Category::whereIn('slug', $categorySlugs)
-                ->where('status', Category::STATUS_ACTIVE)
+
+            $catIds = Category::whereIn(
+                    'slug',
+                    $categorySlugs
+                )
+                ->where(
+                    'status',
+                    Category::STATUS_ACTIVE
+                )
                 ->pluck('id');
         }
 
         $subIds = collect();
         if (!empty($subSlugs)) {
-            $subIds = SubCategory::whereIn('slug', $subSlugs)
-                ->where('status', SubCategory::STATUS_ACTIVE)
+
+            $subIds = SubCategory::whereIn(
+                    'slug',
+                    $subSlugs
+                )
+                ->where(
+                    'status',
+                    SubCategory::STATUS_ACTIVE
+                )
                 ->pluck('id');
         }
 
-        if ($catIds->isNotEmpty() || $subIds->isNotEmpty()) {
-            $this->applyCategorySubCategoryFilters($query, $catIds, $subIds);
+        if (
+            $catIds->isNotEmpty()
+            || $subIds->isNotEmpty()
+        ) {
+
+            $this->applyCategorySubCategoryFilters(
+                $query,
+                $catIds,
+                $subIds
+            );
         }
 
         if (!empty($filters['collection'])) {
-            $colValues = array_values(array_filter(array_map('trim', explode(',', $filters['collection']))));
+
+            $colValues = array_values(
+                array_filter(
+                    array_map(
+                        'trim',
+                        explode(',', $filters['collection'])
+                    )
+                )
+            );
+
             if (!empty($colValues)) {
+
                 $query->where(function ($q) use ($colValues) {
-                    $q->whereHas('collections', function ($cq) use ($colValues) {
-                        $cq->whereIn('collections.id', $colValues)
-                           ->orWhereIn('collections.short_name', $colValues)
-                           ->orWhereIn('collections.name', $colValues);
-                    })->orWhereHas('collection', function ($cq) use ($colValues) {
-                        $cq->whereIn('id', $colValues)
-                           ->orWhereIn('short_name', $colValues)
-                           ->orWhereIn('name', $colValues);
-                    });
+
+                    $q->whereHas(
+                        'collections',
+                        function ($cq) use ($colValues) {
+
+                            $cq->whereIn(
+                                'collections.id',
+                                $colValues
+                            )
+                            ->orWhereIn(
+                                'collections.short_name',
+                                $colValues
+                            )
+                            ->orWhereIn(
+                                'collections.name',
+                                $colValues
+                            );
+                        }
+                    )
+
+                    ->orWhereHas(
+                        'collection',
+                        function ($cq) use ($colValues) {
+
+                            $cq->whereIn(
+                                'id',
+                                $colValues
+                            )
+                            ->orWhereIn(
+                                'short_name',
+                                $colValues
+                            )
+                            ->orWhereIn(
+                                'name',
+                                $colValues
+                            );
+                        }
+                    );
                 });
             }
         }
 
         if (!empty($filters['search'])) {
-            $search = $filters['search'];
-            if (!$this->isMatchedFilterActive($search, $filters)) {
-                $searchTerm = '%' . $search . '%';
-                $query->where(function ($q) use ($searchTerm, $search) {
-                    $q->where('name', 'like', $searchTerm)
-                      ->orWhere('sale_price', is_numeric($search) ? (float) $search : -1)
-                      ->orWhereHas('category', function ($cq) use ($searchTerm) {
-                          $cq->where('name', 'like', $searchTerm);
-                      })
-                      ->orWhereHas('subCategory', function ($sq) use ($searchTerm) {
-                          $sq->where('name', 'like', $searchTerm);
-                      })
-                      ->orWhereHas('variants.attributeValue', function ($vq) use ($searchTerm) {
-                          $vq->where('value', 'like', $searchTerm);
-                      });
-                });
-            }
+            $search = strtolower(
+                trim($filters['search'])
+            );
+
+            $singular = Str::singular($search);
+            $plural = Str::plural($search);
+
+            $searchTerms = array_unique([
+                $search,
+                $singular,
+                $plural
+            ]);
+
+
+            $query->where(function ($q) use (
+                $searchTerms,
+                $search
+            ) {
+                foreach ($searchTerms as $term) {
+                    if ($term === '') {
+                        continue;
+                    }
+
+                    $searchTerm = '%' . $term . '%';
+                    $q->orWhereRaw(
+                        'LOWER(products.name) LIKE ?',
+                        [$searchTerm]
+                    );
+
+                    $q->orWhereHas(
+                        'category',
+                        function ($cq) use ($searchTerm) {
+                            $cq->whereRaw(
+                                'LOWER(name) LIKE ?',
+                                [$searchTerm]
+                            );
+                        }
+                    );
+
+                    $q->orWhereHas(
+                        'subCategory',
+                        function ($sq) use ($searchTerm) {
+
+                            $sq->whereRaw(
+                                'LOWER(name) LIKE ?',
+                                [$searchTerm]
+                            );
+                        }
+                    );
+
+                    $q->orWhereHas(
+                        'collections',
+                        function ($cq) use ($searchTerm) {
+
+                            $cq->whereRaw(
+                                'LOWER(collections.name) LIKE ?',
+                                [$searchTerm]
+                            )
+                            ->orWhereRaw(
+                                'LOWER(collections.short_name) LIKE ?',
+                                [$searchTerm]
+                            );
+                        }
+                    );
+
+                    $q->orWhereHas(
+                        'collection',
+                        function ($cq) use ($searchTerm) {
+
+                            $cq->whereRaw(
+                                'LOWER(name) LIKE ?',
+                                [$searchTerm]
+                            )
+                            ->orWhereRaw(
+                                'LOWER(short_name) LIKE ?',
+                                [$searchTerm]
+                            );
+                        }
+                    );
+
+                    $q->orWhereHas(
+                        'variants.attributeValue',
+                        function ($vq) use ($searchTerm) {
+
+                            $vq->whereRaw(
+                                'LOWER(value) LIKE ?',
+                                [$searchTerm]
+                            );
+                        }
+                    );
+                }
+
+                if (is_numeric($search)) {
+
+                    $q->orWhere(
+                        'products.sale_price',
+                        (float) $search
+                    );
+                }
+            });
         }
 
         if ($applyPriceFilter) {
-            $rawMin = (isset($filters['min_price']) && $filters['min_price'] !== '') ? str_replace(',', '', (string) $filters['min_price']) : null;
-            $rawMax = (isset($filters['max_price']) && $filters['max_price'] !== '') ? str_replace(',', '', (string) $filters['max_price']) : null;
 
-            $minPrice = ($rawMin !== null && is_numeric($rawMin)) ? (float) $rawMin : null;
-            $maxPrice = ($rawMax !== null && is_numeric($rawMax)) ? (float) $rawMax : null;
+            $rawMin = (
+                isset($filters['min_price'])
+                && $filters['min_price'] !== ''
+            )
+                ? str_replace(
+                    ',',
+                    '',
+                    (string) $filters['min_price']
+                )
+                : null;
 
-            if ($minPrice !== null || $maxPrice !== null) {
-                $candidates = (clone $query)->with('variants')->get();
-                $validIds = $candidates->filter(function ($p) use ($minPrice, $maxPrice) {
-                    $price = (float) $p->display_sale_price;
-                    if ($minPrice !== null && $price < $minPrice) return false;
-                    if ($maxPrice !== null && $price > $maxPrice) return false;
-                    return true;
-                })->pluck('id')->toArray();
 
-                $query->whereIn('products.id', count($validIds) > 0 ? $validIds : [0]);
+            $rawMax = (
+                isset($filters['max_price'])
+                && $filters['max_price'] !== ''
+            )
+                ? str_replace(
+                    ',',
+                    '',
+                    (string) $filters['max_price']
+                )
+                : null;
+
+
+            $minPrice = (
+                $rawMin !== null
+                && is_numeric($rawMin)
+            )
+                ? (float) $rawMin
+                : null;
+
+
+            $maxPrice = (
+                $rawMax !== null
+                && is_numeric($rawMax)
+            )
+                ? (float) $rawMax
+                : null;
+
+
+            if (
+                $minPrice !== null
+                || $maxPrice !== null
+            ) {
+
+                $candidates = (clone $query)
+                    ->with('variants')
+                    ->get();
+
+
+                $validIds = $candidates
+                    ->filter(function ($p) use (
+                        $minPrice,
+                        $maxPrice
+                    ) {
+
+                        $price = (float) $p->display_sale_price;
+
+
+                        if (
+                            $minPrice !== null
+                            && $price < $minPrice
+                        ) {
+                            return false;
+                        }
+
+
+                        if (
+                            $maxPrice !== null
+                            && $price > $maxPrice
+                        ) {
+                            return false;
+                        }
+
+
+                        return true;
+                    })
+                    ->pluck('id')
+                    ->toArray();
+
+
+                $query->whereIn(
+                    'products.id',
+                    count($validIds) > 0
+                        ? $validIds
+                        : [0]
+                );
             }
         }
 
         if (!empty($filters['size'])) {
-            $sizeAttribute = Attribute::where('slug', 'size')->first();
+
+            $sizeAttribute = Attribute::where(
+                'slug',
+                'size'
+            )->first();
+
+
             if ($sizeAttribute) {
                 $sizeAttribute->load('values');
-                $sizeValues = explode(',', $filters['size']);
-                $sizeValueIds = $sizeAttribute->values->whereIn('value', $sizeValues)->pluck('id');
+                $sizeValues = explode(
+                    ',',
+                    $filters['size']
+                );
+
+                $sizeValueIds = $sizeAttribute
+                    ->values
+                    ->whereIn(
+                        'value',
+                        $sizeValues
+                    )
+                    ->pluck('id');
+
+
                 if ($sizeValueIds->isNotEmpty()) {
-                    $query->whereHas('variants', function ($q) use ($sizeValueIds) {
-                        $q->whereIn('attribute_value_id', $sizeValueIds);
-                    });
+
+                    $query->whereHas(
+                        'variants',
+                        function ($q) use ($sizeValueIds) {
+
+                            $q->whereIn(
+                                'attribute_value_id',
+                                $sizeValueIds
+                            );
+                        }
+                    );
                 }
             }
         }

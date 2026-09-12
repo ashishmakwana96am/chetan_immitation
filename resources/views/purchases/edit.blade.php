@@ -633,7 +633,7 @@ $(document).ready(function () {
         return sizes.reduce((max, cs) => (cs.size > max ? cs.size : max), sizes[0].size);
     }
 
-    function addItemRow(product, selectedVariantId = null, qty = 1, price = null, discountType = 'percentage', discountValue = 0, selectedCustomSize = null, prependRow = true) {
+    function addItemRow(product, selectedVariantId = null, qty = 1, price = null, discountType = 'percentage', discountValue = 0, selectedCustomSize = null, prependRow = true, soldQty = 0) {
         const template = document.getElementById('itemRowTemplate').innerHTML
             .replaceAll('__INDEX__', itemIndex);
 
@@ -652,9 +652,15 @@ $(document).ready(function () {
 
         row.data('product', product);
         row.data('index', itemIndex);
+        row.data('sold-qty', soldQty);
 
         if (product.pair_product) {
             row.find('.pair-product-badge').removeClass('d-none');
+        }
+
+        if (soldQty > 0) {
+            row.find('.item-qty').attr('min', soldQty);
+            row.find('.stock-info-display').after(`<span class="badge bg-label-info text-nowrap sold-qty-badge ms-1" title="Already sold in sales orders">Sold: ${soldQty} (Min: ${soldQty})</span>`);
         }
 
         if (product.type === 'variable') {
@@ -738,7 +744,15 @@ $(document).ready(function () {
     // Remove Item Row
     $(document).on('click', '.remove-item-btn', function () {
         const row = $(this).closest('.item-row');
-        const idx = row.data('index');
+        const soldQty = parseInt(row.data('sold-qty') || 0);
+        if (soldQty > 0) {
+            if (typeof toastr !== 'undefined') {
+                toastr.error('Cannot remove this product because ' + soldQty + ' item(s) have already been sold.');
+            } else {
+                alert('Cannot remove this product because ' + soldQty + ' item(s) have already been sold.');
+            }
+            return;
+        }
         row.remove();
 
         if ($('#itemsBody .item-row').length === 0) {
@@ -765,6 +779,7 @@ $(document).ready(function () {
 
             const discType = item.discount_type || 'percentage';
             const discVal = item.discount_value || 0;
+            const soldQty = parseInt(item.sold_quantity || 0);
 
             if (product.type === 'variable') {
                 let matchedVariant = product.variants.find(v => v.id == item.product_variant_id);
@@ -778,10 +793,10 @@ $(document).ready(function () {
                 }
 
                 if (matchedVariant) {
-                    addItemRow(product, matchedVariant.id, item.quantity, item.purchase_price, discType, discVal, item.custom_size_value, false);
+                    addItemRow(product, matchedVariant.id, item.quantity, item.purchase_price, discType, discVal, item.custom_size_value, false, soldQty);
                 }
             } else {
-                addItemRow(product, null, item.quantity, item.purchase_price, discType, discVal, item.custom_size_value, false);
+                addItemRow(product, null, item.quantity, item.purchase_price, discType, discVal, item.custom_size_value, false, soldQty);
             }
         });
     }
@@ -793,8 +808,16 @@ $(document).ready(function () {
         updateRowTotal($(this).closest('.item-row'));
     });
 
-    $(document).on('input', '.item-qty', function () {
+    $(document).on('input change', '.item-qty', function () {
         const row = $(this).closest('.item-row');
+        const soldQty = parseInt(row.data('sold-qty') || 0);
+        const val = parseInt($(this).val() || 0);
+        if (soldQty > 0 && val < soldQty) {
+            if (typeof toastr !== 'undefined') {
+                toastr.warning('Quantity cannot be reduced below ' + soldQty + ' because ' + soldQty + ' item(s) have already been sold.');
+            }
+            $(this).val(soldQty);
+        }
         updateRowTotal(row);
     });
 

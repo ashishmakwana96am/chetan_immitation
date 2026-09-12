@@ -26,7 +26,14 @@
     <script src="{{ asset('assets/vendor/libs/apex-charts/apexcharts.js') }}"></script>
     <script>
         $(document).ready(function () {
-            const dailyTableIds = ['#dailySalesTable', '#dailyPurchasesTable', '#dailyExpensesTable', '#dailyPurchaseBillTable'];
+            const dailyTableIds = [
+                '#dailySalesTable',
+                '#dailyPurchasesTable',
+                '#dailyBulkPaymentsTable',
+                '#dailyBalanceTransfersTable',
+                '#dailyExpensesTable',
+                '#dailyPurchaseBillTable'
+            ];
             let dailyOverviewChart = null;
 
             function initDailyTables() {
@@ -57,6 +64,38 @@
                         { targets: 3, type: 'num' }
                     ],
                 });
+
+                if ($('#dailyBulkPaymentsTable').length) {
+                    if ($.fn.DataTable.isDataTable('#dailyBulkPaymentsTable')) {
+                        $('#dailyBulkPaymentsTable').DataTable().destroy();
+                    }
+                    $('#dailyBulkPaymentsTable').DataTable({
+                        responsive: false,
+                        deferRender: true,
+                        pageLength: 25,
+                        order: [],
+                        columnDefs: [
+                            { targets: 0, orderable: false, searchable: false },
+                            { targets: 4, type: 'num' }
+                        ],
+                    });
+                }
+
+                if ($('#dailyBalanceTransfersTable').length) {
+                    if ($.fn.DataTable.isDataTable('#dailyBalanceTransfersTable')) {
+                        $('#dailyBalanceTransfersTable').DataTable().destroy();
+                    }
+                    $('#dailyBalanceTransfersTable').DataTable({
+                        responsive: false,
+                        deferRender: true,
+                        pageLength: 25,
+                        order: [],
+                        columnDefs: [
+                            { targets: 0, orderable: false, searchable: false },
+                            { targets: 5, type: 'num' }
+                        ],
+                    });
+                }
 
                 if ($.fn.DataTable.isDataTable('#dailyExpensesTable')) {
                     $('#dailyExpensesTable').DataTable().destroy();
@@ -99,19 +138,21 @@
                     dailyOverviewChart = null;
                 }
 
-                const categories = ['Sales', 'Purchases', 'Expenses'];
+                const categories = ['Sales', 'Purchases', 'Expenses', 'Balance Transfer', 'Payments Out'];
                 const values = [
                     parseFloat(el.getAttribute('data-total-sales') || 0),
                     parseFloat(el.getAttribute('data-total-purchases') || 0),
                     parseFloat(el.getAttribute('data-total-expenses') || 0),
+                    parseFloat(el.getAttribute('data-total-transfers') || 0),
+                    parseFloat(el.getAttribute('data-total-payments-out') || 0),
                 ];
 
                 dailyOverviewChart = new ApexCharts(document.getElementById('dailyOverviewChart'), {
-                    chart: { type: 'bar', height: 300, toolbar: { show: false } },
+                    chart: { type: 'bar', height: 320, toolbar: { show: false } },
                     series: [{ name: 'Amount', data: values }],
                     xaxis: { categories: categories },
-                    colors: ['#7367f0'],
-                    plotOptions: { bar: { borderRadius: 4, columnWidth: '40%', distributed: true } },
+                    colors: ['#28c76f', '#00cfe8', '#ea5455', '#7367f0', '#ff9f43'],
+                    plotOptions: { bar: { borderRadius: 4, columnWidth: '45%', distributed: true } },
                     legend: { show: false },
                     dataLabels: {
                         enabled: true,

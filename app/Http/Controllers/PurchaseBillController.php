@@ -524,13 +524,71 @@ class PurchaseBillController extends Controller
         }
 
         DB::transaction(function () use ($request, $fromLocation, $purchaseBill) {
-            $oldItemsSnapshot = $purchaseBill->items->map(function ($item) {
+            $oldItems = $purchaseBill->items()->get();
+            $oldItemsSnapshot = $oldItems->map(function ($item) {
                 return [
                     'product_id'         => $item->product_id,
                     'product_variant_id' => $item->product_variant_id,
                     'quantity'           => $item->quantity,
+                    'purchase_price'     => $item->purchase_price,
                 ];
             })->values()->all();
+
+            $normalizedNewItems = $this->normalizeItems($request->items);
+
+            $itemsChanged = false;
+            if ($oldItems->count() !== count($normalizedNewItems)) {
+                $itemsChanged = true;
+            } else {
+                $oldNorm = $oldItems->map(fn($item) => [
+                    'product_id'         => (int) $item->product_id,
+                    'product_variant_id' => $item->product_variant_id ? (int) $item->product_variant_id : null,
+                    'pair_type'          => $item->pair_type ?? 'single',
+                    'custom_size_value'  => $item->custom_size_value !== null ? (string) $item->custom_size_value : null,
+                    'quantity'           => (int) $item->quantity,
+                    'purchase_price'     => round((float) ($item->purchase_price ?? 0), 2),
+                ])->sortBy(['product_id', 'product_variant_id', 'pair_type', 'custom_size_value', 'quantity', 'purchase_price'])->values()->all();
+
+                $newNorm = collect($normalizedNewItems)->map(function ($item) use ($fromLocation) {
+                    $product = Product::find($item['product_id']);
+                    $customSizeVal = $this->resolveCustomSizeValue($product, $item);
+                    $variantObj = !empty($item['product_variant_id']) ? ProductVariant::find($item['product_variant_id']) : null;
+
+                    $unitPrice = (isset($item['purchase_price']) && is_numeric($item['purchase_price']) && (float)$item['purchase_price'] > 0)
+                        ? (float) $item['purchase_price']
+                        : ($variantObj ? (float)$variantObj->purchase_price : ($product ? (float)$product->purchase_price : 0));
+
+                    if ($unitPrice <= 0) {
+                        $sourceBatchPrice = DB::table('purchase_batch_stocks')
+                            ->where('location_id', $fromLocation->id)
+                            ->where('product_id', $item['product_id'])
+                            ->when(!empty($item['product_variant_id']), fn($q) => $q->where('product_variant_id', $item['product_variant_id']), fn($q) => $q->whereNull('product_variant_id'))
+                            ->where('quantity', '>', 0)
+                            ->where('purchase_price', '>', 0)
+                            ->orderBy('id', 'desc')
+                            ->value('purchase_price');
+
+                        if ($sourceBatchPrice !== null && (float)$sourceBatchPrice > 0) {
+                            $unitPrice = (float) $sourceBatchPrice;
+                        } else {
+                            $unitPrice = \App\Services\PurchaseBatchService::resolveFallbackPurchasePrice((int)$item['product_id'], !empty($item['product_variant_id']) ? (int)$item['product_variant_id'] : null);
+                        }
+                    }
+
+                    return [
+                        'product_id'         => (int) $item['product_id'],
+                        'product_variant_id' => !empty($item['product_variant_id']) ? (int) $item['product_variant_id'] : null,
+                        'pair_type'          => $item['pair_type'] ?? 'single',
+                        'custom_size_value'  => $customSizeVal !== null ? (string) $customSizeVal : null,
+                        'quantity'           => (int) $item['quantity'],
+                        'purchase_price'     => round((float) $unitPrice, 2),
+                    ];
+                })->sortBy(['product_id', 'product_variant_id', 'pair_type', 'custom_size_value', 'quantity', 'purchase_price'])->values()->all();
+
+                if ($oldNorm != $newNorm) {
+                    $itemsChanged = true;
+                }
+            }
 
             $updateData = [
                 'from_location_id' => $fromLocation->id,
@@ -541,65 +599,79 @@ class PurchaseBillController extends Controller
             ];
             $oldFieldsSnapshot = $purchaseBill->only(array_keys($updateData));
 
-            PurchaseBill::withoutActivityLogging(fn () => $purchaseBill->update($updateData));
-
-            $purchaseBill->items()->delete();
-
-            $newItemsSnapshot = [];
-            foreach ($this->normalizeItems($request->items) as $item) {
-                $product = Product::find($item['product_id']);
-                $customSizeVal = $this->resolveCustomSizeValue($product, $item);
-                $variantObj = !empty($item['product_variant_id']) ? ProductVariant::find($item['product_variant_id']) : null;
-                $itemMrp = $variantObj ? $variantObj->mrp : ($product ? $product->mrp : null);
-
-                $unitPrice = (isset($item['purchase_price']) && is_numeric($item['purchase_price']) && (float)$item['purchase_price'] > 0)
-                    ? (float) $item['purchase_price']
-                    : ($variantObj ? (float)$variantObj->purchase_price : ($product ? (float)$product->purchase_price : 0));
-
-                if ($unitPrice <= 0) {
-                    $sourceBatchPrice = DB::table('purchase_batch_stocks')
-                        ->where('location_id', $fromLocation->id)
-                        ->where('product_id', $item['product_id'])
-                        ->when(!empty($item['product_variant_id']), fn($q) => $q->where('product_variant_id', $item['product_variant_id']), fn($q) => $q->whereNull('product_variant_id'))
-                        ->where('quantity', '>', 0)
-                        ->where('purchase_price', '>', 0)
-                        ->orderBy('id', 'desc')
-                        ->value('purchase_price');
-
-                    if ($sourceBatchPrice !== null && (float)$sourceBatchPrice > 0) {
-                        $unitPrice = (float) $sourceBatchPrice;
-                    } else {
-                        $unitPrice = \App\Services\PurchaseBatchService::resolveFallbackPurchasePrice((int)$item['product_id'], !empty($item['product_variant_id']) ? (int)$item['product_variant_id'] : null);
-                    }
+            $fieldsDiff = array_udiff_assoc($updateData, $oldFieldsSnapshot, function ($a, $b) {
+                if (is_numeric($a) && is_numeric($b)) {
+                    return abs((float)$a - (float)$b) < 0.001 ? 0 : 1;
                 }
+                return (string)$a === (string)$b ? 0 : 1;
+            });
 
-                PurchaseBillItem::create([
-                    'purchase_bill_id'   => $purchaseBill->id,
-                    'product_id'         => $item['product_id'],
-                    'product_variant_id' => $item['product_variant_id'],
-                    'pair_type'          => $item['pair_type'] ?? 'single',
-                    'custom_size_value'  => $customSizeVal,
-                    'purchase_price'     => $unitPrice,
-                    'mrp'                => $itemMrp,
-                    'quantity'           => $item['quantity'],
-                ]);
-
-                $newItemsSnapshot[] = [
-                    'product_id'         => $item['product_id'],
-                    'product_variant_id' => $item['product_variant_id'],
-                    'quantity'           => $item['quantity'],
-                    'purchase_price'     => $unitPrice,
-                ];
+            if (!empty($fieldsDiff)) {
+                PurchaseBill::withoutActivityLogging(fn () => $purchaseBill->update($updateData));
             }
 
-            ActivityLogger::log(
-                'Purchase Bill',
-                'update',
-                $purchaseBill,
-                ['fields' => $oldFieldsSnapshot, 'items' => $oldItemsSnapshot],
-                ['fields' => $updateData, 'items' => $newItemsSnapshot],
-                'Purchase Bill #' . $purchaseBill->transfer_no . ' updated'
-            );
+            $newItemsSnapshot = $oldItemsSnapshot;
+            if ($itemsChanged) {
+                $purchaseBill->items()->delete();
+
+                $newItemsSnapshot = [];
+                foreach ($normalizedNewItems as $item) {
+                    $product = Product::find($item['product_id']);
+                    $customSizeVal = $this->resolveCustomSizeValue($product, $item);
+                    $variantObj = !empty($item['product_variant_id']) ? ProductVariant::find($item['product_variant_id']) : null;
+                    $itemMrp = $variantObj ? $variantObj->mrp : ($product ? $product->mrp : null);
+
+                    $unitPrice = (isset($item['purchase_price']) && is_numeric($item['purchase_price']) && (float)$item['purchase_price'] > 0)
+                        ? (float) $item['purchase_price']
+                        : ($variantObj ? (float)$variantObj->purchase_price : ($product ? (float)$product->purchase_price : 0));
+
+                    if ($unitPrice <= 0) {
+                        $sourceBatchPrice = DB::table('purchase_batch_stocks')
+                            ->where('location_id', $fromLocation->id)
+                            ->where('product_id', $item['product_id'])
+                            ->when(!empty($item['product_variant_id']), fn($q) => $q->where('product_variant_id', $item['product_variant_id']), fn($q) => $q->whereNull('product_variant_id'))
+                            ->where('quantity', '>', 0)
+                            ->where('purchase_price', '>', 0)
+                            ->orderBy('id', 'desc')
+                            ->value('purchase_price');
+
+                        if ($sourceBatchPrice !== null && (float)$sourceBatchPrice > 0) {
+                            $unitPrice = (float) $sourceBatchPrice;
+                        } else {
+                            $unitPrice = \App\Services\PurchaseBatchService::resolveFallbackPurchasePrice((int)$item['product_id'], !empty($item['product_variant_id']) ? (int)$item['product_variant_id'] : null);
+                        }
+                    }
+
+                    PurchaseBillItem::create([
+                        'purchase_bill_id'   => $purchaseBill->id,
+                        'product_id'         => $item['product_id'],
+                        'product_variant_id' => $item['product_variant_id'],
+                        'pair_type'          => $item['pair_type'] ?? 'single',
+                        'custom_size_value'  => $customSizeVal,
+                        'purchase_price'     => $unitPrice,
+                        'mrp'                => $itemMrp,
+                        'quantity'           => $item['quantity'],
+                    ]);
+
+                    $newItemsSnapshot[] = [
+                        'product_id'         => $item['product_id'],
+                        'product_variant_id' => $item['product_variant_id'],
+                        'quantity'           => $item['quantity'],
+                        'purchase_price'     => $unitPrice,
+                    ];
+                }
+            }
+
+            if ($itemsChanged || !empty($fieldsDiff)) {
+                ActivityLogger::log(
+                    'Purchase Bill',
+                    'update',
+                    $purchaseBill,
+                    ['fields' => $oldFieldsSnapshot, 'items' => $oldItemsSnapshot],
+                    ['fields' => $updateData, 'items' => $newItemsSnapshot],
+                    'Purchase Bill #' . $purchaseBill->transfer_no . ' updated'
+                );
+            }
         });
 
         return response()->json(['status' => 'success', 'message' => 'Purchase bill updated successfully.']);

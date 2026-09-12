@@ -142,6 +142,14 @@ class PurchaseObserver
                 $q->where('is_advance', false)->orWhereNull('is_advance');
             })->sum('amount');
 
+        if ($existingTx && $oldCol === $newCol && abs($oldPaid - $newPaid) < 0.001 && $oldInv === $newInv) {
+            return;
+        }
+
+        if (!$existingTx && $newPaid <= 0) {
+            return;
+        }
+
         $note = 'Purchase #' . $newInv;
 
         DB::transaction(function () use ($locationId, $oldCol, $oldPaid, $newCol, $newPaid, $oldType, $newType, $note, $purchase, $existingTx) {

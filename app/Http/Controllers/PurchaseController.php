@@ -170,7 +170,7 @@ class PurchaseController extends Controller
             }
             if ($canDeleteRecord) {
                 $actions .= '<div class="dropdown-divider"></div>';
-                $actions .= '<button class="dropdown-item text-danger" data-common-delete="' . route('admin.purchases.destroy', $invoice) . '" data-row-id="purchase-row-' . $invoice->id . '"><i class="ti ti-trash me-2"></i>Delete</button>';
+                $actions .= '<button class="dropdown-item text-danger purchase-delete-btn" data-url="' . route('admin.purchases.destroy', $invoice) . '" data-impact-url="' . route('admin.purchases.impact-check', $invoice) . '" data-invoice-no="' . e($invoice->invoice_no) . '"><i class="ti ti-trash me-2"></i>Delete</button>';
             }
             $actions .= '</div></div>';
 
@@ -370,6 +370,7 @@ class PurchaseController extends Controller
                     return Purchase::create([
                         'supplier_id'     => $request->supplier_id,
                         'invoice_no'      => generate_invoice_no($invoicePrefix, Purchase::class),
+                        'location_id'     => $this->defaultPurchaseLocation()->id,
                         'is_gst'          => $isGst,
                         'tax_amount'      => $taxAmount,
                         'total_amount'    => $grandTotal,
@@ -520,9 +521,16 @@ class PurchaseController extends Controller
 
         $suppliers = Supplier::where('status', 1)->orderBy('name')->get();
         $locations = Location::where('status', 1)->orderBy('name')->get(['id', 'name']);
-        $existingItems = $purchase->items->map(function ($item) {
+        $soldMap = PurchaseStockService::getSoldQuantityForPurchase($purchase);
+
+        $existingItems = $purchase->items->map(function ($item) use ($soldMap) {
             $product = $item->product;
+            $priceKey = number_format((float)$item->purchase_price, 2, '.', '');
+            $itemKey = $item->product_id . '_' . ($item->product_variant_id ?? 0) . '_' . $priceKey;
+            $soldQty = $soldMap[$itemKey] ?? 0;
+
             return [
+                'id'                 => $item->id,
                 'product_id'         => $item->product_id,
                 'product_variant_id' => $item->product_variant_id,
                 'custom_size_value'  => $item->custom_size_value,
@@ -530,6 +538,8 @@ class PurchaseController extends Controller
                 'discount_type'      => $item->discount_type ?? 'flat',
                 'discount_value'     => $item->discount_value ?? 0,
                 'quantity'           => $item->quantity,
+                'sold_quantity'      => $soldQty,
+                'min_quantity'       => max(1, $soldQty),
                 'product'            => $product ? [
                     'id' => $product->id,
                     'name' => $product->name,
@@ -603,6 +613,42 @@ class PurchaseController extends Controller
             }
         }
 
+        $soldMap = PurchaseStockService::getSoldQuantityForPurchase($purchase);
+        $newItemsCollection = collect($request->items);
+        foreach ($purchase->items as $existingItem) {
+            $priceKey = number_format((float)$existingItem->purchase_price, 2, '.', '');
+            $itemKey = $existingItem->product_id . '_' . ($existingItem->product_variant_id ?? 0) . '_' . $priceKey;
+            $soldQty = $soldMap[$itemKey] ?? 0;
+
+            if ($soldQty > 0) {
+                $matchingReqItem = $newItemsCollection->first(function ($it) use ($existingItem) {
+                    $reqVarId = !empty($it['product_variant_id']) ? (int)$it['product_variant_id'] : null;
+                    $reqProdId = (int)$it['product_id'];
+                    $existVarId = $existingItem->product_variant_id ? (int)$existingItem->product_variant_id : null;
+                    $reqPrice = (float)($it['purchase_price'] ?? 0);
+                    $existPrice = (float)$existingItem->purchase_price;
+                    return $reqProdId === (int)$existingItem->product_id && $reqVarId === $existVarId && abs($reqPrice - $existPrice) < 0.01;
+                });
+
+                $prodName = $existingItem->product?->name ?? ('Product #' . $existingItem->product_id);
+
+                if (!$matchingReqItem) {
+                    return response()->json([
+                        'status'  => 'error',
+                        'message' => "Cannot remove '{$prodName}' because {$soldQty} item(s) have already been sold in sales orders.",
+                    ], 422);
+                }
+
+                $newQty = (int) ($matchingReqItem['quantity'] ?? 0);
+                if ($newQty < $soldQty) {
+                    return response()->json([
+                        'status'  => 'error',
+                        'message' => "Quantity for '{$prodName}' cannot be reduced below {$soldQty} because {$soldQty} item(s) have already been sold in sales orders.",
+                    ], 422);
+                }
+            }
+        }
+
         try {
             $defaultLocation = $this->defaultPurchaseLocation();
         } catch (\RuntimeException $e) {
@@ -651,8 +697,8 @@ class PurchaseController extends Controller
                 $customSizeValue = $this->resolveCustomSizeValue($product, $itemData);
 
                 $itemsData[] = [
-                    'product_id'         => $itemData['product_id'],
-                    'product_variant_id' => $itemData['product_variant_id'] ?? null,
+                    'product_id'         => (int)$itemData['product_id'],
+                    'product_variant_id' => !empty($itemData['product_variant_id']) ? (int)$itemData['product_variant_id'] : null,
                     'custom_size_value'  => $customSizeValue,
                     'purchase_price'     => $price,
                     'discount_type'      => $discType,
@@ -693,11 +739,52 @@ class PurchaseController extends Controller
 
             $grandTotal = round($finalAmount + $taxAmount);
 
-            $oldStatus = $purchase->status;
-            $newStatus = $request->status ?? 2;
+            $oldStatus = (int) $purchase->status;
+            $newStatus = (int) ($request->status ?? 2);
             $oldPaidAmount = (float) $purchase->paid_amount;
+            $oldSupplierId = (int) $purchase->supplier_id;
+            $newSupplierId = (int) $request->supplier_id;
+            $oldTotal = (float) $purchase->total_amount;
+            $oldMethod = (string) ($purchase->payment_method ?? 'cash');
+            $newMethod = (string) ($request->payment_method ?? $purchase->payment_method ?? 'cash');
+            $oldInvoiceNo = $purchase->invoice_no;
 
-            if ($oldStatus == Purchase::STATUS_APPROVE) {
+            // Check if items changed
+            $oldItems = $purchase->items()->get();
+            $itemsChanged = false;
+            if ($oldItems->count() !== count($itemsData)) {
+                $itemsChanged = true;
+            } else {
+                $oldNorm = $oldItems->map(fn($item) => [
+                    'product_id'         => (int)$item->product_id,
+                    'product_variant_id' => $item->product_variant_id ? (int)$item->product_variant_id : null,
+                    'custom_size_value'  => $item->custom_size_value !== null ? round((float)$item->custom_size_value, 3) : null,
+                    'purchase_price'     => round((float)$item->purchase_price, 2),
+                    'discount_type'      => $item->discount_type ?? 'flat',
+                    'discount_value'     => round((float)($item->discount_value ?? 0), 2),
+                    'quantity'           => (int)$item->quantity,
+                    'total'              => round((float)$item->total, 2),
+                ])->sortBy(['product_id', 'product_variant_id', 'purchase_price', 'quantity'])->values()->all();
+
+                $newNorm = collect($itemsData)->map(fn($item) => [
+                    'product_id'         => (int)$item['product_id'],
+                    'product_variant_id' => !empty($item['product_variant_id']) ? (int)$item['product_variant_id'] : null,
+                    'custom_size_value'  => $item['custom_size_value'] !== null ? round((float)$item['custom_size_value'], 3) : null,
+                    'purchase_price'     => round((float)$item['purchase_price'], 2),
+                    'discount_type'      => $item['discount_type'] ?? 'flat',
+                    'discount_value'     => round((float)($item['discount_value'] ?? 0), 2),
+                    'quantity'           => (int)$item['quantity'],
+                    'total'              => round((float)$item['total'], 2),
+                ])->sortBy(['product_id', 'product_variant_id', 'purchase_price', 'quantity'])->values()->all();
+
+                if ($oldNorm != $newNorm) {
+                    $itemsChanged = true;
+                }
+            }
+
+            if ($itemsChanged && $oldStatus == Purchase::STATUS_APPROVE) {
+                $this->reverseInvoiceStock($purchase);
+            } elseif (!$itemsChanged && $oldStatus == Purchase::STATUS_APPROVE && $newStatus != Purchase::STATUS_APPROVE) {
                 $this->reverseInvoiceStock($purchase);
             }
 
@@ -709,7 +796,7 @@ class PurchaseController extends Controller
             );
 
             $updateData = [
-                'supplier_id'     => $request->supplier_id,
+                'supplier_id'     => $newSupplierId,
                 'is_gst'          => $isGst,
                 'tax_amount'      => $taxAmount,
                 'total_amount'    => $grandTotal,
@@ -718,13 +805,9 @@ class PurchaseController extends Controller
                 'discount_amount' => $orderDiscountAmount,
                 'status'          => $newStatus,
                 'payment_status'  => $paymentStatus,
-                'payment_method'  => $request->payment_method ?? $purchase->payment_method ?? 'cash',
+                'payment_method'  => $newMethod,
                 'paid_amount'     => $paidAmount,
             ];
-
-            $oldInvoiceNo = $purchase->invoice_no;
-            $oldPaid = (float) $purchase->paid_amount;
-            $oldMethod = $purchase->payment_method;
 
             if ((bool) $purchase->is_gst !== (bool) $isGst) {
                 $updateData['invoice_no'] = generate_invoice_no($invoicePrefix, Purchase::class);
@@ -743,98 +826,112 @@ class PurchaseController extends Controller
 
             $oldFieldsSnapshot = $purchase->only(array_keys($updateData));
 
-            Purchase::withoutEvents(fn () => Purchase::withoutActivityLogging(fn () => $purchase->update($updateData)));
+            $paymentChanged = ($oldSupplierId !== $newSupplierId)
+                || (abs($oldTotal - $grandTotal) >= 0.01)
+                || ((int)$purchase->payment_status !== (int)$paymentStatus)
+                || ($oldMethod !== $newMethod)
+                || (abs($oldPaidAmount - $paidAmount) >= 0.01);
 
-            $targetPay = $paidAmount;
-            \App\Models\SupplierAdvancePayment::restoreAdvanceForPurchase($purchase);
+            if ($paymentChanged) {
+                $targetPay = $paidAmount;
+                \App\Models\SupplierAdvancePayment::restoreAdvanceForPurchase($purchase);
 
-            if ($paymentStatus === Purchase::PAYMENT_STATUS_PENDING) {
-                // Remove payments linked to this purchase and reset paid_amount
-                PurchasePayment::where('purchase_id', $purchase->id)->delete();
-                $finalPaid = 0.0;
-                $finalStatus = Purchase::PAYMENT_STATUS_PENDING;
-            } else {
-                $advDeducted = \App\Models\SupplierAdvancePayment::adjustAdvanceForPurchase($purchase, $targetPay);
-                $remDirect = max(0.0, round($paidAmount - $advDeducted, 2));
+                if ($paymentStatus === Purchase::PAYMENT_STATUS_PENDING) {
+                    PurchasePayment::where('purchase_id', $purchase->id)->delete();
+                    $finalPaid = 0.0;
+                    $finalStatus = Purchase::PAYMENT_STATUS_PENDING;
+                } else {
+                    $advDeducted = \App\Models\SupplierAdvancePayment::adjustAdvanceForPurchase($purchase, $targetPay);
+                    $remDirect = max(0.0, round($paidAmount - $advDeducted, 2));
 
-                $existingDirectPaid = (float) \App\Models\PurchasePayment::where('purchase_id', $purchase->id)
-                    ->whereNull('bulk_purchase_payment_id')
-                    ->where(function ($q) {
-                        $q->where('is_advance', false)->orWhereNull('is_advance');
-                    })->sum('amount');
+                    $existingDirectPaid = (float) \App\Models\PurchasePayment::where('purchase_id', $purchase->id)
+                        ->whereNull('bulk_purchase_payment_id')
+                        ->where(function ($q) {
+                            $q->where('is_advance', false)->orWhereNull('is_advance');
+                        })->sum('amount');
 
-                if ($remDirect > $existingDirectPaid) {
-                    $paidAmountDelta = round($remDirect - $existingDirectPaid, 2);
-                    if ($paidAmountDelta >= 0.01) {
-                        PurchasePayment::create([
-                            'purchase_id' => $purchase->id,
-                            'amount'      => $paidAmountDelta,
-                            'created_by'  => auth()->id(),
-                        ]);
-                    }
-                } elseif ($remDirect < $existingDirectPaid) {
-                    // If paid amount was decreased
-                    $diffToReduce = round($existingDirectPaid - $remDirect, 2);
-                    if ($diffToReduce >= 0.01) {
-                        $directPayments = PurchasePayment::where('purchase_id', $purchase->id)
-                            ->whereNull('bulk_purchase_payment_id')
-                            ->where(function ($q) {
-                                $q->where('is_advance', false)->orWhereNull('is_advance');
-                            })->latest()->get();
+                    if ($remDirect > $existingDirectPaid) {
+                        $paidAmountDelta = round($remDirect - $existingDirectPaid, 2);
+                        if ($paidAmountDelta >= 0.01) {
+                            PurchasePayment::create([
+                                'purchase_id' => $purchase->id,
+                                'amount'      => $paidAmountDelta,
+                                'created_by'  => auth()->id(),
+                            ]);
+                        }
+                    } elseif ($remDirect < $existingDirectPaid) {
+                        $diffToReduce = round($existingDirectPaid - $remDirect, 2);
+                        if ($diffToReduce >= 0.01) {
+                            $directPayments = PurchasePayment::where('purchase_id', $purchase->id)
+                                ->whereNull('bulk_purchase_payment_id')
+                                ->where(function ($q) {
+                                    $q->where('is_advance', false)->orWhereNull('is_advance');
+                                })->latest()->get();
 
-                        foreach ($directPayments as $dp) {
-                            if ($diffToReduce <= 0) break;
-                            if ((float) $dp->amount <= $diffToReduce) {
-                                $diffToReduce -= (float) $dp->amount;
-                                $dp->delete();
-                            } else {
-                                $dp->update(['amount' => (float) $dp->amount - $diffToReduce]);
-                                $diffToReduce = 0;
+                            foreach ($directPayments as $dp) {
+                                if ($diffToReduce <= 0) break;
+                                if ((float) $dp->amount <= $diffToReduce) {
+                                    $diffToReduce -= (float) $dp->amount;
+                                    $dp->delete();
+                                } else {
+                                    $dp->update(['amount' => (float) $dp->amount - $diffToReduce]);
+                                    $diffToReduce = 0;
+                                }
                             }
                         }
                     }
+
+                    $finalPaid = round($advDeducted + $remDirect, 2);
+                    $finalStatus = ($finalPaid >= $grandTotal)
+                        ? Purchase::PAYMENT_STATUS_PAID
+                        : ($finalPaid > 0 ? Purchase::PAYMENT_STATUS_PARTIAL : Purchase::PAYMENT_STATUS_PENDING);
                 }
 
-                $finalPaid = round($advDeducted + $remDirect, 2);
-                $finalStatus = ($finalPaid >= $grandTotal)
-                    ? Purchase::PAYMENT_STATUS_PAID
-                    : ($finalPaid > 0 ? Purchase::PAYMENT_STATUS_PARTIAL : Purchase::PAYMENT_STATUS_PENDING);
+                $updateData['paid_amount'] = min($finalPaid, $grandTotal);
+                $updateData['payment_status'] = $finalStatus;
             }
 
-            $purchase->update([
-                'paid_amount'    => min($finalPaid, $grandTotal),
-                'payment_status' => $finalStatus,
-            ]);
+            Purchase::withoutEvents(fn () => Purchase::withoutActivityLogging(fn () => $purchase->update($updateData)));
 
-            (new \App\Observers\PurchaseObserver())->updatePurchaseBalance($oldPaid, $oldMethod, $purchase, $oldInvoiceNo);
+            if ($paymentChanged) {
+                (new \App\Observers\PurchaseObserver())->updatePurchaseBalance($oldPaidAmount, $oldMethod, $purchase, $oldInvoiceNo);
+            }
 
-            $purchase->items()->delete();
+            if ($itemsChanged) {
+                $purchase->items()->delete();
 
-            foreach ($itemsData as $item) {
-                $createdItem = PurchaseItem::create([
-                    'purchase_id'        => $purchase->id,
-                    'product_id'         => $item['product_id'],
-                    'product_variant_id' => $item['product_variant_id'],
-                    'custom_size_value'  => $item['custom_size_value'],
-                    'purchase_price'     => $item['purchase_price'],
-                    'discount_type'      => $item['discount_type'],
-                    'discount_value'     => $item['discount_value'],
-                    'discount_amount'    => $item['discount_amount'],
-                    'quantity'           => $item['quantity'],
-                    'total'              => $item['total'],
-                ]);
+                foreach ($itemsData as $item) {
+                    $createdItem = PurchaseItem::create([
+                        'purchase_id'        => $purchase->id,
+                        'product_id'         => $item['product_id'],
+                        'product_variant_id' => $item['product_variant_id'],
+                        'custom_size_value'  => $item['custom_size_value'],
+                        'purchase_price'     => $item['purchase_price'],
+                        'discount_type'      => $item['discount_type'],
+                        'discount_value'     => $item['discount_value'],
+                        'discount_amount'    => $item['discount_amount'],
+                        'quantity'           => $item['quantity'],
+                        'total'              => $item['total'],
+                    ]);
 
-                PurchaseAllocation::create([
-                    'purchase_item_id' => $createdItem->id,
-                    'location_id'      => $defaultLocation->id,
-                    'quantity'         => $item['quantity'],
-                ]);
+                    PurchaseAllocation::create([
+                        'purchase_item_id' => $createdItem->id,
+                        'location_id'      => $defaultLocation->id,
+                        'quantity'         => $item['quantity'],
+                    ]);
 
-                $productObj = \App\Models\Product::find($item['product_id']);
-                $itemMultiplier = \App\Services\PurchaseBatchService::multiplierForProduct($productObj, $item['pair_type'] ?? null, $item['custom_size_value'] ?? null);
-                $batchStockQty = (float) $item['quantity'] * $itemMultiplier;
+                    $productObj = \App\Models\Product::find($item['product_id']);
+                    $itemMultiplier = \App\Services\PurchaseBatchService::multiplierForProduct($productObj, $item['pair_type'] ?? null, $item['custom_size_value'] ?? null);
+                    $batchStockQty = (float) $item['quantity'] * $itemMultiplier;
 
-                \App\Services\PurchaseBatchService::addBatchStock((int)$defaultLocation->id, (int)$item['product_id'], !empty($item['product_variant_id']) ? (int)$item['product_variant_id'] : null, $createdItem->id, (float)$item['purchase_price'], (float)$batchStockQty);
+                    \App\Services\PurchaseBatchService::addBatchStock((int)$defaultLocation->id, (int)$item['product_id'], !empty($item['product_variant_id']) ? (int)$item['product_variant_id'] : null, $createdItem->id, (float)$item['purchase_price'], (float)$batchStockQty);
+                }
+
+                if ($newStatus == Purchase::STATUS_APPROVE) {
+                    $this->approveInvoice($purchase);
+                }
+            } elseif ($oldStatus != Purchase::STATUS_APPROVE && $newStatus == Purchase::STATUS_APPROVE) {
+                $this->approveInvoice($purchase);
             }
 
             $newItemsSnapshot = collect($itemsData)->map(function ($item) {
@@ -849,17 +946,22 @@ class PurchaseController extends Controller
                 ];
             })->values()->all();
 
-            ActivityLogger::log(
-                'Purchase',
-                'update',
-                $purchase,
-                ['fields' => $oldFieldsSnapshot, 'items' => $oldItemsSnapshot],
-                ['fields' => $updateData, 'items' => $newItemsSnapshot],
-                'Purchase #' . $purchase->invoice_no . ' updated'
-            );
+            $fieldsDiff = array_udiff_assoc($updateData, $oldFieldsSnapshot, function ($a, $b) {
+                if (is_numeric($a) && is_numeric($b)) {
+                    return abs((float)$a - (float)$b) < 0.001 ? 0 : 1;
+                }
+                return (string)$a === (string)$b ? 0 : 1;
+            });
 
-            if ($newStatus == Purchase::STATUS_APPROVE) {
-                $this->approveInvoice($purchase);
+            if ($itemsChanged || !empty($fieldsDiff)) {
+                ActivityLogger::log(
+                    'Purchase',
+                    'update',
+                    $purchase,
+                    ['fields' => $oldFieldsSnapshot, 'items' => $oldItemsSnapshot],
+                    ['fields' => $updateData, 'items' => $newItemsSnapshot],
+                    'Purchase #' . $purchase->invoice_no . ' updated'
+                );
             }
 
             });
@@ -943,7 +1045,19 @@ class PurchaseController extends Controller
         ]);
     }
 
-    public function destroy(Purchase $purchase)
+    public function impactCheck(Purchase $purchase)
+    {
+        $this->authorize('view purchases');
+
+        $impact = PurchaseStockService::getImpactData($purchase);
+
+        return response()->json([
+            'status' => 'success',
+            'data'   => $impact,
+        ]);
+    }
+
+    public function destroy(Request $request, Purchase $purchase)
     {
         if (!auth()->user()->hasRole('super-admin')) {
             abort(403);
@@ -955,6 +1069,8 @@ class PurchaseController extends Controller
                 'message' => 'You do not have permission to delete past date records.',
             ], 403);
         }
+
+        $deleteSales = $request->boolean('delete_sales');
 
         $originalInvoiceNo = $purchase->invoice_no;
         $purchase->load(['items.product']);
@@ -979,16 +1095,22 @@ class PurchaseController extends Controller
             'payment_method' => $purchase->payment_method,
         ];
 
-        DB::transaction(function () use ($purchase) {
+        DB::transaction(function () use ($purchase, $deleteSales) {
             \App\Models\SupplierAdvancePayment::restoreAdvanceForPurchase($purchase);
 
-            if ($purchase->status == Purchase::STATUS_APPROVE) {
-                foreach ($purchase->items as $pItem) {
-                    $itemMultiplier = \App\Services\PurchaseBatchService::multiplierForProduct($pItem->product, $pItem->pair_type ?? null, $pItem->custom_size_value ?? null);
-                    $batchStockQty = (float) $pItem->quantity * $itemMultiplier;
-                    \App\Services\PurchaseBatchService::deductBatchStock((int)$purchase->location_id, (int)$pItem->product_id, !empty($pItem->product_variant_id) ? (int)$pItem->product_variant_id : null, (float)$pItem->purchase_price, (float)$batchStockQty);
+            if ($deleteSales) {
+                $impact = PurchaseStockService::getImpactData($purchase);
+                if (!empty($impact['sales'])) {
+                    $orderIds = collect($impact['sales'])->pluck('id')->all();
+                    $ordersToDelete = \App\Models\Order::whereIn('id', $orderIds)->get();
+                    foreach ($ordersToDelete as $order) {
+                        $order->delete();
+                    }
                 }
-                PurchaseStockService::reverse($purchase, 'deletion');
+            }
+
+            if ($purchase->status == Purchase::STATUS_APPROVE) {
+                PurchaseStockService::reversePurchaseWithTransfers($purchase, $deleteSales, 'deletion');
             }
 
             Purchase::withoutActivityLogging(function () use ($purchase) {
@@ -1007,7 +1129,7 @@ class PurchaseController extends Controller
             $purchase,
             ['fields' => $oldFieldsSnapshot, 'items' => $oldItemsSnapshot],
             null,
-            'Purchase #' . $originalInvoiceNo . ' deleted'
+            'Purchase #' . $originalInvoiceNo . ' deleted' . ($deleteSales ? ' (with associated sales)' : '')
         );
 
         return response()->json([
@@ -1069,7 +1191,7 @@ class PurchaseController extends Controller
 
     private function reverseInvoiceStock(Purchase $purchase): void
     {
-        PurchaseStockService::reverse($purchase);
+        PurchaseStockService::reversePurchaseWithTransfers($purchase, false, 'edit');
     }
 
     /**

@@ -2,6 +2,8 @@
 
 namespace App\Http\Controllers;
 
+use App\Models\BranchBalanceTransfer;
+use App\Models\BulkPurchasePayment;
 use App\Models\Category;
 use App\Models\Customer;
 use App\Models\CustomerBalanceTransaction;
@@ -16,6 +18,7 @@ use App\Models\Purchase;
 use App\Models\PurchaseBill;
 use App\Models\PurchaseBillItem;
 use App\Models\PurchaseItem;
+use App\Models\PurchasePayment;
 use App\Models\SubCategory;
 use App\Models\Supplier;
 use App\Services\ActivityLogger;
@@ -3675,6 +3678,7 @@ class ReportController extends Controller
         $paymentStatus = $request->query('payment_status');
         $paymentMethod = $request->query('payment_method');
         $customerId = $request->query('customer_id');
+        $gst_bill = $request->query('is_gst');
 
         $user = auth()->user();
 
@@ -3704,6 +3708,9 @@ class ReportController extends Controller
         }
         if ($paymentStatus) {
             $query->where('payment_status', $paymentStatus);
+        }
+        if ($gst_bill !== null && $gst_bill !== '') {
+            $query->where('is_gst', $gst_bill ? 1 : 0);
         }
         if ($paymentMethod) {
             if ($paymentMethod === 'online') {
@@ -4342,7 +4349,6 @@ class ReportController extends Controller
         $availableSources = ['POS', 'ONLINE'];
         $availablePaymentMethods = ['cash', 'online', 'cod'];
 
-        // Merge refunded orders into the table listing (not into the sales totals/charts above)
         $orders = $orders->merge($refundedOrders)->sortByDesc('created_at')->values();
 
         return view('reports.payments', compact(
@@ -4992,9 +4998,12 @@ class ReportController extends Controller
     {
         $this->authorize('view daily reports');
 
-        [$date, $locationId] = $this->resolveDailyReportFilters($request);
+        [$date, $locationId, $locations, $isSuperAdmin] = $this->resolveDailyReportFilters($request);
 
-        return response()->json(array_merge(['status' => 'success', 'date' => $date], $this->buildDailyReportData($date, $locationId)));
+        return view('reports.partials.daily-report-results', array_merge(
+            ['locations' => $locations, 'locationId' => $locationId, 'isSuperAdmin' => $isSuperAdmin, 'date' => $date],
+            $this->buildDailyReportData($date, $locationId)
+        ))->render();
     }
 
     public function exportDailyReportExcel(Request $request)
@@ -5034,11 +5043,124 @@ class ReportController extends Controller
         ];
 
         // ============================================================
-        // Sheet 1: Sales
+        // Sheet 1: Daily Summary
         // ============================================================
-        $sheet1 = $spreadsheet->getActiveSheet();
-        $sheet1->setTitle('Sales');
+        $sheet0 = $spreadsheet->getActiveSheet();
+        $sheet0->setTitle('Daily Summary');
 
+        $activeLocName = $locationId ? ($locations->firstWhere('id', $locationId)->name ?? 'Selected Branch') : 'All Branches';
+
+        $sheet0->mergeCells('A1:D1');
+        $sheet0->setCellValue('A1', "Daily Report Summary Data ({$date} - {$activeLocName})");
+        $sheet0->getStyle('A1:D1')->applyFromArray($titleStyle);
+        $sheet0->getRowDimension(1)->setRowHeight(30);
+
+        $headers0 = ['#', 'Metric', 'Count / Details', 'Total Amount'];
+        $cols0 = ['A', 'B', 'C', 'D'];
+        foreach ($headers0 as $cIdx => $hText) {
+            $sheet0->setCellValue($cols0[$cIdx] . '2', $hText);
+        }
+        $sheet0->getStyle('A2:D2')->applyFromArray($headerStyle);
+        $sheet0->getRowDimension(2)->setRowHeight(26);
+
+        $summaryMetrics = [
+            ['Total Sales', $data['totalSalesCount'] . ' Sales', '₹' . number_format($data['totalSales'], 2)],
+            ['Pending Sales', '-', '₹' . number_format($data['totalPendingSales'] ?? 0, 2)],
+            ['Total Purchases', $data['totalPurchasesCount'] . ' Purchases', '₹' . number_format($data['totalPurchases'], 2)],
+            ['Pending Purchases', '-', '₹' . number_format($data['totalPendingPurchases'] ?? 0, 2)],
+            ['Total Expenses', $data['totalExpensesCount'] . ' Expenses', '₹' . number_format($data['totalExpenses'], 2)],
+            ['Purchase Bills', $data['totalTransfersCount'] . ' Bills (' . $data['totalTransfersQty'] . ' units)', '-'],
+            ['Balance Transfers', $data['totalBalanceTransfersCount'] . ' Transfers', '₹' . number_format($data['totalBalanceTransfersAmount'] ?? 0, 2)],
+            ['Payments Out (Supplier Payments)', ($data['totalPurchasePaymentsCount'] + $data['totalBulkPaymentsCount']) . ' Payments', '₹' . number_format($data['totalOverallPaymentsOut'] ?? 0, 2)],
+        ];
+
+        $r0 = 3;
+        foreach ($summaryMetrics as $idx => $m) {
+            $sheet0->setCellValue('A' . $r0, $idx + 1);
+            $sheet0->setCellValue('B' . $r0, $m[0]);
+            $sheet0->setCellValue('C' . $r0, $m[1]);
+            $sheet0->setCellValue('D' . $r0, $m[2]);
+            $sheet0->getRowDimension($r0)->setRowHeight(20);
+            $r0++;
+        }
+
+        $sheet0->getStyle("A2:D" . ($r0 - 1))->applyFromArray($borderStyle);
+        $sheet0->getStyle("A2:A" . ($r0 - 1))->getAlignment()->setHorizontal(Alignment::HORIZONTAL_CENTER);
+        $sheet0->getStyle("C2:C" . ($r0 - 1))->getAlignment()->setHorizontal(Alignment::HORIZONTAL_CENTER);
+        $sheet0->getStyle("D2:D" . ($r0 - 1))->getAlignment()->setHorizontal(Alignment::HORIZONTAL_RIGHT);
+
+        // Branch-wise breakdown if multiple branches
+        if ($data['branchRows']->count() > 1) {
+            $r0 += 2;
+            $sheet0->mergeCells("A{$r0}:H{$r0}");
+            $sheet0->setCellValue("A{$r0}", 'Branch-wise Breakdown Data');
+            $sheet0->getStyle("A{$r0}:H{$r0}")->applyFromArray($titleStyle);
+            $sheet0->getRowDimension($r0)->setRowHeight(30);
+            $r0++;
+
+            $bbHeaders = ['#', 'Branch', 'Sales', 'Purchases', 'Expenses', 'Purchase Bill', 'Balance Transfer', 'Payments Out'];
+            $bbCols = ['A', 'B', 'C', 'D', 'E', 'F', 'G', 'H'];
+            foreach ($bbHeaders as $cIdx => $hText) {
+                $sheet0->setCellValue($bbCols[$cIdx] . $r0, $hText);
+            }
+            $sheet0->getStyle("A{$r0}:H{$r0}")->applyFromArray($headerStyle);
+            $sheet0->getRowDimension($r0)->setRowHeight(26);
+            $r0++;
+
+            $bbStart = $r0;
+            $sumBBSales = 0; $sumBBPurchases = 0; $sumBBExpenses = 0; $sumBBTransfers = 0; $sumBBPayOut = 0;
+            foreach ($data['branchRows'] as $bIdx => $bRow) {
+                $sumBBSales += (float) $bRow['sales_amount'];
+                $sumBBPurchases += (float) $bRow['purchase_amount'];
+                $sumBBExpenses += (float) $bRow['expense_amount'];
+                $sumBBTransfers += (int) $bRow['transfer_count'];
+                $sumBBPayOut += (float) $bRow['payment_out_total'];
+
+                $btText = '↑ ₹' . number_format($bRow['bt_out_amount'], 2) . ' / ↓ ₹' . number_format($bRow['bt_in_amount'], 2);
+
+                $sheet0->setCellValue("A{$r0}", $bIdx + 1);
+                $sheet0->setCellValue("B{$r0}", $bRow['location_name']);
+                $sheet0->setCellValue("C{$r0}", '₹' . number_format($bRow['sales_amount'], 2));
+                $sheet0->setCellValue("D{$r0}", '₹' . number_format($bRow['purchase_amount'], 2));
+                $sheet0->setCellValue("E{$r0}", '₹' . number_format($bRow['expense_amount'], 2));
+                $sheet0->setCellValue("F{$r0}", $bRow['transfer_count']);
+                $sheet0->setCellValue("G{$r0}", $btText);
+                $sheet0->setCellValue("H{$r0}", '₹' . number_format($bRow['payment_out_total'], 2));
+                $sheet0->getRowDimension($r0)->setRowHeight(20);
+                $r0++;
+            }
+
+            // Totals Row
+            $sheet0->setCellValue("A{$r0}", 'Total');
+            $sheet0->setCellValue("C{$r0}", '₹' . number_format($sumBBSales, 2));
+            $sheet0->setCellValue("D{$r0}", '₹' . number_format($sumBBPurchases, 2));
+            $sheet0->setCellValue("E{$r0}", '₹' . number_format($sumBBExpenses, 2));
+            $sheet0->setCellValue("F{$r0}", $sumBBTransfers);
+            $sheet0->setCellValue("H{$r0}", '₹' . number_format($sumBBPayOut, 2));
+            $sheet0->getStyle("A{$r0}:H{$r0}")->getFont()->setBold(true);
+            $sheet0->getStyle("A{$r0}:H{$r0}")->getFill()->setFillType(Fill::FILL_SOLID)->getStartColor()->setRGB('EAECF0');
+            $sheet0->getRowDimension($r0)->setRowHeight(24);
+
+            $sheet0->getStyle("A" . ($bbStart - 1) . ":H{$r0}")->applyFromArray($borderStyle);
+            $sheet0->getStyle("A{$bbStart}:A{$r0}")->getAlignment()->setHorizontal(Alignment::HORIZONTAL_CENTER);
+            $sheet0->getStyle("C{$bbStart}:E{$r0}")->getAlignment()->setHorizontal(Alignment::HORIZONTAL_RIGHT);
+            $sheet0->getStyle("F{$bbStart}:G{$r0}")->getAlignment()->setHorizontal(Alignment::HORIZONTAL_CENTER);
+            $sheet0->getStyle("H{$bbStart}:H{$r0}")->getAlignment()->setHorizontal(Alignment::HORIZONTAL_RIGHT);
+
+            foreach ($bbCols as $colLetter) {
+                $sheet0->getColumnDimension($colLetter)->setAutoSize(true);
+            }
+        } else {
+            foreach ($cols0 as $colLetter) {
+                $sheet0->getColumnDimension($colLetter)->setAutoSize(true);
+            }
+        }
+
+        // ============================================================
+        // Sheet 2: Sales
+        // ============================================================
+        $sheet1 = $spreadsheet->createSheet();
+        $sheet1->setTitle('Sales');
         $sheet1->mergeCells('A1:I1');
         $sheet1->setCellValue('A1', 'Sales Data');
         $sheet1->getStyle('A1:I1')->applyFromArray($titleStyle);
@@ -5046,7 +5168,6 @@ class ReportController extends Controller
 
         $headers1 = ['#', 'Sale No', 'Customer', 'Location', 'Source', 'Amount', 'Status', 'Payment Status', 'Method'];
         $cols1 = ['A', 'B', 'C', 'D', 'E', 'F', 'G', 'H', 'I'];
-
         foreach ($headers1 as $cIdx => $hText) {
             $sheet1->setCellValue($cols1[$cIdx] . '2', $hText);
         }
@@ -5059,7 +5180,6 @@ class ReportController extends Controller
             foreach ($data['salesRows'] as $idx => $row) {
                 $amt = (float) ($row['amount'] ?? 0);
                 $sumSalesAmount += $amt;
-
                 $sheet1->setCellValue('A' . $r1, $idx + 1);
                 $sheet1->setCellValue('B' . $r1, $row['sale_no'] ?? '-');
                 $sheet1->setCellValue('C' . $r1, $row['customer'] ?? '-');
@@ -5072,29 +5192,30 @@ class ReportController extends Controller
                 $sheet1->getRowDimension($r1)->setRowHeight(20);
                 $r1++;
             }
-
             $sheet1->setCellValue('A' . $r1, 'Total');
             $sheet1->setCellValue('F' . $r1, '₹' . number_format($sumSalesAmount, 2));
             $sheet1->getStyle("A{$r1}:I{$r1}")->getFont()->setBold(true);
             $sheet1->getStyle("A{$r1}:I{$r1}")->getFill()->setFillType(Fill::FILL_SOLID)->getStartColor()->setRGB('EAECF0');
+            $sheet1->getRowDimension($r1)->setRowHeight(24);
             $sheet1->getStyle("A2:I{$r1}")->applyFromArray($borderStyle);
+            $sheet1->getStyle("A2:A{$r1}")->getAlignment()->setHorizontal(Alignment::HORIZONTAL_CENTER);
+            $sheet1->getStyle("E2:E{$r1}")->getAlignment()->setHorizontal(Alignment::HORIZONTAL_CENTER);
             $sheet1->getStyle("F2:F{$r1}")->getAlignment()->setHorizontal(Alignment::HORIZONTAL_RIGHT);
+            $sheet1->getStyle("G2:I{$r1}")->getAlignment()->setHorizontal(Alignment::HORIZONTAL_CENTER);
         } else {
             $sheet1->setCellValue('A3', 'No sales data available for the selected date.');
             $sheet1->mergeCells('A3:I3');
             $sheet1->getStyle('A2:I3')->applyFromArray($borderStyle);
         }
-
         foreach ($cols1 as $colLetter) {
             $sheet1->getColumnDimension($colLetter)->setAutoSize(true);
         }
 
         // ============================================================
-        // Sheet 2: Purchases
+        // Sheet 3: Purchases
         // ============================================================
         $sheet2 = $spreadsheet->createSheet();
         $sheet2->setTitle('Purchases');
-
         $sheet2->mergeCells('A1:F1');
         $sheet2->setCellValue('A1', 'Purchases Data');
         $sheet2->getStyle('A1:F1')->applyFromArray($titleStyle);
@@ -5102,7 +5223,6 @@ class ReportController extends Controller
 
         $headers2 = ['#', 'Purchase No', 'Supplier', 'Total Amount', 'Status', 'Payment Status'];
         $cols2 = ['A', 'B', 'C', 'D', 'E', 'F'];
-
         foreach ($headers2 as $cIdx => $hText) {
             $sheet2->setCellValue($cols2[$cIdx] . '2', $hText);
         }
@@ -5115,7 +5235,6 @@ class ReportController extends Controller
             foreach ($data['purchaseRows'] as $idx => $row) {
                 $amt = (float) ($row['total_amount'] ?? 0);
                 $sumPurAmount += $amt;
-
                 $sheet2->setCellValue('A' . $r2, $idx + 1);
                 $sheet2->setCellValue('B' . $r2, $row['purchase_no'] ?? '-');
                 $sheet2->setCellValue('C' . $r2, $row['supplier'] ?? '-');
@@ -5125,135 +5244,241 @@ class ReportController extends Controller
                 $sheet2->getRowDimension($r2)->setRowHeight(20);
                 $r2++;
             }
-
             $sheet2->setCellValue('A' . $r2, 'Total');
             $sheet2->setCellValue('D' . $r2, '₹' . number_format($sumPurAmount, 2));
             $sheet2->getStyle("A{$r2}:F{$r2}")->getFont()->setBold(true);
             $sheet2->getStyle("A{$r2}:F{$r2}")->getFill()->setFillType(Fill::FILL_SOLID)->getStartColor()->setRGB('EAECF0');
+            $sheet2->getRowDimension($r2)->setRowHeight(24);
             $sheet2->getStyle("A2:F{$r2}")->applyFromArray($borderStyle);
+            $sheet2->getStyle("A2:A{$r2}")->getAlignment()->setHorizontal(Alignment::HORIZONTAL_CENTER);
             $sheet2->getStyle("D2:D{$r2}")->getAlignment()->setHorizontal(Alignment::HORIZONTAL_RIGHT);
+            $sheet2->getStyle("E2:F{$r2}")->getAlignment()->setHorizontal(Alignment::HORIZONTAL_CENTER);
         } else {
             $sheet2->setCellValue('A3', 'No purchase data available for the selected date.');
             $sheet2->mergeCells('A3:F3');
             $sheet2->getStyle('A2:F3')->applyFromArray($borderStyle);
         }
-
         foreach ($cols2 as $colLetter) {
             $sheet2->getColumnDimension($colLetter)->setAutoSize(true);
         }
 
         // ============================================================
-        // Sheet 3: Expenses
+        // Sheet 4: Bulk Payments (Default Branch only)
         // ============================================================
-        $sheet3 = $spreadsheet->createSheet();
-        $sheet3->setTitle('Expenses');
+        if ($data['isDefaultBranchView']) {
+            $sheet4 = $spreadsheet->createSheet();
+            $sheet4->setTitle('Purchase Payments');
+            $sheet4->mergeCells('A1:G1');
+            $sheet4->setCellValue('A1', 'Purchase Payments Data');
+            $sheet4->getStyle('A1:G1')->applyFromArray($titleStyle);
+            $sheet4->getRowDimension(1)->setRowHeight(30);
 
-        $sheet3->mergeCells('A1:H1');
-        $sheet3->setCellValue('A1', 'Expenses Data');
-        $sheet3->getStyle('A1:H1')->applyFromArray($titleStyle);
-        $sheet3->getRowDimension(1)->setRowHeight(30);
+            $headers4 = ['#', 'Supplier', 'Branch', 'Method', 'Amount Paid', 'Description', 'Date & Time'];
+            $cols4 = ['A', 'B', 'C', 'D', 'E', 'F', 'G'];
+            foreach ($headers4 as $cIdx => $hText) {
+                $sheet4->setCellValue($cols4[$cIdx] . '2', $hText);
+            }
+            $sheet4->getStyle('A2:G2')->applyFromArray($headerStyle);
+            $sheet4->getRowDimension(2)->setRowHeight(26);
 
-        $headers3 = ['#', 'Title', 'Category', 'Amount', 'Payment Method', 'Location', 'Expense Date', 'Created By'];
-        $cols3 = ['A', 'B', 'C', 'D', 'E', 'F', 'G', 'H'];
-
-        foreach ($headers3 as $cIdx => $hText) {
-            $sheet3->setCellValue($cols3[$cIdx] . '2', $hText);
+            if ($data['bulkPurchasePaymentRows']->isNotEmpty()) {
+                $r4 = 3;
+                $sumBulkAmount = 0.0;
+                foreach ($data['bulkPurchasePaymentRows'] as $idx => $row) {
+                    $amt = (float) ($row['amount'] ?? 0);
+                    $sumBulkAmount += $amt;
+                    $sheet4->setCellValue('A' . $r4, $idx + 1);
+                    $sheet4->setCellValue('B' . $r4, $row['supplier'] ?? '-');
+                    $sheet4->setCellValue('C' . $r4, $row['location'] ?? '-');
+                    $sheet4->setCellValue('D' . $r4, $row['method'] ?? '-');
+                    $sheet4->setCellValue('E' . $r4, '₹' . number_format($amt, 2));
+                    $sheet4->setCellValue('F' . $r4, $row['description'] ?? '-');
+                    $sheet4->setCellValue('G' . $r4, $row['created_at'] ?? '-');
+                    $sheet4->getRowDimension($r4)->setRowHeight(20);
+                    $r4++;
+                }
+                $sheet4->setCellValue('A' . $r4, 'Total');
+                $sheet4->setCellValue('E' . $r4, '₹' . number_format($sumBulkAmount, 2));
+                $sheet4->getStyle("A{$r4}:G{$r4}")->getFont()->setBold(true);
+                $sheet4->getStyle("A{$r4}:G{$r4}")->getFill()->setFillType(Fill::FILL_SOLID)->getStartColor()->setRGB('EAECF0');
+                $sheet4->getRowDimension($r4)->setRowHeight(24);
+                $sheet4->getStyle("A2:G{$r4}")->applyFromArray($borderStyle);
+                $sheet4->getStyle("A2:A{$r4}")->getAlignment()->setHorizontal(Alignment::HORIZONTAL_CENTER);
+                $sheet4->getStyle("D2:D{$r4}")->getAlignment()->setHorizontal(Alignment::HORIZONTAL_CENTER);
+                $sheet4->getStyle("E2:E{$r4}")->getAlignment()->setHorizontal(Alignment::HORIZONTAL_RIGHT);
+                $sheet4->getStyle("G2:G{$r4}")->getAlignment()->setHorizontal(Alignment::HORIZONTAL_CENTER);
+            } else {
+                $sheet4->setCellValue('A3', 'No purchase payment data available for the selected date.');
+                $sheet4->mergeCells('A3:G3');
+                $sheet4->getStyle('A2:G3')->applyFromArray($borderStyle);
+            }
+            foreach ($cols4 as $colLetter) {
+                $sheet4->getColumnDimension($colLetter)->setAutoSize(true);
+            }
         }
-        $sheet3->getStyle('A2:H2')->applyFromArray($headerStyle);
-        $sheet3->getRowDimension(2)->setRowHeight(26);
+
+        // ============================================================
+        // Sheet 5: Balance Transfers
+        // ============================================================
+        $sheet5 = $spreadsheet->createSheet();
+        $sheet5->setTitle('Balance Transfers');
+        $sheet5->mergeCells('A1:I1');
+        $sheet5->setCellValue('A1', 'Branch Balance Transfers Data');
+        $sheet5->getStyle('A1:I1')->applyFromArray($titleStyle);
+        $sheet5->getRowDimension(1)->setRowHeight(30);
+
+        $headers5 = ['#', 'Transfer No', 'From Branch', 'To Branch', 'Type', 'Amount', 'Status', 'Notes', 'Created By'];
+        $cols5 = ['A', 'B', 'C', 'D', 'E', 'F', 'G', 'H', 'I'];
+        foreach ($headers5 as $cIdx => $hText) {
+            $sheet5->setCellValue($cols5[$cIdx] . '2', $hText);
+        }
+        $sheet5->getStyle('A2:I2')->applyFromArray($headerStyle);
+        $sheet5->getRowDimension(2)->setRowHeight(26);
+
+        if ($data['branchBalanceTransferRows']->isNotEmpty()) {
+            $r5 = 3;
+            $sumBTAmount = 0.0;
+            foreach ($data['branchBalanceTransferRows'] as $idx => $row) {
+                $amt = (float) ($row['amount'] ?? 0);
+                $sumBTAmount += $amt;
+                $sheet5->setCellValue('A' . $r5, $idx + 1);
+                $sheet5->setCellValue('B' . $r5, $row['transfer_no'] ?? '-');
+                $sheet5->setCellValue('C' . $r5, $row['from_location'] ?? '-');
+                $sheet5->setCellValue('D' . $r5, $row['to_location'] ?? '-');
+                $sheet5->setCellValue('E' . $r5, $row['balance_type'] ?? '-');
+                $sheet5->setCellValue('F' . $r5, '₹' . number_format($amt, 2));
+                $sheet5->setCellValue('G' . $r5, strip_tags($row['status_text'] ?? '-'));
+                $sheet5->setCellValue('H' . $r5, $row['notes'] ?? '-');
+                $sheet5->setCellValue('I' . $r5, $row['created_by'] ?? '-');
+                $sheet5->getRowDimension($r5)->setRowHeight(20);
+                $r5++;
+            }
+            $sheet5->setCellValue('A' . $r5, 'Total');
+            $sheet5->setCellValue('F' . $r5, '₹' . number_format($sumBTAmount, 2));
+            $sheet5->getStyle("A{$r5}:I{$r5}")->getFont()->setBold(true);
+            $sheet5->getStyle("A{$r5}:I{$r5}")->getFill()->setFillType(Fill::FILL_SOLID)->getStartColor()->setRGB('EAECF0');
+            $sheet5->getRowDimension($r5)->setRowHeight(24);
+            $sheet5->getStyle("A2:I{$r5}")->applyFromArray($borderStyle);
+            $sheet5->getStyle("A2:A{$r5}")->getAlignment()->setHorizontal(Alignment::HORIZONTAL_CENTER);
+            $sheet5->getStyle("E2:E{$r5}")->getAlignment()->setHorizontal(Alignment::HORIZONTAL_CENTER);
+            $sheet5->getStyle("F2:F{$r5}")->getAlignment()->setHorizontal(Alignment::HORIZONTAL_RIGHT);
+            $sheet5->getStyle("G2:G{$r5}")->getAlignment()->setHorizontal(Alignment::HORIZONTAL_CENTER);
+        } else {
+            $sheet5->setCellValue('A3', 'No branch balance transfer data available for the selected date.');
+            $sheet5->mergeCells('A3:I3');
+            $sheet5->getStyle('A2:I3')->applyFromArray($borderStyle);
+        }
+        foreach ($cols5 as $colLetter) {
+            $sheet5->getColumnDimension($colLetter)->setAutoSize(true);
+        }
+
+        // ============================================================
+        // Sheet 6: Expenses
+        // ============================================================
+        $sheet6 = $spreadsheet->createSheet();
+        $sheet6->setTitle('Expenses');
+        $sheet6->mergeCells('A1:H1');
+        $sheet6->setCellValue('A1', 'Expenses Data');
+        $sheet6->getStyle('A1:H1')->applyFromArray($titleStyle);
+        $sheet6->getRowDimension(1)->setRowHeight(30);
+
+        $headers6 = ['#', 'Title', 'Category', 'Amount', 'Payment Method', 'Location', 'Expense Date', 'Created By'];
+        $cols6 = ['A', 'B', 'C', 'D', 'E', 'F', 'G', 'H'];
+        foreach ($headers6 as $cIdx => $hText) {
+            $sheet6->setCellValue($cols6[$cIdx] . '2', $hText);
+        }
+        $sheet6->getStyle('A2:H2')->applyFromArray($headerStyle);
+        $sheet6->getRowDimension(2)->setRowHeight(26);
 
         if ($data['expenseRows']->isNotEmpty()) {
-            $r3 = 3;
+            $r6 = 3;
             $sumExpAmount = 0.0;
             foreach ($data['expenseRows'] as $idx => $row) {
                 $amt = (float) ($row['amount'] ?? 0);
                 $sumExpAmount += $amt;
-
-                $sheet3->setCellValue('A' . $r3, $idx + 1);
-                $sheet3->setCellValue('B' . $r3, $row['title'] ?? '-');
-                $sheet3->setCellValue('C' . $r3, $row['category'] ?? '-');
-                $sheet3->setCellValue('D' . $r3, '₹' . number_format($amt, 2));
-                $sheet3->setCellValue('E' . $r3, $row['payment_method'] ?? '-');
-                $sheet3->setCellValue('F' . $r3, $row['location'] ?? '-');
-                $sheet3->setCellValue('G' . $r3, $row['expense_date'] ?? '-');
-                $sheet3->setCellValue('H' . $r3, $row['created_by'] ?? '-');
-                $sheet3->getRowDimension($r3)->setRowHeight(20);
-                $r3++;
+                $sheet6->setCellValue('A' . $r6, $idx + 1);
+                $sheet6->setCellValue('B' . $r6, $row['title'] ?? '-');
+                $sheet6->setCellValue('C' . $r6, $row['category'] ?? '-');
+                $sheet6->setCellValue('D' . $r6, '₹' . number_format($amt, 2));
+                $sheet6->setCellValue('E' . $r6, $row['payment_method'] ?? '-');
+                $sheet6->setCellValue('F' . $r6, $row['location'] ?? '-');
+                $sheet6->setCellValue('G' . $r6, $row['expense_date'] ?? '-');
+                $sheet6->setCellValue('H' . $r6, $row['created_by'] ?? '-');
+                $sheet6->getRowDimension($r6)->setRowHeight(20);
+                $r6++;
             }
-
-            $sheet3->setCellValue('A' . $r3, 'Total');
-            $sheet3->setCellValue('D' . $r3, '₹' . number_format($sumExpAmount, 2));
-            $sheet3->getStyle("A{$r3}:H{$r3}")->getFont()->setBold(true);
-            $sheet3->getStyle("A{$r3}:H{$r3}")->getFill()->setFillType(Fill::FILL_SOLID)->getStartColor()->setRGB('EAECF0');
-            $sheet3->getStyle("A2:H{$r3}")->applyFromArray($borderStyle);
-            $sheet3->getStyle("D2:D{$r3}")->getAlignment()->setHorizontal(Alignment::HORIZONTAL_RIGHT);
+            $sheet6->setCellValue('A' . $r6, 'Total');
+            $sheet6->setCellValue('D' . $r6, '₹' . number_format($sumExpAmount, 2));
+            $sheet6->getStyle("A{$r6}:H{$r6}")->getFont()->setBold(true);
+            $sheet6->getStyle("A{$r6}:H{$r6}")->getFill()->setFillType(Fill::FILL_SOLID)->getStartColor()->setRGB('EAECF0');
+            $sheet6->getRowDimension($r6)->setRowHeight(24);
+            $sheet6->getStyle("A2:H{$r6}")->applyFromArray($borderStyle);
+            $sheet6->getStyle("A2:A{$r6}")->getAlignment()->setHorizontal(Alignment::HORIZONTAL_CENTER);
+            $sheet6->getStyle("D2:D{$r6}")->getAlignment()->setHorizontal(Alignment::HORIZONTAL_RIGHT);
+            $sheet6->getStyle("G2:G{$r6}")->getAlignment()->setHorizontal(Alignment::HORIZONTAL_CENTER);
         } else {
-            $sheet3->setCellValue('A3', 'No expense data available for the selected date.');
-            $sheet3->mergeCells('A3:H3');
-            $sheet3->getStyle('A2:H3')->applyFromArray($borderStyle);
+            $sheet6->setCellValue('A3', 'No expense data available for the selected date.');
+            $sheet6->mergeCells('A3:H3');
+            $sheet6->getStyle('A2:H3')->applyFromArray($borderStyle);
         }
-
-        foreach ($cols3 as $colLetter) {
-            $sheet3->getColumnDimension($colLetter)->setAutoSize(true);
+        foreach ($cols6 as $colLetter) {
+            $sheet6->getColumnDimension($colLetter)->setAutoSize(true);
         }
 
         // ============================================================
-        // Sheet 4: Purchase Bill
+        // Sheet 7: Purchase Bill
         // ============================================================
-        $sheet4 = $spreadsheet->createSheet();
-        $sheet4->setTitle('Purchase Bill');
+        $sheet7 = $spreadsheet->createSheet();
+        $sheet7->setTitle('Purchase Bill');
+        $sheet7->mergeCells('A1:H1');
+        $sheet7->setCellValue('A1', 'Purchase Bill Data');
+        $sheet7->getStyle('A1:H1')->applyFromArray($titleStyle);
+        $sheet7->getRowDimension(1)->setRowHeight(30);
 
-        $sheet4->mergeCells('A1:H1');
-        $sheet4->setCellValue('A1', 'Purchase Bill Data');
-        $sheet4->getStyle('A1:H1')->applyFromArray($titleStyle);
-        $sheet4->getRowDimension(1)->setRowHeight(30);
-
-        $headers4 = ['#', 'Bill No', 'Source', 'Destination', 'Total Quantity', 'Amount', 'Status', 'Created By'];
-        $cols4 = ['A', 'B', 'C', 'D', 'E', 'F', 'G', 'H'];
-
-        foreach ($headers4 as $cIdx => $hText) {
-            $sheet4->setCellValue($cols4[$cIdx] . '2', $hText);
+        $headers7 = ['#', 'Bill No', 'Source', 'Destination', 'Total Quantity', 'Amount', 'Status', 'Created By'];
+        $cols7 = ['A', 'B', 'C', 'D', 'E', 'F', 'G', 'H'];
+        foreach ($headers7 as $cIdx => $hText) {
+            $sheet7->setCellValue($cols7[$cIdx] . '2', $hText);
         }
-        $sheet4->getStyle('A2:H2')->applyFromArray($headerStyle);
-        $sheet4->getRowDimension(2)->setRowHeight(26);
+        $sheet7->getStyle('A2:H2')->applyFromArray($headerStyle);
+        $sheet7->getRowDimension(2)->setRowHeight(26);
 
         if ($data['purchaseBillRows']->isNotEmpty()) {
-            $r4 = 3;
-            $sumBillQty = 0;
-            $sumBillAmount = 0.0;
+            $r7 = 3;
+            $sumBillQty = 0; $sumBillAmount = 0.0;
             foreach ($data['purchaseBillRows'] as $idx => $row) {
                 $qty = (int) ($row['total_quantity'] ?? 0);
                 $amt = (float) ($row['amount'] ?? 0);
                 $sumBillQty += $qty;
                 $sumBillAmount += $amt;
-
-                $sheet4->setCellValue('A' . $r4, $idx + 1);
-                $sheet4->setCellValue('B' . $r4, $row['bill_no'] ?? '-');
-                $sheet4->setCellValue('C' . $r4, $row['source'] ?? '-');
-                $sheet4->setCellValue('D' . $r4, $row['destination'] ?? '-');
-                $sheet4->setCellValue('E' . $r4, $qty);
-                $sheet4->setCellValue('F' . $r4, '₹' . number_format($amt, 2));
-                $sheet4->setCellValue('G' . $r4, strip_tags($row['status'] ?? '-'));
-                $sheet4->setCellValue('H' . $r4, $row['created_by'] ?? '-');
-                $sheet4->getRowDimension($r4)->setRowHeight(20);
-                $r4++;
+                $sheet7->setCellValue('A' . $r7, $idx + 1);
+                $sheet7->setCellValue('B' . $r7, $row['bill_no'] ?? '-');
+                $sheet7->setCellValue('C' . $r7, $row['source'] ?? '-');
+                $sheet7->setCellValue('D' . $r7, $row['destination'] ?? '-');
+                $sheet7->setCellValue('E' . $r7, $qty);
+                $sheet7->setCellValue('F' . $r7, '₹' . number_format($amt, 2));
+                $sheet7->setCellValue('G' . $r7, strip_tags($row['status'] ?? '-'));
+                $sheet7->setCellValue('H' . $r7, $row['created_by'] ?? '-');
+                $sheet7->getRowDimension($r7)->setRowHeight(20);
+                $r7++;
             }
-
-            $sheet4->setCellValue('A' . $r4, 'Total');
-            $sheet4->setCellValue('E' . $r4, $sumBillQty);
-            $sheet4->setCellValue('F' . $r4, '₹' . number_format($sumBillAmount, 2));
-            $sheet4->getStyle("A{$r4}:H{$r4}")->getFont()->setBold(true);
-            $sheet4->getStyle("A{$r4}:H{$r4}")->getFill()->setFillType(Fill::FILL_SOLID)->getStartColor()->setRGB('EAECF0');
-            $sheet4->getStyle("A2:H{$r4}")->applyFromArray($borderStyle);
-            $sheet4->getStyle("E2:F{$r4}")->getAlignment()->setHorizontal(Alignment::HORIZONTAL_RIGHT);
+            $sheet7->setCellValue('A' . $r7, 'Total');
+            $sheet7->setCellValue('E' . $r7, $sumBillQty);
+            $sheet7->setCellValue('F' . $r7, '₹' . number_format($sumBillAmount, 2));
+            $sheet7->getStyle("A{$r7}:H{$r7}")->getFont()->setBold(true);
+            $sheet7->getStyle("A{$r7}:H{$r7}")->getFill()->setFillType(Fill::FILL_SOLID)->getStartColor()->setRGB('EAECF0');
+            $sheet7->getRowDimension($r7)->setRowHeight(24);
+            $sheet7->getStyle("A2:H{$r7}")->applyFromArray($borderStyle);
+            $sheet7->getStyle("A2:A{$r7}")->getAlignment()->setHorizontal(Alignment::HORIZONTAL_CENTER);
+            $sheet7->getStyle("E2:F{$r7}")->getAlignment()->setHorizontal(Alignment::HORIZONTAL_RIGHT);
+            $sheet7->getStyle("G2:G{$r7}")->getAlignment()->setHorizontal(Alignment::HORIZONTAL_CENTER);
         } else {
-            $sheet4->setCellValue('A3', 'No purchase bill data available for the selected date.');
-            $sheet4->mergeCells('A3:H3');
-            $sheet4->getStyle('A2:H3')->applyFromArray($borderStyle);
+            $sheet7->setCellValue('A3', 'No purchase bill data available for the selected date.');
+            $sheet7->mergeCells('A3:H3');
+            $sheet7->getStyle('A2:H3')->applyFromArray($borderStyle);
         }
-
-        foreach ($cols4 as $colLetter) {
-            $sheet4->getColumnDimension($colLetter)->setAutoSize(true);
+        foreach ($cols7 as $colLetter) {
+            $sheet7->getColumnDimension($colLetter)->setAutoSize(true);
         }
 
         $spreadsheet->setActiveSheetIndex(0);
@@ -5305,6 +5530,10 @@ class ReportController extends Controller
         } else {
             $locations = Location::where('status', 1)->orderBy('name')->get();
         }
+
+        $defaultLocation = Location::where('is_default', true)->first() ?? Location::first();
+        $defaultLocationId = $defaultLocation ? $defaultLocation->id : null;
+        $isDefaultBranchView = !$locationId || ($defaultLocationId && (int)$locationId === (int)$defaultLocationId);
 
         // Locations included in this report run: either the single filtered one, or every visible one
         $reportLocations = $locationId
@@ -5376,14 +5605,65 @@ class ReportController extends Controller
             $transfersByLocation[$locId] = ['cnt' => (int) $cnt, 'qty' => (int) $qty];
         }
 
-        $branchRows = $reportLocations->map(function ($location) use ($salesByLocation, $expensesByLocation, $purchasesByLocation, $transfersByLocation) {
+        // Branch balance transfers by location (accepted)
+        $btOutByLocation = BranchBalanceTransfer::whereDate('created_at', $date)
+            ->whereIn('from_location_id', $locationIds)
+            ->where('status', BranchBalanceTransfer::STATUS_ACCEPTED)
+            ->selectRaw('from_location_id, COUNT(*) as cnt, SUM(amount) as total')
+            ->groupBy('from_location_id')
+            ->get()
+            ->keyBy('from_location_id');
+
+        $btInByLocation = BranchBalanceTransfer::whereDate('created_at', $date)
+            ->whereIn('to_location_id', $locationIds)
+            ->where('status', BranchBalanceTransfer::STATUS_ACCEPTED)
+            ->selectRaw('to_location_id, COUNT(*) as cnt, SUM(amount) as total')
+            ->groupBy('to_location_id')
+            ->get()
+            ->keyBy('to_location_id');
+
+        // Direct purchase payments out by location
+        $directPaymentsByLocation = PurchasePayment::whereNull('bulk_purchase_payment_id')
+            ->whereDate('purchase_payments.created_at', $date)
+            ->join('purchases', 'purchases.id', '=', 'purchase_payments.purchase_id')
+            ->whereIn('purchases.location_id', $locationIds)
+            ->selectRaw('purchases.location_id, COUNT(purchase_payments.id) as cnt, SUM(purchase_payments.amount) as total')
+            ->groupBy('purchases.location_id')
+            ->get()
+            ->keyBy('location_id');
+
+        $bulkPaymentsTotalForDate = (float) BulkPurchasePayment::whereDate('created_at', $date)->sum('total_amount');
+        $bulkPaymentsCountForDate = (int) BulkPurchasePayment::whereDate('created_at', $date)->count();
+
+        $branchRows = $reportLocations->map(function ($location) use (
+            $salesByLocation,
+            $expensesByLocation,
+            $purchasesByLocation,
+            $transfersByLocation,
+            $btOutByLocation,
+            $btInByLocation,
+            $directPaymentsByLocation,
+            $defaultLocationId,
+            $bulkPaymentsTotalForDate,
+            $bulkPaymentsCountForDate
+        ) {
             $sale = $salesByLocation->get($location->id);
             $expense = $expensesByLocation->get($location->id);
             $purchase = $purchasesByLocation->get($location->id);
             $transfer = $transfersByLocation[$location->id] ?? null;
+            $btOut = $btOutByLocation->get($location->id);
+            $btIn = $btInByLocation->get($location->id);
+            $directPayment = $directPaymentsByLocation->get($location->id);
+
+            $isDefault = $defaultLocationId && (int) $location->id === (int) $defaultLocationId;
+            $directPaymentAmount = (float) ($directPayment->total ?? 0);
+            $directPaymentCount = (int) ($directPayment->cnt ?? 0);
+            $bulkAmount = $isDefault ? $bulkPaymentsTotalForDate : 0.0;
+            $bulkCount = $isDefault ? $bulkPaymentsCountForDate : 0;
 
             return [
                 'location_name' => $location->name,
+                'is_default' => (bool) $location->is_default,
                 'sales_amount' => (float) ($sale->total ?? 0),
                 'sales_count' => (int) ($sale->cnt ?? 0),
                 'purchase_amount' => (float) ($purchase->total ?? 0),
@@ -5392,6 +5672,15 @@ class ReportController extends Controller
                 'expense_count' => (int) ($expense->cnt ?? 0),
                 'transfer_count' => (int) ($transfer['cnt'] ?? 0),
                 'transfer_qty' => (int) ($transfer['qty'] ?? 0),
+                'bt_out_amount' => (float) ($btOut->total ?? 0),
+                'bt_out_count' => (int) ($btOut->cnt ?? 0),
+                'bt_in_amount' => (float) ($btIn->total ?? 0),
+                'bt_in_count' => (int) ($btIn->cnt ?? 0),
+                'direct_payment_amount' => $directPaymentAmount,
+                'direct_payment_count' => $directPaymentCount,
+                'bulk_payment_amount' => $bulkAmount,
+                'bulk_payment_count' => $bulkCount,
+                'payment_out_total' => $directPaymentAmount + $bulkAmount,
             ];
         })->values();
 
@@ -5559,22 +5848,169 @@ class ReportController extends Controller
                 ];
             });
 
+        // ── Branch Balance Transfers ─────────────────────────────────────
+        $balanceTransferStatusLabels = [
+            BranchBalanceTransfer::STATUS_PENDING  => 'Pending',
+            BranchBalanceTransfer::STATUS_ACCEPTED => 'Accepted',
+            BranchBalanceTransfer::STATUS_REJECTED => 'Rejected',
+        ];
+        $balanceTransferStatusColors = [
+            BranchBalanceTransfer::STATUS_PENDING  => 'bg-label-warning',
+            BranchBalanceTransfer::STATUS_ACCEPTED => 'bg-label-success',
+            BranchBalanceTransfer::STATUS_REJECTED => 'bg-label-danger',
+        ];
+
+        $balanceTransferQuery = BranchBalanceTransfer::with(['fromLocation', 'toLocation', 'createdBy', 'actionedBy'])
+            ->whereDate('created_at', $date);
+
+        if ($locationId) {
+            $balanceTransferQuery->where(function ($q) use ($locationId) {
+                $q->where('from_location_id', $locationId)
+                  ->orWhere('to_location_id', $locationId);
+            });
+        } else {
+            $balanceTransferQuery->where(function ($q) use ($locationIds) {
+                $q->whereIn('from_location_id', $locationIds)
+                  ->orWhereIn('to_location_id', $locationIds);
+            });
+        }
+
+        $branchBalanceTransferRows = $balanceTransferQuery
+            ->latest()
+            ->latest('id')
+            ->get()
+            ->values()
+            ->map(function ($transfer, $index) use ($balanceTransferStatusLabels, $balanceTransferStatusColors, $badge) {
+                return [
+                    'index'         => $index + 1,
+                    'transfer_no'   => $transfer->transfer_no,
+                    'from_location' => $transfer->fromLocation->name ?? '-',
+                    'to_location'   => $transfer->toLocation->name ?? '-',
+                    'balance_type'  => ucfirst($transfer->balance_type ?? 'cash'),
+                    'amount'        => (float) $transfer->amount,
+                    'status'        => $badge($balanceTransferStatusLabels[$transfer->status] ?? 'Pending', $balanceTransferStatusColors[$transfer->status] ?? 'bg-label-warning'),
+                    'status_text'   => $balanceTransferStatusLabels[$transfer->status] ?? 'Pending',
+                    'notes'         => $transfer->notes ?? '-',
+                    'created_by'    => $transfer->createdBy->name ?? '-',
+                    'actioned_by'   => $transfer->actionedBy->name ?? '-',
+                    'created_at'    => $transfer->created_at ? $transfer->created_at->format('d M Y h:i A') : '-',
+                ];
+            });
+
+        $totalBalanceTransfersCount = $branchBalanceTransferRows->count();
+        $totalBalanceTransfersAmount = (float) $branchBalanceTransferRows->sum('amount');
+
+        // ── Purchase Payments Out (Direct / Make Payment) ────────────────
+        $purchasePaymentQuery = PurchasePayment::with(['purchase.supplier', 'purchase.location', 'purchase.items.allocations.location', 'createdBy'])
+            ->whereNull('bulk_purchase_payment_id')
+            ->whereDate('created_at', $date);
+
+        if ($locationId) {
+            $purchasePaymentQuery->whereHas('purchase', function ($q) use ($locationId) {
+                $q->where('location_id', $locationId)
+                  ->orWhere(function ($sub) use ($locationId) {
+                      $sub->whereNull('location_id')
+                          ->whereHas('items.allocations', fn($a) => $a->where('location_id', $locationId));
+                  });
+            });
+        } else {
+            $purchasePaymentQuery->whereHas('purchase', function ($q) use ($locationIds) {
+                $q->whereIn('location_id', $locationIds)
+                  ->orWhere(function ($sub) use ($locationIds) {
+                      $sub->whereNull('location_id')
+                          ->whereHas('items.allocations', fn($a) => $a->whereIn('location_id', $locationIds));
+                  });
+            });
+        }
+
+        $purchasePaymentRows = $purchasePaymentQuery
+            ->latest()
+            ->latest('id')
+            ->get()
+            ->values()
+            ->map(function ($payment, $index) {
+                $purchase = $payment->purchase;
+                $locName = $purchase->location->name ?? null;
+                if (!$locName && $purchase && $purchase->items) {
+                    $alloc = $purchase->items->flatMap->allocations->first();
+                    $locName = $alloc?->location?->name;
+                }
+
+                return [
+                    'index'        => $index + 1,
+                    'purchase_no'  => $purchase->invoice_no ?? '-',
+                    'supplier'     => $purchase->supplier->name ?? '-',
+                    'location'     => $locName ?? '-',
+                    'amount'       => (float) $payment->amount,
+                    'payment_type' => $payment->is_advance ? 'Advance Settlement' : 'Direct Payment',
+                    'method'       => ($purchase && $purchase->payment_method) ? ucwords(str_replace('_', ' ', (string) $purchase->payment_method)) : 'Cash',
+                    'created_by'   => $payment->createdBy->name ?? '-',
+                    'created_at'   => $payment->created_at ? $payment->created_at->format('d M Y h:i A') : '-',
+                ];
+            });
+
+        $totalPurchasePaymentsCount = $purchasePaymentRows->count();
+        $totalPurchasePaymentsAmount = (float) $purchasePaymentRows->sum('amount');
+
+        // ── Bulk Purchase Payments (Centralized: Default Branch Only) ────
+        if ($isDefaultBranchView) {
+            $bulkPaymentQuery = BulkPurchasePayment::with(['supplier', 'createdBy'])
+                ->whereDate('created_at', $date);
+
+            $bulkPurchasePaymentRows = $bulkPaymentQuery
+                ->latest()
+                ->latest('id')
+                ->get()
+                ->values()
+                ->map(function ($bulkPayment, $index) use ($defaultLocation) {
+                    return [
+                        'index'          => $index + 1,
+                        'payment_id'     => 'BP-' . str_pad($bulkPayment->id, 5, '0', STR_PAD_LEFT),
+                        'supplier'       => $bulkPayment->supplier->name ?? 'All Suppliers',
+                        'location'       => $defaultLocation->name ?? 'Head Office',
+                        'amount'         => (float) $bulkPayment->total_amount,
+                        'method'         => $bulkPayment->payment_method ? ucwords(str_replace('_', ' ', (string) $bulkPayment->payment_method)) : 'Cash',
+                        'description'    => $bulkPayment->description ?? '-',
+                        'created_by'     => $bulkPayment->createdBy->name ?? '-',
+                        'created_at'     => $bulkPayment->created_at ? $bulkPayment->created_at->format('d M Y h:i A') : '-',
+                    ];
+                });
+        } else {
+            $bulkPurchasePaymentRows = collect();
+        }
+
+        $totalBulkPaymentsCount = $bulkPurchasePaymentRows->count();
+        $totalBulkPaymentsAmount = (float) $bulkPurchasePaymentRows->sum('amount');
+        $totalOverallPaymentsOut = $totalPurchasePaymentsAmount + $totalBulkPaymentsAmount;
+
         return [
-            'branchRows' => $branchRows,
-            'salesRows' => $salesRows,
-            'purchaseRows' => $purchaseRows,
-            'expenseRows' => $expenseRows,
-            'purchaseBillRows' => $purchaseBillRows,
-            'totalSales' => $totalSales,
-            'totalPendingSales' => $totalPendingSales,
-            'totalSalesCount' => $totalSalesCount,
-            'totalPurchases' => $totalPurchases,
-            'totalPendingPurchases' => $totalPendingPurchases,
-            'totalPurchasesCount' => $totalPurchasesCount,
-            'totalExpenses' => $totalExpenses,
-            'totalExpensesCount' => $totalExpensesCount,
-            'totalTransfersCount' => $totalTransfersCount,
-            'totalTransfersQty' => $totalTransfersQty,
+            'branchRows'                  => $branchRows,
+            'salesRows'                   => $salesRows,
+            'purchaseRows'                => $purchaseRows,
+            'expenseRows'                 => $expenseRows,
+            'purchaseBillRows'            => $purchaseBillRows,
+            'branchBalanceTransferRows'   => $branchBalanceTransferRows,
+            'purchasePaymentRows'         => $purchasePaymentRows,
+            'bulkPurchasePaymentRows'     => $bulkPurchasePaymentRows,
+            'isDefaultBranchView'         => $isDefaultBranchView,
+            'defaultLocationName'         => $defaultLocation->name ?? 'Default Branch',
+            'totalSales'                  => $totalSales,
+            'totalPendingSales'           => $totalPendingSales,
+            'totalSalesCount'             => $totalSalesCount,
+            'totalPurchases'              => $totalPurchases,
+            'totalPendingPurchases'       => $totalPendingPurchases,
+            'totalPurchasesCount'         => $totalPurchasesCount,
+            'totalExpenses'               => $totalExpenses,
+            'totalExpensesCount'          => $totalExpensesCount,
+            'totalTransfersCount'         => $totalTransfersCount,
+            'totalTransfersQty'           => $totalTransfersQty,
+            'totalBalanceTransfersCount'  => $totalBalanceTransfersCount,
+            'totalBalanceTransfersAmount' => $totalBalanceTransfersAmount,
+            'totalPurchasePaymentsCount'  => $totalPurchasePaymentsCount,
+            'totalPurchasePaymentsAmount' => $totalPurchasePaymentsAmount,
+            'totalBulkPaymentsCount'      => $totalBulkPaymentsCount,
+            'totalBulkPaymentsAmount'     => $totalBulkPaymentsAmount,
+            'totalOverallPaymentsOut'     => $totalOverallPaymentsOut,
         ];
     }
 

@@ -573,11 +573,14 @@ input[readonly].flatpickr,
 }
 
 /*
-* Prevent main window double scrollbar when Offcanvas sidebar is open
+* Prevent main window double scrollbar when Offcanvas sidebar or Modal is open
 ******************************************************************************/
 html:has(.offcanvas.show),
 body:has(.offcanvas.show),
-body.offcanvas-open {
+body.offcanvas-open,
+html:has(.modal.show),
+body:has(.modal.show),
+body.modal-open {
   overflow: hidden !important;
 }
 

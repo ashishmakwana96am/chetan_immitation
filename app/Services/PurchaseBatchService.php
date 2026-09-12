@@ -69,6 +69,8 @@ class PurchaseBatchService
             return;
         }
 
+        Product::clearPreloadedVariantStock();
+
         // 1. Get total live physical stock from inventories
         if ($product && $product->type === 'variable' && $productVariantId) {
             $variantStockMap = $product->getVariantStock($locationId);
@@ -123,7 +125,7 @@ class PurchaseBatchService
             ->where('purchase_bill_items.product_id', $productId)
             ->whereNull('purchase_bill_items.deleted_at')
             ->whereNull('purchase_bills.deleted_at')
-            ->whereIn('purchase_bills.status', [1, 2])
+            ->where('purchase_bills.status', PurchaseBill::STATUS_ACCEPTED)
             ->where('purchase_bills.to_location_id', $locationId)
             ->when($productVariantId, fn($q) => $q->where('purchase_bill_items.product_variant_id', $productVariantId), fn($q) => $q->whereNull('purchase_bill_items.product_variant_id'))
             ->select(
@@ -176,7 +178,7 @@ class PurchaseBatchService
                 }
             }
 
-            $soldQuery = DB::table('order_items')
+            $soldOrderItems = DB::table('order_items')
                 ->join('orders', 'orders.id', '=', 'order_items.order_id')
                 ->where('order_items.product_id', $productId)
                 ->where('orders.location_id', $locationId)
@@ -184,19 +186,27 @@ class PurchaseBatchService
                 ->whereNull('orders.deleted_at')
                 ->where('orders.status', Order::STATUS_APPROVE)
                 ->when($productVariantId, fn($q) => $q->where('order_items.product_variant_id', $productVariantId), fn($q) => $q->whereNull('order_items.product_variant_id'))
-                ->whereRaw('ABS(ROUND(order_items.purchase_price / NULLIF(order_items.quantity * CASE 
-                    WHEN order_items.custom_size_value IS NOT NULL AND order_items.custom_size_value > 0 THEN order_items.custom_size_value
-                    WHEN order_items.pair_type = "pair" THEN 2.0
-                    ELSE 1.0
-                END, 0), 2) - ?) < 0.05', [$rawPrice]);
+                ->select('order_items.*')
+                ->get();
 
-            $soldQty = (float) $soldQuery->sum(DB::raw('order_items.quantity * CASE 
-                WHEN order_items.custom_size_value IS NOT NULL AND order_items.custom_size_value > 0 THEN order_items.custom_size_value
-                WHEN order_items.pair_type = "pair" THEN 2.0
-                ELSE 1.0
-            END'));
+            $soldQty = 0.0;
+            foreach ($soldOrderItems as $soi) {
+                $soiPrice = (float) $soi->purchase_price;
+                $soiQty = max(1.0, (float)$soi->quantity);
+                $soiMultiplier = self::multiplierForProduct($product, $soi->pair_type ?? null, $soi->custom_size_value ?? null);
+                $physQty = max(1.0, $soiQty * $soiMultiplier);
 
-            $transferredOutQuery = DB::table('purchase_bill_items')
+                $isMatch = (abs($soiPrice - $rawPrice) < 0.05)
+                    || (abs(($soiPrice / $soiQty) - $rawPrice) < 0.05)
+                    || (abs(($soiPrice / $physQty) - $rawPrice) < 0.05)
+                    || (abs(($soiPrice / 2.0) - $rawPrice) < 0.05);
+
+                if ($isMatch) {
+                    $soldQty += $physQty;
+                }
+            }
+
+            $transferredOutBills = DB::table('purchase_bill_items')
                 ->join('purchase_bills', 'purchase_bills.id', '=', 'purchase_bill_items.purchase_bill_id')
                 ->where('purchase_bill_items.product_id', $productId)
                 ->where('purchase_bills.from_location_id', $locationId)
@@ -204,13 +214,31 @@ class PurchaseBatchService
                 ->whereNull('purchase_bills.deleted_at')
                 ->where('purchase_bills.status', PurchaseBill::STATUS_ACCEPTED)
                 ->when($productVariantId, fn($q) => $q->where('purchase_bill_items.product_variant_id', $productVariantId), fn($q) => $q->whereNull('purchase_bill_items.product_variant_id'))
-                ->whereRaw('ABS(ROUND(purchase_bill_items.purchase_price, 2) - ?) < 0.05', [$rawPrice]);
+                ->select('purchase_bill_items.*')
+                ->get();
 
-            $transferredOutQty = (float) $transferredOutQuery->sum(DB::raw('purchase_bill_items.quantity * CASE 
-                WHEN purchase_bill_items.custom_size_value IS NOT NULL AND purchase_bill_items.custom_size_value > 0 THEN purchase_bill_items.custom_size_value
-                WHEN purchase_bill_items.pair_type = "pair" THEN 2.0
-                ELSE 1.0
-            END'));
+            $transferredOutQty = 0.0;
+            foreach ($transferredOutBills as $tob) {
+                $tPrice = (float) $tob->purchase_price;
+                $tMultiplier = self::multiplierForProduct($product, $tob->pair_type ?? null, $tob->custom_size_value ?? null);
+                $tPhysQty = (float) $tob->quantity * $tMultiplier;
+
+                $isMatch = (abs($tPrice - $rawPrice) < 0.05);
+
+                if (!$isMatch && $product && $product->pair_product && !empty($product->custom_sizes)) {
+                    $sizes = $product->custom_sizes;
+                    $maxSize = collect($sizes)->pluck('size')->map(fn($s) => (float)$s)->filter(fn($s) => $s > 0)->max() ?: 1.0;
+                    $tSize = (float) ($tob->custom_size_value ?: $maxSize);
+                    $calcBasePrice = ($tSize > 0 && $maxSize > 0) ? ($tPrice * ($maxSize / $tSize)) : $tPrice;
+                    if (abs($calcBasePrice - $rawPrice) < 0.05) {
+                        $isMatch = true;
+                    }
+                }
+
+                if ($isMatch) {
+                    $transferredOutQty += $tPhysQty;
+                }
+            }
 
             $remainingQty = max(0, $allocatedQty - $soldQty - $transferredOutQty);
 
