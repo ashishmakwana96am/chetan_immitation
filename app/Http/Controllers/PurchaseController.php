@@ -1073,7 +1073,7 @@ class PurchaseController extends Controller
         $deleteSales = $request->boolean('delete_sales');
 
         $originalInvoiceNo = $purchase->invoice_no;
-        $purchase->load(['items.product']);
+        $purchase->load(['items.product', 'items.allocations']);
         $oldItemsSnapshot = $purchase->items->map(function ($item) {
             return [
                 'product_id'         => $item->product_id,
@@ -1095,7 +1095,18 @@ class PurchaseController extends Controller
             'payment_method' => $purchase->payment_method,
         ];
 
-        DB::transaction(function () use ($purchase, $deleteSales) {
+        $purchaseLocationId = $purchase->items->flatMap->allocations->pluck('location_id')->first()
+            ?? $purchase->location_id
+            ?? 1;
+        $productIds = $purchase->items->pluck('product_id')->unique()->all();
+
+        $transferLocationIds = \App\Models\PurchaseBill::where('from_location_id', $purchaseLocationId)
+            ->pluck('to_location_id')
+            ->unique()
+            ->all();
+        $allAffectedLocations = array_unique(array_filter(array_merge([$purchaseLocationId], $transferLocationIds)));
+
+        DB::transaction(function () use ($purchase, $deleteSales, $allAffectedLocations, $productIds) {
             \App\Models\SupplierAdvancePayment::restoreAdvanceForPurchase($purchase);
 
             if ($deleteSales) {
@@ -1121,6 +1132,12 @@ class PurchaseController extends Controller
                 $purchase->update(['invoice_no' => 'DEL-' . $purchase->id . '-' . $purchase->invoice_no]);
                 $purchase->delete();
             });
+
+            foreach ($allAffectedLocations as $locId) {
+                foreach ($productIds as $prodId) {
+                    \App\Services\PurchaseBatchService::syncProductBatchStocks((int)$locId, (int)$prodId);
+                }
+            }
         });
 
         ActivityLogger::log(

@@ -303,13 +303,12 @@ class PurchaseBatchService
             }
         }
 
-        // Clean up zero quantity zero price batch stock records
+        // Clean up zero quantity batch stock records (e.g. from deleted purchases/transfers)
         DB::table('purchase_batch_stocks')
             ->where('location_id', $locationId)
             ->where('product_id', $productId)
             ->when($productVariantId, fn($q) => $q->where('product_variant_id', $productVariantId), fn($q) => $q->whereNull('product_variant_id'))
-            ->where('purchase_price', 0)
-            ->where('quantity', 0)
+            ->where('quantity', '<=', 0)
             ->delete();
     }
 
