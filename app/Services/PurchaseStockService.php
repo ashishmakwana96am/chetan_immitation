@@ -494,125 +494,151 @@ class PurchaseStockService
         $affectedLocations = [$purchaseLocationId];
         $stockChanges = [];
 
-        foreach ($purchase->items as $item) {
-            $product = $item->product;
-            $multiplier = self::multiplierFor($item);
-            $totalPurchasedQty = (int) round($item->quantity * $multiplier);
-            $priceKey = number_format((float)$item->purchase_price, 2, '.', '');
+        if ($reason === 'edit') {
+            foreach ($purchase->items as $item) {
+                $product = $item->product;
+                $multiplier = self::multiplierFor($item);
+                $totalPurchasedQty = (int) round($item->quantity * $multiplier);
 
-            $transferredOutQty = 0;
-            foreach ($transferredStockByProductLoc as $k => $tQty) {
-                $prefix = $item->product_id . '_' . ($item->product_variant_id ?? 0) . '_' . $priceKey . '_';
-                if (str_starts_with($k, $prefix)) {
-                    $locId = (int) substr($k, strlen($prefix));
-                    $affectedLocations[] = $locId;
+                $sourceInv = Inventory::where('product_id', $item->product_id)->where('location_id', $purchaseLocationId)->first();
+                if ($sourceInv) {
+                    $oldSrcQty = (int) $sourceInv->quantity;
+                    $deductSrc = min($oldSrcQty, $totalPurchasedQty);
+                    $sourceInv->update(['quantity' => max(0, $oldSrcQty - $deductSrc)]);
 
-                    $destInv = Inventory::where('product_id', $item->product_id)->where('location_id', $locId)->first();
-                    if ($destInv) {
-                        $oldDestQty = (int) $destInv->quantity;
-                        $deductDest = min($oldDestQty, $tQty);
-                        $destInv->update(['quantity' => max(0, $oldDestQty - $deductDest)]);
-
-                        $locObj = Location::find($locId);
-                        $stockChanges[] = [
-                            'product_name' => $product?->name ?? ('Product #' . $item->product_id),
-                            'barcode'      => $product?->barcode ?: '-',
-                            'location'     => $locObj?->name ?? ('Location #' . $locId),
-                            'old_quantity' => $oldDestQty,
-                            'new_quantity' => max(0, $oldDestQty - $deductDest),
-                            'qty_deducted' => '-' . $deductDest,
-                        ];
-                    }
-                    PurchaseBatchService::deductBatchStock($locId, (int)$item->product_id, !empty($item->product_variant_id) ? (int)$item->product_variant_id : null, (float)$item->purchase_price, (float)$tQty);
-                    $transferredOutQty += $tQty;
+                    $srcLocObj = Location::find($purchaseLocationId);
+                    $stockChanges[] = [
+                        'product_name' => $product?->name ?? ('Product #' . $item->product_id),
+                        'barcode'      => $product?->barcode ?: '-',
+                        'location'     => $srcLocObj?->name ?? ('Location #' . $purchaseLocationId),
+                        'old_quantity' => $oldSrcQty,
+                        'new_quantity' => max(0, $oldSrcQty - $deductSrc),
+                        'qty_deducted' => '-' . $deductSrc,
+                    ];
                 }
+                PurchaseBatchService::deductBatchStock($purchaseLocationId, (int)$item->product_id, !empty($item->product_variant_id) ? (int)$item->product_variant_id : null, (float)$item->purchase_price, (float)$totalPurchasedQty);
             }
+        } else {
+            // On purchase deletion, reverse stock from destination branches and remove/adjust transfers
+            foreach ($purchase->items as $item) {
+                $product = $item->product;
+                $multiplier = self::multiplierFor($item);
+                $totalPurchasedQty = (int) round($item->quantity * $multiplier);
+                $priceKey = number_format((float)$item->purchase_price, 2, '.', '');
 
-            $sourceDeductQty = max(0, $totalPurchasedQty - $transferredOutQty);
-            $sourceInv = Inventory::where('product_id', $item->product_id)->where('location_id', $purchaseLocationId)->first();
-            if ($sourceInv) {
-                $oldSrcQty = (int) $sourceInv->quantity;
-                $deductSrc = min($oldSrcQty, $sourceDeductQty);
-                $sourceInv->update(['quantity' => max(0, $oldSrcQty - $deductSrc)]);
+                $transferredOutQty = 0;
+                foreach ($transferredStockByProductLoc as $k => $tQty) {
+                    $prefix = $item->product_id . '_' . ($item->product_variant_id ?? 0) . '_' . $priceKey . '_';
+                    if (str_starts_with($k, $prefix)) {
+                        $locId = (int) substr($k, strlen($prefix));
+                        $affectedLocations[] = $locId;
 
-                $srcLocObj = Location::find($purchaseLocationId);
-                $stockChanges[] = [
-                    'product_name' => $product?->name ?? ('Product #' . $item->product_id),
-                    'barcode'      => $product?->barcode ?: '-',
-                    'location'     => $srcLocObj?->name ?? ('Location #' . $purchaseLocationId),
-                    'old_quantity' => $oldSrcQty,
-                    'new_quantity' => max(0, $oldSrcQty - $deductSrc),
-                    'qty_deducted' => '-' . $deductSrc,
-                ];
-            }
-            PurchaseBatchService::deductBatchStock($purchaseLocationId, (int)$item->product_id, !empty($item->product_variant_id) ? (int)$item->product_variant_id : null, (float)$item->purchase_price, (float)$sourceDeductQty);
-        }
+                        $destInv = Inventory::where('product_id', $item->product_id)->where('location_id', $locId)->first();
+                        if ($destInv) {
+                            $oldDestQty = (int) $destInv->quantity;
+                            $deductDest = min($oldDestQty, $tQty);
+                            $destInv->update(['quantity' => max(0, $oldDestQty - $deductDest)]);
 
-        foreach ($transfers as $transfer) {
-            if ($transfer->status == PurchaseBill::STATUS_REJECTED) continue;
-
-            $billItemsChanged = false;
-            foreach ($transfer->items as $tbItem) {
-                // Must match product, variant AND exact purchase_price of an item in this purchase!
-                $matchingPurchaseItem = $purchase->items->first(function ($pi) use ($tbItem) {
-                    return (int)$pi->product_id === (int)$tbItem->product_id
-                        && (int)($pi->product_variant_id ?? 0) === (int)($tbItem->product_variant_id ?? 0)
-                        && abs((float)$pi->purchase_price - (float)$tbItem->purchase_price) < 0.01;
-                });
-
-                if (!$matchingPurchaseItem) continue;
-
-                $deductBillItemQty = (int) min((int)$tbItem->quantity, (int)$matchingPurchaseItem->quantity);
-                $newBillItemQty = max(0, (int)$tbItem->quantity - $deductBillItemQty);
-
-                if ($newBillItemQty <= 0) {
-                    $tbItem->delete();
-                } else {
-                    $tbItem->update(['quantity' => $newBillItemQty]);
-                }
-                $billItemsChanged = true;
-            }
-
-            if ($billItemsChanged) {
-                $transfer->load('items');
-                $remainingItemsCount = $transfer->items()->count();
-                $oldPaidAmount = (float) ($transfer->paid_amount ?? 0);
-
-                if ($remainingItemsCount === 0) {
-                    if ($oldPaidAmount > 0) {
-                        self::adjustPurchaseBillLocationBalance($transfer, $oldPaidAmount);
+                            $locObj = Location::find($locId);
+                            $stockChanges[] = [
+                                'product_name' => $product?->name ?? ('Product #' . $item->product_id),
+                                'barcode'      => $product?->barcode ?: '-',
+                                'location'     => $locObj?->name ?? ('Location #' . $locId),
+                                'old_quantity' => $oldDestQty,
+                                'new_quantity' => max(0, $oldDestQty - $deductDest),
+                                'qty_deducted' => '-' . $deductDest,
+                            ];
+                        }
+                        PurchaseBatchService::deductBatchStock($locId, (int)$item->product_id, !empty($item->product_variant_id) ? (int)$item->product_variant_id : null, (float)$item->purchase_price, (float)$tQty);
+                        $transferredOutQty += $tQty;
                     }
-                    $transfer->payments()->delete();
-                    $transfer->delete();
-                } else {
-                    $newTotalAmount = self::calculatePurchaseBillTotal($transfer);
-                    $newPaidAmount = min($oldPaidAmount, $newTotalAmount);
-                    $excessPaid = max(0.0, round($oldPaidAmount - $newPaidAmount, 2));
+                }
 
-                    if ($excessPaid > 0) {
-                        self::adjustPurchaseBillLocationBalance($transfer, $excessPaid);
-                        $payments = $transfer->payments()->latest()->get();
-                        $diffToReduce = $excessPaid;
-                        foreach ($payments as $p) {
-                            if ($diffToReduce <= 0) break;
-                            if ((float)$p->amount <= $diffToReduce) {
-                                $diffToReduce -= (float)$p->amount;
-                                $p->delete();
-                            } else {
-                                $p->update(['amount' => (float)$p->amount - $diffToReduce]);
-                                $diffToReduce = 0;
+                $sourceDeductQty = max(0, $totalPurchasedQty - $transferredOutQty);
+                $sourceInv = Inventory::where('product_id', $item->product_id)->where('location_id', $purchaseLocationId)->first();
+                if ($sourceInv) {
+                    $oldSrcQty = (int) $sourceInv->quantity;
+                    $deductSrc = min($oldSrcQty, $sourceDeductQty);
+                    $sourceInv->update(['quantity' => max(0, $oldSrcQty - $deductSrc)]);
+
+                    $srcLocObj = Location::find($purchaseLocationId);
+                    $stockChanges[] = [
+                        'product_name' => $product?->name ?? ('Product #' . $item->product_id),
+                        'barcode'      => $product?->barcode ?: '-',
+                        'location'     => $srcLocObj?->name ?? ('Location #' . $purchaseLocationId),
+                        'old_quantity' => $oldSrcQty,
+                        'new_quantity' => max(0, $oldSrcQty - $deductSrc),
+                        'qty_deducted' => '-' . $deductSrc,
+                    ];
+                }
+                PurchaseBatchService::deductBatchStock($purchaseLocationId, (int)$item->product_id, !empty($item->product_variant_id) ? (int)$item->product_variant_id : null, (float)$item->purchase_price, (float)$sourceDeductQty);
+            }
+
+            foreach ($transfers as $transfer) {
+                if ($transfer->status == PurchaseBill::STATUS_REJECTED) continue;
+
+                $billItemsChanged = false;
+                foreach ($transfer->items as $tbItem) {
+                    $matchingPurchaseItem = $purchase->items->first(function ($pi) use ($tbItem) {
+                        return (int)$pi->product_id === (int)$tbItem->product_id
+                            && (int)($pi->product_variant_id ?? 0) === (int)($tbItem->product_variant_id ?? 0)
+                            && abs((float)$pi->purchase_price - (float)$tbItem->purchase_price) < 0.01;
+                    });
+
+                    if (!$matchingPurchaseItem) continue;
+
+                    $deductBillItemQty = (int) min((int)$tbItem->quantity, (int)$matchingPurchaseItem->quantity);
+                    $newBillItemQty = max(0, (int)$tbItem->quantity - $deductBillItemQty);
+
+                    if ($newBillItemQty <= 0) {
+                        $tbItem->delete();
+                    } else {
+                        $tbItem->update(['quantity' => $newBillItemQty]);
+                    }
+                    $billItemsChanged = true;
+                }
+
+                if ($billItemsChanged) {
+                    $transfer->load('items');
+                    $remainingItemsCount = $transfer->items()->count();
+                    $oldPaidAmount = (float) ($transfer->paid_amount ?? 0);
+
+                    if ($remainingItemsCount === 0) {
+                        if ($oldPaidAmount > 0) {
+                            self::adjustPurchaseBillLocationBalance($transfer, $oldPaidAmount);
+                        }
+                        $transfer->payments()->delete();
+                        $transfer->delete();
+                    } else {
+                        $newTotalAmount = self::calculatePurchaseBillTotal($transfer);
+                        $newPaidAmount = min($oldPaidAmount, $newTotalAmount);
+                        $excessPaid = max(0.0, round($oldPaidAmount - $newPaidAmount, 2));
+
+                        if ($excessPaid > 0) {
+                            self::adjustPurchaseBillLocationBalance($transfer, $excessPaid);
+                            $payments = $transfer->payments()->latest()->get();
+                            $diffToReduce = $excessPaid;
+                            foreach ($payments as $p) {
+                                if ($diffToReduce <= 0) break;
+                                if ((float)$p->amount <= $diffToReduce) {
+                                    $diffToReduce -= (float)$p->amount;
+                                    $p->delete();
+                                } else {
+                                    $p->update(['amount' => (float)$p->amount - $diffToReduce]);
+                                    $diffToReduce = 0;
+                                }
                             }
                         }
+
+                        $newPaymentStatus = ($newPaidAmount >= $newTotalAmount && $newTotalAmount > 0)
+                            ? PurchaseBill::PAYMENT_STATUS_PAID
+                            : ($newPaidAmount > 0 ? PurchaseBill::PAYMENT_STATUS_PARTIAL : PurchaseBill::PAYMENT_STATUS_PENDING);
+
+                        $transfer->update([
+                            'paid_amount'    => $newPaidAmount,
+                            'payment_status' => $newPaymentStatus,
+                        ]);
                     }
-
-                    $newPaymentStatus = ($newPaidAmount >= $newTotalAmount && $newTotalAmount > 0)
-                        ? PurchaseBill::PAYMENT_STATUS_PAID
-                        : ($newPaidAmount > 0 ? PurchaseBill::PAYMENT_STATUS_PARTIAL : PurchaseBill::PAYMENT_STATUS_PENDING);
-
-                    $transfer->update([
-                        'paid_amount'    => $newPaidAmount,
-                        'payment_status' => $newPaymentStatus,
-                    ]);
                 }
             }
         }
