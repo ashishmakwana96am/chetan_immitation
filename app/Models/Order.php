@@ -17,8 +17,12 @@ class Order extends Model
 
     protected static function booted(): void
     {
-        static::saved(fn () => \App\Http\Controllers\DashboardController::clearDashboardCaches());
-        static::deleted(fn () => \App\Http\Controllers\DashboardController::clearDashboardCaches());
+        static::saved(function () {
+            Product::clearMappedCaches();
+        });
+        static::deleted(function () {
+            Product::clearMappedCaches();
+        });
     }
 
     const STATUS_PENDING = 1;

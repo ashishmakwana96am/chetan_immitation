@@ -257,11 +257,18 @@ class PurchaseStockService
             ->unique()
             ->all();
 
+        $createdAtMin = $purchase->created_at ? $purchase->created_at->subMinutes(5) : null;
+
         $matchingOrderItems = OrderItem::query()
             ->with(['product', 'order'])
             ->whereIn('product_id', $productIds)
             ->whereNull('deleted_at')
-            ->whereHas('order', fn($q) => $q->whereNull('deleted_at')->where('order_type', 'sale')->where('status', '!=', 3))
+            ->whereHas('order', function ($q) use ($createdAtMin) {
+                $q->whereNull('deleted_at')->where('order_type', 'sale')->where('status', '!=', 3);
+                if ($createdAtMin) {
+                    $q->where('created_at', '>=', $createdAtMin);
+                }
+            })
             ->get();
 
         $orderIdsLocation = [];
@@ -406,8 +413,11 @@ class PurchaseStockService
                 'product_id'         => (int) $pi->product_id,
                 'product_variant_id' => (int) ($pi->product_variant_id ?? 0),
                 'purchase_price'     => (float) $pi->purchase_price,
+                'purchased_quantity' => (int) $pi->quantity,
             ];
         });
+
+        $createdAtMin = $purchase->created_at ? $purchase->created_at->subMinutes(5) : null;
 
         $orderItemsDirect = OrderItem::query()
             ->with('product')
@@ -416,13 +426,18 @@ class PurchaseStockService
             ->whereHas('order', fn($q) => $q->whereNull('deleted_at')->where('order_type', 'sale')->where('status', '!=', 3))
             ->get();
 
-        $orderItemsByProd = OrderItem::query()
+        $orderItemsByProdQuery = OrderItem::query()
             ->with('product')
             ->whereIn('product_id', $productIds)
             ->whereNull('deleted_at')
-            ->whereHas('order', fn($q) => $q->whereNull('deleted_at')->where('order_type', 'sale')->where('status', '!=', 3))
-            ->get();
+            ->whereHas('order', function ($q) use ($createdAtMin) {
+                $q->whereNull('deleted_at')->where('order_type', 'sale')->where('status', '!=', 3);
+                if ($createdAtMin) {
+                    $q->where('created_at', '>=', $createdAtMin);
+                }
+            });
 
+        $orderItemsByProd = $orderItemsByProdQuery->get();
         $allSoldItems = $orderItemsDirect->merge($orderItemsByProd)->unique('id');
 
         $soldMap = [];
@@ -431,10 +446,15 @@ class PurchaseStockService
                 if (self::isMatchingOrderItemSingle($oi, $sig)) {
                     $priceKey = number_format((float)$sig['purchase_price'], 2, '.', '');
                     $key = $sig['product_id'] . '_' . $sig['product_variant_id'] . '_' . $priceKey;
-                    $soldMap[$key] = ($soldMap[$key] ?? 0) + (int)$oi->quantity;
-
                     $shortKey = $sig['product_id'] . '_' . $sig['product_variant_id'];
-                    $soldMap[$shortKey] = ($soldMap[$shortKey] ?? 0) + (int)$oi->quantity;
+                    $maxQty = (int) $sig['purchased_quantity'];
+
+                    $currentSold = $soldMap[$key] ?? 0;
+                    if ($currentSold < $maxQty) {
+                        $addQty = min((int)$oi->quantity, $maxQty - $currentSold);
+                        $soldMap[$key] = $currentSold + $addQty;
+                        $soldMap[$shortKey] = ($soldMap[$shortKey] ?? 0) + $addQty;
+                    }
                     break;
                 }
             }
@@ -499,12 +519,14 @@ class PurchaseStockService
                 $product = $item->product;
                 $multiplier = self::multiplierFor($item);
                 $totalPurchasedQty = (int) round($item->quantity * $multiplier);
+                $priceKey = number_format((float)$item->purchase_price, 2, '.', '');
 
                 $sourceInv = Inventory::where('product_id', $item->product_id)->where('location_id', $purchaseLocationId)->first();
                 if ($sourceInv) {
                     $oldSrcQty = (int) $sourceInv->quantity;
-                    $deductSrc = min($oldSrcQty, $totalPurchasedQty);
-                    $sourceInv->update(['quantity' => max(0, $oldSrcQty - $deductSrc)]);
+                    $deductSrc = $totalPurchasedQty;
+                    $newSrcQty = $oldSrcQty - $deductSrc;
+                    $sourceInv->update(['quantity' => $newSrcQty]);
 
                     $srcLocObj = Location::find($purchaseLocationId);
                     $stockChanges[] = [
@@ -512,11 +534,11 @@ class PurchaseStockService
                         'barcode'      => $product?->barcode ?: '-',
                         'location'     => $srcLocObj?->name ?? ('Location #' . $purchaseLocationId),
                         'old_quantity' => $oldSrcQty,
-                        'new_quantity' => max(0, $oldSrcQty - $deductSrc),
+                        'new_quantity' => $newSrcQty,
                         'qty_deducted' => '-' . $deductSrc,
                     ];
+                    PurchaseBatchService::deductBatchStock($purchaseLocationId, (int)$item->product_id, !empty($item->product_variant_id) ? (int)$item->product_variant_id : null, (float)$item->purchase_price, (float)$deductSrc);
                 }
-                PurchaseBatchService::deductBatchStock($purchaseLocationId, (int)$item->product_id, !empty($item->product_variant_id) ? (int)$item->product_variant_id : null, (float)$item->purchase_price, (float)$totalPurchasedQty);
             }
         } else {
             // On purchase deletion, reverse stock from destination branches and remove/adjust transfers

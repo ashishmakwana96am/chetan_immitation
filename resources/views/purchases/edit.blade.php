@@ -337,6 +337,8 @@
         </div>
     </form>
 
+    @include('purchases.partials.edit-modal')
+
     <!-- Item Row Template -->
     <template id="itemRowTemplate">
         <tr class="item-row" data-index="__INDEX__">
@@ -1123,105 +1125,267 @@ $(document).ready(function () {
         form.find('.select2-container .select2-selection').css('border-color', '');
         form.find('.invalid-feedback').text('').hide();
 
-        // Remove any previously appended hidden mapping container
-        $('#hiddenSubmitContainer').remove();
+        const impactUrl = '{{ route('admin.purchases.impact-check', $purchase) }}';
+        const existingItemsData = {!! json_encode($existingItems) !!};
+        let isConfirmed = false;
 
-        // Create a container for our mapped inputs
-        const hiddenContainer = $('<div id="hiddenSubmitContainer" style="display: none;"></div>');
-        form.append(hiddenContainer);
+        function showEditImpactModal() {
+            $('#editModalPurchaseInvoiceNo').text('{{ $purchase->invoice_no }}');
+            
+            let itemsTableHtml = '';
+            let newItemsMap = [];
 
-        // Disable all inputs in the visible table so they are NOT serialized
-        const visibleInputs = $('#itemsTable').find('input, select');
-        visibleInputs.prop('disabled', true);
+            $('.item-row').each(function() {
+                const row = $(this);
+                const product = row.data('product');
+                const qty = parseInt(row.find('.item-qty').val()) || 0;
+                if (qty <= 0) return;
 
-        // Submit each visible row separately so variant quantities and allocations stay independent.
-        let submitIdx = 0;
-        $('.item-row').each(function() {
-            const row = $(this);
-            const product = row.data('product');
-            const qty = parseInt(row.find('.item-qty').val()) || 0;
-            if (qty <= 0) return; // skip rows with 0 qty
-
-            const variantId = row.data('variant-id') || '';
-            let customSizeValue = row.data('custom-size-value') || '';
-            if (product && product.pair_product && !customSizeValue) {
-                const effectiveSizes = getEffectiveCustomSizes(product, variantId);
-                if (effectiveSizes && effectiveSizes.length) {
-                    customSizeValue = maxSizeOf(effectiveSizes);
-                } else {
-                    customSizeValue = 2;
+                const variantId = row.data('variant-id') || '';
+                const purchasePrice = parseFloat(row.find('.purchase-price').val()) || 0;
+                const vName = row.find('.variant-select option:selected').text();
+                let prodLabel = product ? product.name : 'Product';
+                if (variantId && vName && vName !== 'Select Variant') {
+                    prodLabel += ' (' + vName + ')';
                 }
-            }
-            const purchasePrice = parseFloat(row.find('.purchase-price').val()) || 0;
-            const discountType = row.find('.item-discount-type').val() || 'flat';
-            const discountValue = parseFloat(row.find('.item-discount-value').val()) || 0;
 
-            hiddenContainer.append(`<input type="hidden" name="items[${submitIdx}][product_id]" value="${product.id}">`);
-            hiddenContainer.append(`<input type="hidden" name="items[${submitIdx}][product_variant_id]" value="${variantId}">`);
-            hiddenContainer.append(`<input type="hidden" name="items[${submitIdx}][custom_size_value]" value="${customSizeValue}">`);
-            hiddenContainer.append(`<input type="hidden" name="items[${submitIdx}][quantity]" value="${qty}">`);
-            hiddenContainer.append(`<input type="hidden" name="items[${submitIdx}][purchase_price]" value="${purchasePrice}">`);
-            hiddenContainer.append(`<input type="hidden" name="items[${submitIdx}][discount_type]" value="${discountType}">`);
-            hiddenContainer.append(`<input type="hidden" name="items[${submitIdx}][discount_value]" value="${discountValue}">`);
-            submitIdx++;
+                newItemsMap.push({
+                    product_id: product.id,
+                    product_variant_id: variantId,
+                    prod_label: prodLabel,
+                    qty: qty,
+                    price: purchasePrice
+                });
+            });
+
+            let allItemKeys = [];
+            let hasActualChanges = false;
+
+            existingItemsData.forEach(function(item) {
+                const key = item.product_id + '_' + (item.product_variant_id || '');
+                if (!allItemKeys.includes(key)) allItemKeys.push(key);
+            });
+            newItemsMap.forEach(function(item) {
+                const key = item.product_id + '_' + (item.product_variant_id || '');
+                if (!allItemKeys.includes(key)) allItemKeys.push(key);
+            });
+
+            allItemKeys.forEach(function(key) {
+                const parts = key.split('_');
+                const prodId = parseInt(parts[0]);
+                const varId = parts[1] ? parseInt(parts[1]) : '';
+
+                const oldItem = existingItemsData.find(function(it) {
+                    return parseInt(it.product_id) === prodId && (it.product_variant_id ? parseInt(it.product_variant_id) : '') === varId;
+                });
+                const newItem = newItemsMap.find(function(it) {
+                    return parseInt(it.product_id) === prodId && (it.product_variant_id ? parseInt(it.product_variant_id) : '') === varId;
+                });
+
+                const oldQty = oldItem ? parseInt(oldItem.quantity) : 0;
+                const newQty = newItem ? parseInt(newItem.qty) : 0;
+                const oldPrice = oldItem ? parseFloat(oldItem.purchase_price) : 0;
+                const newPrice = newItem ? parseFloat(newItem.price) : 0;
+
+                if (oldQty !== newQty || Math.abs(oldPrice - newPrice) > 0.001) {
+                    hasActualChanges = true;
+                }
+
+                const prodLabel = newItem ? newItem.prod_label : (oldItem && oldItem.product ? oldItem.product.name : 'Product #' + prodId);
+                const deltaQty = newQty - oldQty;
+                
+                let stockBadge = '<span class="badge bg-secondary">No Change</span>';
+                if (deltaQty > 0) {
+                    stockBadge = `<span class="badge bg-success">+${deltaQty} Added</span>`;
+                } else if (deltaQty < 0) {
+                    stockBadge = `<span class="badge bg-danger">${deltaQty} Reduced</span>`;
+                }
+
+                itemsTableHtml += `
+                    <tr>
+                        <td><span class="fw-semibold text-dark">${prodLabel}</span></td>
+                        <td class="text-center">${oldQty}</td>
+                        <td class="text-center fw-bold">${newQty}</td>
+                        <td class="text-center">${stockBadge}</td>
+                        <td class="text-end">₹${oldPrice.toFixed(2)}</td>
+                        <td class="text-end fw-semibold">₹${newPrice.toFixed(2)}</td>
+                    </tr>
+                `;
+            });
+
+            if (!hasActualChanges) {
+                executeFormSubmit();
+                return;
+            }
+
+            $('#editModalItemsTableBody').html(itemsTableHtml);
+
+            $.get(impactUrl).done(function(res) {
+                const impact = res.data || {};
+
+                // Transfers
+                if (impact.has_transfers && impact.transfers.length > 0) {
+                    $('#editModalTransfersCount').text(impact.transfers.length);
+                    let trHtml = '';
+                    impact.transfers.forEach(function(tr) {
+                        let itemBadges = tr.items.map(i => `<span class="badge bg-label-info me-1 mb-1">${i.product_name}: ${i.qty_label}</span>`).join('');
+                        trHtml += `
+                            <tr>
+                                <td><span class="fw-bold text-primary">${tr.transfer_no}</span></td>
+                                <td><span class="fw-semibold text-dark">${tr.to_location}</span></td>
+                                <td>${itemBadges}</td>
+                                <td>${tr.created_at}</td>
+                                <td class="text-center"><span class="badge bg-label-success">${tr.status}</span></td>
+                            </tr>
+                        `;
+                    });
+                    $('#editModalTransfersTableBody').html(trHtml);
+                    $('#editModalTransfersSection').removeClass('d-none');
+                } else {
+                    $('#editModalTransfersSection').addClass('d-none');
+                }
+
+                if (impact.has_sales && impact.sales.length > 0) {
+                    $('#editModalSalesCount').text(impact.sales.length);
+                    let salesHtml = '';
+                    impact.sales.forEach(function(s) {
+                        let itemBadges = s.matching_items.map(i => `<span class="badge bg-label-dark me-1 mb-1">${i.product_name}: ${i.qty_label}</span>`).join('');
+                        salesHtml += `
+                            <tr>
+                                <td><span class="fw-bold text-dark">${s.order_no}</span></td>
+                                <td>${s.customer_name}</td>
+                                <td>${s.location_name}</td>
+                                <td>${itemBadges}</td>
+                                <td>${s.created_at}</td>
+                                <td class="text-end fw-semibold">${s.final_amount}</td>
+                                <td class="text-center"><span class="badge bg-label-primary">${s.payment_status}</span></td>
+                            </tr>
+                        `;
+                    });
+                    $('#editModalSalesTableBody').html(salesHtml);
+                    $('#editModalSalesSection').removeClass('d-none');
+                } else {
+                    $('#editModalSalesSection').addClass('d-none');
+                }
+
+                const modalEl = document.getElementById('purchaseEditImpactModal');
+                const modal = new bootstrap.Modal(modalEl);
+                modal.show();
+            }).fail(function() {
+                toastr.error('Failed to load purchase dependency impact details.');
+            });
+        }
+
+        showEditImpactModal();
+
+        $('#editModalConfirmSaveBtn').off('click').on('click', function() {
+            const modalEl = document.getElementById('purchaseEditImpactModal');
+            const modal = bootstrap.Modal.getInstance(modalEl);
+            if (modal) modal.hide();
+            executeFormSubmit();
         });
 
-        $('#submitBtn').prop('disabled', true).html('<span class="spinner-border spinner-border-sm me-1"></span> Saving...');
+        function executeFormSubmit() {
+            // Remove any previously appended hidden mapping container
+            $('#hiddenSubmitContainer').remove();
 
-        $.ajax({
-            url     : form.attr('action'),
-            type    : 'POST',
-            data    : form.serialize(),
-            success : function (res) {
-                visibleInputs.prop('disabled', false);
-                hiddenContainer.remove();
-                if (res.status === 'success') {
-                    toastr.success(res.message);
-                    setTimeout(() => window.location.href = '{{ route('admin.purchases.index') }}', 800);
-                }
-            },
-            error   : function (xhr) {
-                visibleInputs.prop('disabled', false);
-                hiddenContainer.remove();
-                $('#submitBtn').prop('disabled', false).html('<i class="ti ti-device-floppy me-1"></i> Update Purchase');
-                if (xhr.status === 422) {
-                    const errors = xhr.responseJSON?.message || {};
-                    if (typeof errors === 'string') {
-                        toastr.error(errors);
+            // Create a container for our mapped inputs
+            const hiddenContainer = $('<div id="hiddenSubmitContainer" style="display: none;"></div>');
+            form.append(hiddenContainer);
+
+            // Disable all inputs in the visible table so they are NOT serialized
+            const visibleInputs = $('#itemsTable').find('input, select');
+            visibleInputs.prop('disabled', true);
+
+            // Submit each visible row separately so variant quantities and allocations stay independent.
+            let submitIdx = 0;
+            $('.item-row').each(function() {
+                const row = $(this);
+                const product = row.data('product');
+                const qty = parseInt(row.find('.item-qty').val()) || 0;
+                if (qty <= 0) return; // skip rows with 0 qty
+
+                const variantId = row.data('variant-id') || '';
+                let customSizeValue = row.data('custom-size-value') || '';
+                if (product && product.pair_product && !customSizeValue) {
+                    const effectiveSizes = getEffectiveCustomSizes(product, variantId);
+                    if (effectiveSizes && effectiveSizes.length) {
+                        customSizeValue = maxSizeOf(effectiveSizes);
                     } else {
-                        $.each(errors, function (field, messages) {
-                            if (field === 'is_gst') {
-                                $('#is_gst_switch').prop('checked', false).addClass('is-invalid');
-                                toastr.error(messages[0]);
-                                const supplierId = $('#supplier_select').val();
-                                if (supplierId) {
-                                    pendingGstFixSupplierId = supplierId;
-                                    window.openCommonModal(supplierEditUrlTemplate.replace('__ID__', supplierId));
-                                }
-                                return;
-                            }
-                            let input = form.find('[name="' + field + '"], [name="' + field + '[]"]');
-                            if (input.length > 0) {
-                                input.addClass('is-invalid');
-
-                                if (input.hasClass('select2-hidden-accessible')) {
-                                    input.next('.select2-container').find('.select2-selection').css('border-color', '#ea5455');
-                                }
-                                
-                                let container = input.closest('.input-group');
-                                if (container.length > 0) {
-                                    container.siblings('.invalid-feedback').text(messages[0]).show();
-                                } else {
-                                    input.siblings('.invalid-feedback').text(messages[0]).show();
-                                }
-                            }
-                        });
+                        customSizeValue = 2;
                     }
-                } else {
-                    toastr.error('Something went wrong. Please try again.');
                 }
-            }
-        });
+                const purchasePrice = parseFloat(row.find('.purchase-price').val()) || 0;
+                const discountType = row.find('.item-discount-type').val() || 'flat';
+                const discountValue = parseFloat(row.find('.item-discount-value').val()) || 0;
+
+                hiddenContainer.append(`<input type="hidden" name="items[${submitIdx}][product_id]" value="${product.id}">`);
+                hiddenContainer.append(`<input type="hidden" name="items[${submitIdx}][product_variant_id]" value="${variantId}">`);
+                hiddenContainer.append(`<input type="hidden" name="items[${submitIdx}][custom_size_value]" value="${customSizeValue}">`);
+                hiddenContainer.append(`<input type="hidden" name="items[${submitIdx}][quantity]" value="${qty}">`);
+                hiddenContainer.append(`<input type="hidden" name="items[${submitIdx}][purchase_price]" value="${purchasePrice}">`);
+                hiddenContainer.append(`<input type="hidden" name="items[${submitIdx}][discount_type]" value="${discountType}">`);
+                hiddenContainer.append(`<input type="hidden" name="items[${submitIdx}][discount_value]" value="${discountValue}">`);
+                submitIdx++;
+            });
+
+            $('#submitBtn').prop('disabled', true).html('<span class="spinner-border spinner-border-sm me-1"></span> Saving...');
+
+            $.ajax({
+                url     : form.attr('action'),
+                type    : 'POST',
+                data    : form.serialize(),
+                success : function (res) {
+                    visibleInputs.prop('disabled', false);
+                    hiddenContainer.remove();
+                    if (res.status === 'success') {
+                        toastr.success(res.message);
+                        setTimeout(() => window.location.href = '{{ route('admin.purchases.index') }}', 800);
+                    }
+                },
+                error   : function (xhr) {
+                    visibleInputs.prop('disabled', false);
+                    hiddenContainer.remove();
+                    $('#submitBtn').prop('disabled', false).html('<i class="ti ti-device-floppy me-1"></i> Update Purchase');
+                    if (xhr.status === 422) {
+                        const errors = xhr.responseJSON?.message || {};
+                        if (typeof errors === 'string') {
+                            toastr.error(errors);
+                        } else {
+                            $.each(errors, function (field, messages) {
+                                if (field === 'is_gst') {
+                                    $('#is_gst_switch').prop('checked', false).addClass('is-invalid');
+                                    toastr.error(messages[0]);
+                                    const supplierId = $('#supplier_select').val();
+                                    if (supplierId) {
+                                        pendingGstFixSupplierId = supplierId;
+                                        window.openCommonModal(supplierEditUrlTemplate.replace('__ID__', supplierId));
+                                    }
+                                    return;
+                                }
+                                let input = form.find('[name="' + field + '"], [name="' + field + '[]"]');
+                                if (input.length > 0) {
+                                    input.addClass('is-invalid');
+
+                                    if (input.hasClass('select2-hidden-accessible')) {
+                                        input.next('.select2-container').find('.select2-selection').css('border-color', '#ea5455');
+                                    }
+                                    
+                                    let container = input.closest('.input-group');
+                                    if (container.length > 0) {
+                                        container.siblings('.invalid-feedback').text(messages[0]).show();
+                                    } else {
+                                        input.siblings('.invalid-feedback').text(messages[0]).show();
+                                    }
+                                }
+                            });
+                        }
+                    } else {
+                        toastr.error('Something went wrong. Please try again.');
+                    }
+                }
+            });
+        }
     });
 
 });

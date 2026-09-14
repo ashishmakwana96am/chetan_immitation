@@ -1518,10 +1518,11 @@ class ProductController extends Controller
 
         DB::transaction(function () use ($product) {
             $inventories = Inventory::where('product_id', $product->id)->where('quantity', '>', 0)->get();
+            $prodLabel = $product->name . ($product->barcode ? ' (' . $product->barcode . ')' : '');
             foreach ($inventories as $inventory) {
                 $oldQty = $inventory->quantity;
                 $inventory->update(['quantity' => 0]);
-                ActivityLogger::log('Inventory', 'update', $inventory, ['quantity' => $oldQty], ['quantity' => 0], 'Stock cleared for deleted product ' . $product->name);
+                ActivityLogger::log('Inventory', 'update', $inventory, ['quantity' => $oldQty], ['quantity' => 0], 'Stock cleared for deleted product ' . $prodLabel);
             }
 
             $product->delete();
