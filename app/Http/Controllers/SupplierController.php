@@ -2,6 +2,7 @@
 
 namespace App\Http\Controllers;
 
+use App\Models\State;
 use App\Models\Supplier;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Validator;
@@ -112,7 +113,7 @@ class SupplierController extends Controller
     public function create()
     {
         $this->authorize('create suppliers');
-        $states = \App\Models\State::where('status', \App\Models\State::STATUS_ACTIVE)->orderBy('name')->get();
+        $states = State::where('status', State::STATUS_ACTIVE)->orderBy('name')->get();
         return view('suppliers.create', compact('states'));
     }
 
@@ -138,9 +139,9 @@ class SupplierController extends Controller
         Supplier::create([
             'name'       => $request->name,
             'phone'      => $request->phone,
-            'address'    => $request->address,
-            'state'      => $request->state,
-            'gst_no'     => $request->gst_no,
+            'address'    => $request->address ? trim($request->address) : null,
+            'state'      => $request->state ? trim($request->state) : null,
+            'gst_no'     => $request->gst_no ? strtoupper(trim($request->gst_no)) : null,
             'status'     => $request->has('status') ? 1 : 2,
             'created_by' => auth()->id(),
         ]);
@@ -154,7 +155,7 @@ class SupplierController extends Controller
     public function edit(Supplier $supplier)
     {
         $this->authorize('edit suppliers');
-        $states = \App\Models\State::where('status', \App\Models\State::STATUS_ACTIVE)->orderBy('name')->get();
+        $states = State::where('status', State::STATUS_ACTIVE)->orderBy('name')->get();
         return view('suppliers.edit', compact('supplier', 'states'));
     }
 
@@ -180,9 +181,9 @@ class SupplierController extends Controller
         $supplier->update([
             'name'    => $request->name,
             'phone'   => $request->phone,
-            'address' => $request->address,
-            'state'   => $request->state,
-            'gst_no'  => $request->gst_no,
+            'address' => $request->address ? trim($request->address) : null,
+            'state'   => $request->state ? trim($request->state) : null,
+            'gst_no'  => $request->gst_no ? strtoupper(trim($request->gst_no)) : null,
             'status'  => $request->has('status') ? 1 : 2,
         ]);
 

@@ -3,8 +3,11 @@
 namespace App\Http\Controllers;
 
 use App\Models\Customer;
+use App\Models\CustomerAddress;
 use App\Models\CustomerPhone;
 use App\Models\Location;
+use App\Models\State;
+use App\Services\ActivityLogger;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Hash;
 use Illuminate\Support\Facades\Validator;
@@ -31,7 +34,7 @@ class CustomerController extends Controller
 
         $locationId = $this->restrictedLocationId();
 
-        $query = Customer::with('location')->orderBy('id', 'desc');
+        $query = Customer::with(['location', 'addresses', 'phones'])->orderBy('id', 'desc');
 
         if ($locationId) {
             $query->where('location_id', $locationId);
@@ -81,6 +84,17 @@ class CustomerController extends Controller
                 $actions = '<span class="text-muted fw-semibold">-</span>';
             }
 
+            $addresses = $customer->addresses->map(fn($a) => [
+                'id'         => $a->id,
+                'address'    => $a->address,
+                'state'      => $a->state,
+                'is_default' => (bool) $a->is_default,
+            ])->values()->all();
+
+            $primaryAddress = $customer->addresses->firstWhere('is_default', true) ?? $customer->addresses->first();
+            $effectiveAddress = $primaryAddress ? $primaryAddress->address : ($customer->address ?: '');
+            $effectiveState   = $primaryAddress ? $primaryAddress->state : ($customer->state ?: '');
+
             return [
                 'id'               => $customer->id,
                 'index'            => $index + 1,
@@ -90,9 +104,12 @@ class CustomerController extends Controller
                 'email'            => $customer->email ?? '-',
                 'branch'           => $customer->location->name ?? '-',
                 'gst_no'           => $customer->gst_no ? '<code>' . e($customer->gst_no) . '</code>' : '-',
-                'state'            => $customer->state ?: '-',
+                'state'            => $effectiveState ?: '-',
+                'address'            => $effectiveAddress ?: '',
                 'gst_no_raw'       => $customer->gst_no ?? '',
-                'state_raw'        => $customer->state ?? '',
+                'state_raw'        => $effectiveState ?? '',
+                'address_raw'        => $effectiveAddress ?? '',
+                'addresses'          => $addresses,
                 'status'           => $status,
                 'credit_customer'  => $creditCustomer,
                 'created_at'       => format_date($customer->created_at),
@@ -108,7 +125,8 @@ class CustomerController extends Controller
         $this->authorize('create customers');
         $isSuperAdmin = auth()->user()->hasRole('super-admin');
         $locations = $isSuperAdmin ? Location::where('status', 1)->orderBy('name')->get() : collect();
-        return view('customers.create', compact('isSuperAdmin', 'locations'));
+        $states = State::where('status', State::STATUS_ACTIVE)->orderBy('name')->get();
+        return view('customers.create', compact('isSuperAdmin', 'locations', 'states'));
     }
 
     public function store(Request $request)
@@ -123,6 +141,8 @@ class CustomerController extends Controller
             'phones.*'    => ['nullable', 'digits:10'],
             'email'       => ['nullable', 'email', Rule::unique('customers', 'email')->whereNull('deleted_at')],
             'gst_no'      => ['nullable', 'string', 'max:15'],
+            'addresses'   => ['nullable', 'array'],
+            'states'      => ['nullable', 'array'],
             'state'       => ['nullable', 'string', 'max:100'],
             'address'     => ['nullable', 'string'],
             'location_id' => [$restrictedLocationId ? 'nullable' : 'required', 'exists:locations,id'],
@@ -144,8 +164,6 @@ class CustomerController extends Controller
             'name'     => $request->name,
             'email'    => $request->email,
             'gst_no'   => $request->gst_no ? strtoupper(trim($request->gst_no)) : null,
-            'state'    => $request->state ? trim($request->state) : null,
-            'address'  => $request->address ? trim($request->address) : null,
             'status'   => $request->has('status') ? 1 : 2,
             'is_credit_customer' => $request->has('is_credit_customer'),
         ]);
@@ -158,10 +176,35 @@ class CustomerController extends Controller
             ]);
         }
 
+        $submittedAddresses = $request->input('addresses', []);
+        $submittedStates    = $request->input('states', []);
+
+        if (empty($submittedAddresses) && $request->filled('address')) {
+            $submittedAddresses = [$request->input('address')];
+            $submittedStates    = [$request->input('state')];
+        }
+
+        $addressIndex = 0;
+        foreach ($submittedAddresses as $index => $addrText) {
+            $addrText = trim((string) $addrText);
+            $stateVal = trim((string) ($submittedStates[$index] ?? ''));
+            if ($addrText === '' && $stateVal === '') {
+                continue;
+            }
+
+            CustomerAddress::create([
+                'customer_id' => $customer->id,
+                'address'     => $addrText,
+                'state'       => $stateVal,
+                'is_default'  => ($addressIndex === 0),
+            ]);
+            $addressIndex++;
+        }
+
         return response()->json([
             'status'  => 'success',
             'message' => 'Customer created successfully.',
-            'data'    => $customer,
+            'data'    => $customer->load('addresses'),
         ]);
     }
 
@@ -174,10 +217,11 @@ class CustomerController extends Controller
             abort(403);
         }
 
-        $customer->load('phones');
+        $customer->load(['phones', 'addresses']);
         $isSuperAdmin = auth()->user()->hasRole('super-admin');
         $locations = $isSuperAdmin ? Location::where('status', 1)->orderBy('name')->get() : collect();
-        return view('customers.edit', compact('customer', 'isSuperAdmin', 'locations'));
+        $states = State::where('status', State::STATUS_ACTIVE)->orderBy('name')->get();
+        return view('customers.edit', compact('customer', 'isSuperAdmin', 'locations', 'states'));
     }
 
     public function update(Request $request, Customer $customer)
@@ -196,6 +240,9 @@ class CustomerController extends Controller
             'phone_ids'   => ['nullable', 'array'],
             'email'       => ['nullable', 'email', Rule::unique('customers', 'email')->ignore($customer->id)->whereNull('deleted_at')],
             'gst_no'      => ['nullable', 'string', 'max:15'],
+            'addresses'   => ['nullable', 'array'],
+            'states'      => ['nullable', 'array'],
+            'address_ids' => ['nullable', 'array'],
             'state'       => ['nullable', 'string', 'max:100'],
             'address'     => ['nullable', 'string'],
             'location_id' => [$restrictedLocationId ? 'nullable' : 'required', 'exists:locations,id'],
@@ -230,8 +277,6 @@ class CustomerController extends Controller
             'name'     => $request->name,
             'email'    => $request->email,
             'gst_no'   => $request->gst_no ? strtoupper(trim($request->gst_no)) : null,
-            'state'    => $request->state ? trim($request->state) : null,
-            'address'  => $request->address ? trim($request->address) : null,
             'status'   => $request->has('status') ? 1 : 2,
             'is_credit_customer' => $isCreditCustomer,
         ]);
@@ -260,9 +305,50 @@ class CustomerController extends Controller
 
         $customer->phones()->whereNotIn('id', $keptIds)->delete();
 
+        $submittedAddresses = $request->input('addresses', []);
+        $submittedStates    = $request->input('states', []);
+        $submittedAddrIds   = $request->input('address_ids', []);
+        $keptAddrIds        = [];
+
+        if (empty($submittedAddresses) && $request->filled('address')) {
+            $submittedAddresses = [$request->input('address')];
+            $submittedStates    = [$request->input('state')];
+        }
+
+        foreach ($submittedAddresses as $index => $addrText) {
+            $addrText = trim((string) $addrText);
+            $stateVal = trim((string) ($submittedStates[$index] ?? ''));
+            if ($addrText === '' && $stateVal === '') {
+                continue;
+            }
+
+            $addrId = $submittedAddrIds[$index] ?? null;
+            $existing = $addrId ? $customer->addresses()->find($addrId) : null;
+
+            if ($existing) {
+                $existing->update([
+                    'address'    => $addrText,
+                    'state'      => $stateVal,
+                    'is_default' => count($keptAddrIds) === 0,
+                ]);
+                $keptAddrIds[] = $existing->id;
+            } else {
+                $created = $customer->addresses()->create([
+                    'customer_id' => $customer->id,
+                    'address'     => $addrText,
+                    'state'       => $stateVal,
+                    'is_default'  => count($keptAddrIds) === 0,
+                ]);
+                $keptAddrIds[] = $created->id;
+            }
+        }
+
+        $customer->addresses()->whereNotIn('id', $keptAddrIds)->delete();
+
         return response()->json([
             'status'  => 'success',
             'message' => 'Customer updated successfully.',
+            'data'    => $customer->load('addresses'),
         ]);
     }
 
@@ -345,6 +431,62 @@ class CustomerController extends Controller
         return response()->json([
             'status'  => 'success',
             'message' => 'Customer deleted successfully.',
+        ]);
+    }
+
+    public function createAddress(Customer $customer)
+    {
+        $this->authorize('edit customers');
+
+        $restrictedLocationId = $this->restrictedLocationId();
+        if ($restrictedLocationId && $customer->location_id != $restrictedLocationId) {
+            abort(403);
+        }
+
+        $states = State::where('status', State::STATUS_ACTIVE)->orderBy('name')->get();
+        return view('customers.addresses.create', compact('customer', 'states'));
+    }
+
+    public function storeAddress(Request $request, Customer $customer)
+    {
+        $this->authorize('edit customers');
+
+        $restrictedLocationId = $this->restrictedLocationId();
+        if ($restrictedLocationId && $customer->location_id != $restrictedLocationId) {
+            abort(403);
+        }
+
+        $validator = Validator::make($request->all(), [
+            'address' => ['required', 'string'],
+            'state'   => ['required', 'string', 'max:100'],
+        ]);
+
+        if ($validator->fails()) {
+            return response()->json([
+                'status'  => 'error',
+                'message' => $validator->errors(),
+            ], 422);
+        }
+
+        $address = CustomerAddress::create([
+            'customer_id' => $customer->id,
+            'address'     => trim($request->address),
+            'state'       => trim($request->state),
+            'is_default'  => false,
+        ]);
+
+        ActivityLogger::log('Customers', 'create', $customer, null, null, 'Added new address for customer ' . $customer->name);
+
+        return response()->json([
+            'status'  => 'success',
+            'message' => 'Shipping address added successfully.',
+            'data'    => [
+                'id'          => $address->id,
+                'customer_id' => $customer->id,
+                'address'     => $address->address,
+                'state'       => $address->state,
+                'is_default'  => (bool) $address->is_default,
+            ],
         ]);
     }
 }

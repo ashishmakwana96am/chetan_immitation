@@ -364,10 +364,10 @@
                 <td style="text-align: right; width: 30%; border: none; padding: 1px 0;">{{ number_format($totalTax, 2) }}</td>
             </tr>
             @endif
-            @if($order->shipping_charge > 0)
+            @if($order->is_shipping || $order->shipping_charge > 0)
             <tr>
                 <td colspan="2" style="text-align: left; width: 70%; border: none; padding: 1px 0;">Shipping Charge</td>
-                <td style="text-align: right; width: 30%; border: none; padding: 1px 0;">{{ number_format($order->shipping_charge, 2) }}</td>
+                <td style="text-align: right; width: 30%; border: none; padding: 1px 0;">{{ $order->shipping_charge > 0 ? number_format($order->shipping_charge, 2) : 'Free' }}</td>
             </tr>
             @endif
             <tr style="font-family: 'Arial Black', Arial, sans-serif; font-size: 17px; font-weight: bold;">

@@ -155,6 +155,7 @@
     @php
         $addr = $order->customerAddress;
         $custName = $addr->name ?? ($order->customer->name ?? 'Walk-in Customer');
+        $fromLocation = $order->location ?? \App\Models\Location::where('is_default', true)->first() ?? \App\Models\Location::first();
     @endphp
 
     {{-- ================= SHIPPING LABEL ================= --}}
@@ -165,9 +166,12 @@
         <div class="to-section-title">TO</div>
         <div class="to-person-name">{{ $custName }}</div>
         <div class="to-address-text">
-            @if($order->customerAddress)
-                {{ $addr->address }}<br>
-                {{ $addr->city }}, {{ $addr->state }}, {{ $addr->pincode }}
+            @if($addr)
+                @if(!empty(trim($addr->address ?? ''))){{ $addr->address }}<br>@endif
+                {{ collect([$addr->city, $addr->state, $addr->pincode])->filter()->implode(', ') }}
+            @elseif($order->customer && ($order->customer->address || $order->customer->state))
+                @if(!empty(trim($order->customer->address ?? ''))){{ $order->customer->address }}<br>@endif
+                {{ $order->customer->state }}
             @else
                 No shipping address provided.
             @endif
@@ -182,8 +186,11 @@
 
     <div class="address-block">
         <div class="section-title">From</div>
-        <div class="person-name">CHETAN IMITATION{{ $order->location?->name ? ' - ' . $order->location->name : '' }}</div>
-        <div class="phone-text">Phone: {{ $order->location?->phone ?? '+91 77259 78871' }}</div>
+        <div class="person-name">CHETAN IMITATION{{ $fromLocation?->name ? ' - ' . strtoupper($fromLocation->name) : '' }}</div>
+        @if(!empty(trim($fromLocation?->address ?? '')))
+            <div class="address-text">{{ $fromLocation->address }}</div>
+        @endif
+        <div class="phone-text">Phone: {{ $fromLocation?->phone ?? '+91 77259 78871' }}</div>
     </div>
 
     <div class="product-title" style="margin-top: 10px;">Product Details</div>

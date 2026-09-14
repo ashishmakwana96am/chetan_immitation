@@ -26,8 +26,12 @@
         </div>
         <div class="col-12">
             <label class="form-label" for="supplierState">State</label>
-            <input type="text" id="supplierState" name="state"
-                class="form-control" placeholder="Enter State" />
+            <select id="supplierState" name="state" class="form-select">
+                <option value="">-- Select State --</option>
+                @foreach($states as $state)
+                    <option value="{{ $state->name }}">{{ $state->name }}</option>
+                @endforeach
+            </select>
             <div class="invalid-feedback"></div>
         </div>
         <div class="col-12">

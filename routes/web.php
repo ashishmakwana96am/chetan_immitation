@@ -214,6 +214,8 @@ Route::prefix('admin')->name('admin.')->group(function () {
         Route::resource('customers', CustomerController::class)->except('show');
         Route::patch('customers/{customer}/toggle-status', [CustomerController::class, 'toggleStatus'])->name('customers.toggle-status');
         Route::patch('customers/{customer}/toggle-credit-customer', [CustomerController::class, 'toggleCreditCustomer'])->name('customers.toggle-credit-customer');
+        Route::get('customers/{customer}/addresses/create', [CustomerController::class, 'createAddress'])->name('customers.addresses.create');
+        Route::post('customers/{customer}/addresses', [CustomerController::class, 'storeAddress'])->name('customers.addresses.store');
 
         // Product Reviews
         Route::get('product-reviews/data', [ProductReviewController::class, 'data'])->name('product-reviews.data');

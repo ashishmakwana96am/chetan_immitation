@@ -22,8 +22,6 @@ class Customer extends Authenticatable
         'name',
         'email',
         'gst_no',
-        'state',
-        'address',
         'password',
         'avatar',
         'is_website',
@@ -147,6 +145,34 @@ class Customer extends Authenticatable
             get: fn () => $this->relationLoaded('phones')
                 ? $this->phones->sortBy('id')->first()?->phone
                 : $this->phones()->oldest('id')->value('phone'),
+        );
+    }
+
+    protected function address(): Attribute
+    {
+        return Attribute::make(
+            get: function () {
+                if ($this->relationLoaded('addresses')) {
+                    $def = $this->addresses->firstWhere('is_default', true) ?? $this->addresses->first();
+                    return $def?->address;
+                }
+                return $this->addresses()->where('is_default', true)->value('address')
+                    ?? $this->addresses()->oldest('id')->value('address');
+            },
+        );
+    }
+
+    protected function state(): Attribute
+    {
+        return Attribute::make(
+            get: function () {
+                if ($this->relationLoaded('addresses')) {
+                    $def = $this->addresses->firstWhere('is_default', true) ?? $this->addresses->first();
+                    return $def?->state;
+                }
+                return $this->addresses()->where('is_default', true)->value('state')
+                    ?? $this->addresses()->oldest('id')->value('state');
+            },
         );
     }
 
