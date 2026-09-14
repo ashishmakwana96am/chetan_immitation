@@ -201,8 +201,22 @@
                                         <option value=""></option>
                                         <option value="0" {{ is_null($order->customer_id) ? 'selected' : '' }}>Walk-in Customer</option>
                                         @foreach($customers as $customer)
+                                            @php
+                                                $custAddresses = $customer->addresses->map(fn($a) => [
+                                                    'id' => $a->id,
+                                                    'address' => $a->address,
+                                                    'state' => $a->state,
+                                                    'is_default' => (bool)$a->is_default
+                                                ])->values();
+                                                if ($custAddresses->isEmpty() && ($customer->address || $customer->state)) {
+                                                    $custAddresses = collect([(object)['id' => null, 'address' => $customer->address, 'state' => $customer->state, 'is_default' => true]]);
+                                                }
+                                                $primaryAddr = $custAddresses->firstWhere('is_default', true) ?? $custAddresses->first();
+                                            @endphp
                                             <option value="{{ $customer->id }}" {{ $order->customer_id === $customer->id ? 'selected' : '' }}
-                                                data-state="{{ $customer->state ?? '' }}"
+                                                data-addresses="{{ json_encode($custAddresses) }}"
+                                                data-state="{{ $primaryAddr->state ?? '' }}"
+                                                data-address="{{ $primaryAddr->address ?? '' }}"
                                                 data-gst="{{ $customer->gst_no ?? '' }}"
                                                 data-is-credit="{{ $customer->is_credit_customer ? '1' : '0' }}"
                                                 data-credit-balance="{{ (float) $customer->balance }}">
@@ -303,17 +317,64 @@
                         </div>
                     </div>
 
-                    <!-- Tax Details -->
                     @if(($order->source ?? 'POS') !== 'ONLINE')
                     <div class="col-12" id="taxColumn" style="display: none;">
-                        <div class="card mb-4">
-                            <div class="card-header"><h5 class="mb-0">Tax Details</h5></div>
-                            <div class="card-body">
-                                <div class="form-check form-switch">
-                                    <input class="form-check-input" type="checkbox" id="is_gst_switch" name="is_gst" value="1" {{ $order->is_gst ? 'checked' : '' }} />
-                                    <label class="form-check-label" for="is_gst_switch">GST Bill</label>
+                        <div class="row g-3">
+
+                            <!-- Tax Details -->
+                            <div class="col-md-6">
+                                <div class="card mb-4">
+                                    <div class="card-header"><h5 class="mb-0">Tax Details</h5></div>
+                                    <div class="card-body">
+                                        <div class="form-check form-switch">
+                                            <input class="form-check-input" type="checkbox" id="is_gst_switch" name="is_gst" value="1" {{ $order->is_gst ? 'checked' : '' }} />
+                                            <label class="form-check-label" for="is_gst_switch">GST Bill</label>
+                                        </div>
+                                    </div>
                                 </div>
                             </div>
+
+                            <!-- Shipping -->
+                            <div class="col-md-6">
+                                <div class="card mb-4">
+                                    <div class="card-header"><h5 class="mb-0">Shipping</h5></div>
+                                    <div class="card-body">
+                                        <div class="form-check form-switch mb-0">
+                                            <input class="form-check-input" type="checkbox" id="is_shipping_switch" name="is_shipping" value="1" {{ ($order->is_shipping || $order->shipping_charge > 0) ? 'checked' : '' }} />
+                                            <label class="form-check-label" for="is_shipping_switch">Shipping</label>
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+
+                            <div class="col-12 d-none" id="shippingAddressCard">
+                                <div class="card mb-4">
+                                    <div class="card-header d-flex justify-content-between align-items-center">
+                                        <h5 class="mb-0">Shipping Address</h5>
+                                        <button type="button" class="btn btn-sm btn-outline-primary" id="openAddShippingAddressModalBtn">
+                                            <i class="ti ti-plus me-1"></i> Add Address
+                                        </button>
+                                    </div>
+                                    <div class="card-body">
+                                        <div id="shippingAddressDropdownWrapper" class="mb-3 d-none">
+                                            <label class="form-label mb-1">Select Shipping Address <span class="text-danger">*</span></label>
+                                            <select name="customer_address_id" id="customerAddressSelect" class="form-select">
+                                            </select>
+                                        </div>
+                                        <div id="shippingAddressPreview" class="p-3 border rounded bg-lighter">
+                                            <div class="mb-2">
+                                                <span class="text-muted fs-tiny d-block text-uppercase fw-semibold mb-1">Address</span>
+                                                <div class="fw-semibold text-heading" id="shippingPreviewAddressText" style="word-break: break-word;">-</div>
+                                            </div>
+                                            <div>
+                                                <span class="text-muted fs-tiny d-block text-uppercase fw-semibold mb-1">State</span>
+                                                <span class="badge bg-label-primary fw-bold" id="shippingPreviewStateBadge">-</span>
+                                            </div>
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+
                         </div>
                     </div>
                     @endif
@@ -338,6 +399,10 @@
                                 <div class="d-flex justify-content-between mb-3 d-none" id="summarySGSTRow">
                                     <span class="text-muted" id="summarySGSTLabel">SGST (1.5%)</span>
                                     <span id="summarySGSTAmount" class="fw-semibold">0.00</span>
+                                </div>
+                                <div class="d-flex justify-content-between mb-3 d-none" id="summaryShippingRow">
+                                    <span class="text-muted">Shipping</span>
+                                    <span id="summaryShippingAmount" class="fw-semibold">0.00</span>
                                 </div>
                                 <hr />
                                 <div class="d-flex justify-content-between align-items-center">
@@ -589,6 +654,17 @@ $(document).ready(function () {
 
     const locations = @json($locations);
     const existingItems = @json($existingItems);
+    const stateShippingCharges = @json(($states ?? collect())->pluck('shipping_charge', 'name'));
+    function getStateShippingCharge(stateName) {
+        if (!stateName) return 0;
+        const cleanState = String(stateName).trim().toLowerCase();
+        for (const [sName, charge] of Object.entries(stateShippingCharges)) {
+            if (String(sName).trim().toLowerCase() === cleanState) {
+                return parseFloat(charge) || 0;
+            }
+        }
+        return 0;
+    }
 
     loadExistingItems();
 
@@ -608,6 +684,166 @@ $(document).ready(function () {
     });
     const customerEditUrlTemplate = '{{ route('admin.customers.edit', ['customer' => '__ID__']) }}';
     let pendingGstFixCustomerId = null;
+
+    function getCustomerAddresses(customerOption) {
+        if (!customerOption || !customerOption.length) return [];
+        let raw = customerOption.attr('data-addresses') || customerOption.data('addresses');
+        let addresses = [];
+        if (typeof raw === 'string') {
+            try { addresses = JSON.parse(raw); } catch (e) { addresses = []; }
+        } else if (Array.isArray(raw)) {
+            addresses = raw;
+        }
+        if (!addresses.length) {
+            const legacyAddr = (customerOption.attr('data-address') || customerOption.data('address') || '').trim();
+            const legacyState = (customerOption.attr('data-state') || customerOption.data('state') || '').trim();
+            if (legacyAddr || legacyState) {
+                addresses = [{ id: null, address: legacyAddr, state: legacyState, is_default: true }];
+            }
+        }
+        return addresses.filter(a => (a.address && a.address.trim()) || (a.state && a.state.trim()));
+    }
+
+    function syncShippingAddressDropdown(preferredAddressId = null) {
+        const isOnlineOrder = @json(($order->source ?? 'POS') === 'ONLINE');
+        const isShipping = !isOnlineOrder && $('#is_shipping_switch').is(':checked');
+        const $addressCard = $('#shippingAddressCard');
+        const $dropdownWrapper = $('#shippingAddressDropdownWrapper');
+        const $addressSelect = $('#customerAddressSelect');
+
+        if (!isShipping) {
+            $addressCard.addClass('d-none');
+            $addressSelect.empty();
+            return;
+        }
+
+        const selectedOpt = $('#customerSelect').find('option:selected');
+        const customerVal = $('#customerSelect').val();
+
+        if (!customerVal || customerVal === '0') {
+            $addressCard.addClass('d-none');
+            $addressSelect.empty();
+            return;
+        }
+
+        const addresses = getCustomerAddresses(selectedOpt);
+
+        if (!addresses.length) {
+            $addressCard.addClass('d-none');
+            $addressSelect.empty();
+            return;
+        }
+
+        $addressSelect.empty();
+        addresses.forEach(function (addr, idx) {
+            const addrText = (addr.address || '').trim();
+            const stateText = (addr.state || '').trim();
+            const label = (idx + 1) + '. ' + addrText + (stateText ? ' (' + stateText + ')' : '');
+            const opt = $('<option>', {
+                value: addr.id || '',
+                text: label
+            });
+            opt.attr('data-state', stateText);
+            opt.attr('data-address', addrText);
+            $addressSelect.append(opt);
+        });
+
+        if (preferredAddressId) {
+            $addressSelect.val(preferredAddressId);
+        } else {
+            const defaultAddr = addresses.find(a => a.is_default) || addresses[0];
+            if (defaultAddr && defaultAddr.id) {
+                $addressSelect.val(defaultAddr.id);
+            }
+        }
+
+        if (addresses.length > 1) {
+            $dropdownWrapper.removeClass('d-none');
+        } else {
+            $dropdownWrapper.addClass('d-none');
+        }
+
+        updateShippingAddressPreview();
+        $addressCard.removeClass('d-none');
+        updateSummary();
+    }
+
+    function updateShippingAddressPreview() {
+        const selectedCustomerOpt = $('#customerSelect').find('option:selected');
+        const addresses = getCustomerAddresses(selectedCustomerOpt);
+        const selectedAddressId = $('#customerAddressSelect').val();
+
+        let addrText = '';
+        let stateText = '';
+
+        if (selectedAddressId && addresses.length) {
+            const matchedAddr = addresses.find(a => String(a.id) === String(selectedAddressId));
+            if (matchedAddr) {
+                addrText = (matchedAddr.address || '').trim();
+                stateText = (matchedAddr.state || '').trim();
+            }
+        }
+
+        if (!addrText && !stateText) {
+            const $addrOpt = $('#customerAddressSelect').find('option:selected');
+            if ($addrOpt.length) {
+                addrText = ($addrOpt.attr('data-address') || $addrOpt.data('address') || '').trim();
+                stateText = ($addrOpt.attr('data-state') || $addrOpt.data('state') || '').trim();
+            }
+        }
+
+        if (!addrText && !stateText) {
+            if (addresses.length) {
+                addrText = (addresses[0].address || '').trim();
+                stateText = (addresses[0].state || '').trim();
+            } else {
+                addrText = (selectedCustomerOpt.attr('data-address') || selectedCustomerOpt.data('address') || '').trim();
+                stateText = (selectedCustomerOpt.attr('data-state') || selectedCustomerOpt.data('state') || '').trim();
+            }
+        }
+
+        $('#shippingPreviewAddressText').text(addrText || '-');
+        $('#shippingPreviewStateBadge').text(stateText || '-');
+    }
+
+    const customerAddressCreateUrlTemplate = '{{ route('admin.customers.addresses.create', ['customer' => '__ID__']) }}';
+
+    $('#openAddShippingAddressModalBtn').on('click', function () {
+        const customerId = $('#customerSelect').val();
+        if (!customerId || customerId === '0') {
+            toastr.error('Please select a customer first.');
+            return;
+        }
+        window.openCommonModal(customerAddressCreateUrlTemplate.replace('__ID__', customerId));
+    });
+
+    function getSelectedShippingState() {
+        const isOnlineOrder = @json(($order->source ?? 'POS') === 'ONLINE');
+        if (isOnlineOrder || !$('#is_shipping_switch').is(':checked')) return '';
+
+        const selectedCustomerOpt = $('#customerSelect').find('option:selected');
+        const addresses = getCustomerAddresses(selectedCustomerOpt);
+        const selectedAddressId = $('#customerAddressSelect').val();
+
+        if (selectedAddressId && addresses.length) {
+            const matchedAddr = addresses.find(a => String(a.id) === String(selectedAddressId));
+            if (matchedAddr && matchedAddr.state) {
+                return String(matchedAddr.state).trim();
+            }
+        }
+
+        const $addrOpt = $('#customerAddressSelect').find('option:selected');
+        if ($addrOpt.length && ($addrOpt.attr('data-state') || $addrOpt.data('state'))) {
+            return ($addrOpt.attr('data-state') || $addrOpt.data('state') || '').trim();
+        }
+
+        if (addresses.length && addresses[0].state) {
+            return String(addresses[0].state).trim();
+        }
+        return (selectedCustomerOpt.attr('data-state') || selectedCustomerOpt.data('state') || '').trim();
+    }
+
+    syncShippingAddressDropdown(@json($order->customer_address_id));
     updateSummary();
 
     if ($('#order_date').length && typeof $.fn.flatpickr !== 'undefined') {
@@ -621,8 +857,14 @@ $(document).ready(function () {
         $.get('{{ route('admin.customers.data') }}?_t=' + new Date().getTime(), function (res) {
             const select  = $('#customerSelect');
             let current = select.val();
-            if (resData && resData.status === 'success' && resData.data && resData.data.id) {
-                current = resData.data.id;
+            let selectAddressId = null;
+            if (resData && resData.status === 'success' && resData.data) {
+                if (resData.data.customer_id) {
+                    current = resData.data.customer_id;
+                    selectAddressId = resData.data.id;
+                } else if (resData.data.id) {
+                    current = resData.data.id;
+                }
             }
             select.empty();
             select.append('<option value=""></option>');
@@ -632,11 +874,22 @@ $(document).ready(function () {
                     value: c.id,
                     text: c.name + (c.phone !== '-' ? ' - ' + c.phone : '')
                 });
+                opt.attr('data-addresses', JSON.stringify(c.addresses || []));
                 opt.attr('data-state', c.state_raw || '');
+                opt.attr('data-address', c.address_raw || c.address || '');
                 opt.attr('data-gst', c.gst_no_raw || '');
+                opt.attr('data-is-credit', c.is_credit_customer ? '1' : '0');
                 select.append(opt);
             });
             select.val(current).trigger('change');
+
+            if (selectAddressId) {
+                if (!$('#is_shipping_switch').is(':checked')) {
+                    $('#is_shipping_switch').prop('checked', true);
+                }
+                syncShippingAddressDropdown(selectAddressId);
+            }
+            updateSummary();
 
             // After refresh: if GST is on and missing details, open edit modal
             if (pendingGstFixCustomerId) {
@@ -662,10 +915,73 @@ $(document).ready(function () {
         }
     });
 
+    $(document).on('change', '#customerAddressSelect', function () {
+        updateShippingAddressPreview();
+        updateSummary();
+    });
+
+    $(document).on('change', '#is_shipping_switch', function () {
+        if ($(this).is(':checked')) {
+            const customerVal = $('#customerSelect').val();
+            if (!customerVal || customerVal === '0') {
+                toastr.error('Shipping cannot be applied to Walk-in customer. Please select a customer.');
+                $(this).prop('checked', false);
+                syncShippingAddressDropdown();
+                updateSummary();
+                return;
+            }
+            const selectedOpt = $('#customerSelect').find('option:selected');
+            const addresses = getCustomerAddresses(selectedOpt);
+            const validAddresses = addresses.filter(a => (a.address || '').trim() && (a.state || '').trim());
+
+            if (!validAddresses.length) {
+                syncShippingAddressDropdown();
+                window.openCommonModal(customerAddressCreateUrlTemplate.replace('__ID__', customerVal));
+                updateSummary();
+                return;
+            }
+
+            syncShippingAddressDropdown();
+        } else {
+            syncShippingAddressDropdown();
+        }
+        updateSummary();
+    });
+
     // Trigger check when customer changes while GST is already on
     $(document).on('change', '#customerSelect', function () {
+        const customerVal = $(this).val();
+        if ($('#is_shipping_switch').is(':checked')) {
+            if (!customerVal || customerVal === '0') {
+                $('#is_shipping_switch').prop('checked', false);
+                syncShippingAddressDropdown();
+            } else {
+                const selectedOpt = $(this).find('option:selected');
+                const addresses = getCustomerAddresses(selectedOpt);
+                const validAddresses = addresses.filter(a => (a.address || '').trim() && (a.state || '').trim());
+                if (!validAddresses.length) {
+                    window.openCommonModal(customerAddressCreateUrlTemplate.replace('__ID__', customerVal));
+                }
+                syncShippingAddressDropdown();
+            }
+        }
         if ($('#is_gst_switch').is(':checked')) {
             checkCustomerGstDetails();
+        }
+        checkCustomerCreditBalance();
+        updateSummary();
+    });
+
+    $(document).on('hidden.bs.offcanvas', '#commonModal', function () {
+        if ($('#is_shipping_switch').is(':checked')) {
+            const selectedOpt = $('#customerSelect').find('option:selected');
+            const addresses = getCustomerAddresses(selectedOpt);
+            const validAddresses = addresses.filter(a => (a.address || '').trim() && (a.state || '').trim());
+            if (!validAddresses.length) {
+                $('#is_shipping_switch').prop('checked', false);
+                syncShippingAddressDropdown();
+                updateSummary();
+            }
         }
     });
 
@@ -1705,7 +2021,22 @@ $(document).ready(function () {
             $('#summarySGSTRow').addClass('d-none');
         }
 
-        const grandTotalAmount = Math.round(finalAmount + taxAmount);
+        const isShipping = !isOnlineOrder && $('#is_shipping_switch').is(':checked');
+        let shippingCharge = 0;
+        if (isShipping) {
+            const customerState = getSelectedShippingState();
+            if (finalAmount < 2000) {
+                shippingCharge = getStateShippingCharge(customerState);
+            } else {
+                shippingCharge = 0;
+            }
+            $('#summaryShippingRow').removeClass('d-none');
+            $('#summaryShippingAmount').text(shippingCharge > 0 ? (symbol + ' ' + formatPrice(shippingCharge)) : 'Free');
+        } else {
+            $('#summaryShippingRow').addClass('d-none');
+        }
+
+        const grandTotalAmount = Math.round(finalAmount + taxAmount + shippingCharge);
         window.currentGrandTotal = grandTotalAmount;
         updatePaymentSplit();
 
@@ -1777,13 +2108,23 @@ $(document).ready(function () {
         const gstRate = @json(\App\Models\Setting::getValue('purchase_gst_rate', 3));
         const taxMultiplier = isGst ? (1 + (parseFloat(gstRate) / 100)) : 1.0;
 
-        const maxAllowedGrandTotal = Math.round(itemsTotal * taxMultiplier);
+        const isShipping = !isOnlineOrder && $('#is_shipping_switch').is(':checked');
+        let shippingCharge = 0;
+        if (isShipping) {
+            const customerState = getSelectedShippingState();
+            if (itemsTotal < 2000) {
+                shippingCharge = getStateShippingCharge(customerState);
+            }
+        }
+
+        const maxAllowedGrandTotal = Math.round(itemsTotal * taxMultiplier + shippingCharge);
         if (targetGrandTotal > maxAllowedGrandTotal) {
             targetGrandTotal = maxAllowedGrandTotal;
             $(this).val(maxAllowedGrandTotal);
         }
 
-        const targetNetAmount = targetGrandTotal / taxMultiplier;
+        const targetWithTax = Math.max(0, targetGrandTotal - shippingCharge);
+        const targetNetAmount = targetWithTax / taxMultiplier;
         let requiredDiscount = itemsTotal - targetNetAmount;
         if (requiredDiscount < 0) requiredDiscount = 0;
         if (requiredDiscount > itemsTotal) requiredDiscount = itemsTotal;
@@ -1808,7 +2149,7 @@ $(document).ready(function () {
         if (isCredit && balance > 0) {
             $('#creditBalanceBadge').text(symbol + ' ' + formatPrice(balance));
             $('#useCreditBalanceWrapper').show();
-            $('#useCreditBalanceSwitch').prop('disabled', false);
+            $('#useCreditBalanceSwitch').prop('disabled', false).prop('checked', true);
         } else {
             $('#useCreditBalanceWrapper').hide();
             $('#useCreditBalanceSwitch').prop('checked', false).prop('disabled', true);
@@ -2048,6 +2389,18 @@ $(document).ready(function () {
             }
         }
 
+        if ($('#is_shipping_switch').is(':checked')) {
+            if (customerId === '0' || customerId === '' || customerId === null) {
+                return 'Shipping cannot be applied to Walk-in customer. Please select a customer.';
+            }
+            const selectedOpt = $('#customerSelect').find('option:selected');
+            const addresses = getCustomerAddresses(selectedOpt);
+            const validAddresses = addresses.filter(a => (a.address || '').trim() && (a.state || '').trim());
+            if (!validAddresses.length) {
+                return 'Customer address and state are mandatory when shipping is enabled. Please update customer details.';
+            }
+        }
+
         return validateDiscounts();
     }
 
@@ -2165,7 +2518,7 @@ $(document).ready(function () {
             success : function (res) {
                 visibleInputs.prop('disabled', false);
                 hiddenContainer.remove();
-                if (res.status === 'success') {
+                if (res && res.status === 'success') {
                     toastr.success(res.message);
                     if (printAfterSave && res.id) {
                         const printUrl = thermalUrlTemplate.replace('__ID__', res.id);
@@ -2178,6 +2531,11 @@ $(document).ready(function () {
                     } else {
                         setTimeout(() => window.location.href = '{{ route('admin.sales.index') }}', 800);
                     }
+                } else {
+                    submitBtnPrint.prop('disabled', false).html('<i class="ti ti-printer me-1"></i> Save with Print');
+                    submitBtnNoPrint.prop('disabled', false).html('<i class="ti ti-device-floppy me-1"></i> Save without Print');
+                    closePendingPrintTab();
+                    toastr.error(res?.message || 'Something went wrong. Please try again.');
                 }
             },
             error   : function (xhr) {

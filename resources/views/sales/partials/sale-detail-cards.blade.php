@@ -238,8 +238,8 @@
             </div>
         </div>
 
-        {{-- Delivery Address — online only --}}
-        @if($isOnline && $order->customerAddress)
+        {{-- Delivery Address --}}
+        @if($order->customerAddress)
             @php $addr = $order->customerAddress; @endphp
             <div class="card">
                 <div class="card-header d-flex align-items-center gap-2">
@@ -247,33 +247,43 @@
                     <h6 class="mb-0 fw-semibold">Delivery Address</h6>
                 </div>
                 <div class="card-body py-1 px-3">
+                    @if(!empty(trim($addr->name ?? '')))
                     <div class="sale-info-row">
                         <span class="sale-info-label">Name</span>
                         <span class="sale-info-value">{{ $addr->name }}</span>
                     </div>
+                    @endif
+                    @if(!empty(trim($addr->phone ?? '')))
                     <div class="sale-info-row">
                         <span class="sale-info-label">Phone</span>
                         <span class="sale-info-value">{{ $addr->phone }}</span>
                     </div>
-                    @if($addr->alternate_phone)
+                    @endif
+                    @if(!empty(trim($addr->alternate_phone ?? '')))
                     <div class="sale-info-row">
                         <span class="sale-info-label">Alt. Phone</span>
                         <span class="sale-info-value">{{ $addr->alternate_phone }}</span>
                     </div>
                     @endif
+                    @if(!empty(trim($addr->address ?? '')))
                     <div class="sale-info-row">
                         <span class="sale-info-label">Address</span>
                         <span class="sale-info-value" style="max-width:65%;">{{ $addr->address }}</span>
                     </div>
+                    @endif
+                    @if(!empty(trim($addr->city ?? '')))
                     <div class="sale-info-row">
                         <span class="sale-info-label">City</span>
                         <span class="sale-info-value">{{ $addr->city }}</span>
                     </div>
+                    @endif
+                    @if(!empty(trim($addr->state ?? '')))
                     <div class="sale-info-row">
                         <span class="sale-info-label">State</span>
                         <span class="sale-info-value">{{ $addr->state }}</span>
                     </div>
-                    @if($addr->pincode)
+                    @endif
+                    @if(!empty(trim($addr->pincode ?? '')))
                     <div class="sale-info-row">
                         <span class="sale-info-label">Pincode</span>
                         <span class="sale-info-value">{{ $addr->pincode }}</span>
@@ -430,10 +440,10 @@
                                 </tr>
                             @endif
                         @endif
-                        @if(($order->source ?? 'POS') !== 'POS')
+                        @if(($order->source ?? 'POS') !== 'POS' || $order->is_shipping || (float)$order->shipping_charge > 0)
                         <tr>
                             <td colspan="5" class="text-end tfoot-label">Shipping</td>
-                            <td class="text-end tfoot-amount">{{ $order->shipping_charge > 0 ? format_price($order->shipping_charge) : 'Free' }}</td>
+                            <td class="text-end tfoot-amount">{{ (float)$order->shipping_charge > 0 ? format_price($order->shipping_charge) : 'Free' }}</td>
                         </tr>
                         @endif
                         <tr style="border-top:2px solid #B4771E;">

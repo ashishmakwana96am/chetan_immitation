@@ -51,15 +51,33 @@
         </div>
 
         <div class="col-12">
-            <label class="form-label">Address</label>
-            <textarea name="address" class="form-control" rows="2" placeholder="Enter Address"></textarea>
-            <div class="invalid-feedback"></div>
-        </div>
-
-        <div class="col-12">
-            <label class="form-label">State</label>
-            <input type="text" name="state" class="form-control" placeholder="Enter State" />
-            <div class="invalid-feedback"></div>
+            <div class="d-flex justify-content-between align-items-center mb-2">
+                <label class="form-label mb-0">Customer Address & State</label>
+                <button type="button" id="addAddressBtn" class="btn btn-xs btn-label-primary">
+                    <i class="ti ti-plus me-1"></i> Add Address
+                </button>
+            </div>
+            <div id="customerAddressesList">
+                <div class="border rounded p-3 mb-2 address-block bg-lighter position-relative">
+                    <div class="row g-2">
+                        <div class="col-12">
+                            <label class="form-label fs-tiny text-muted mb-1">Full Address</label>
+                            <textarea name="addresses[]" class="form-control address-textarea" rows="2" placeholder="Enter Full Address"></textarea>
+                            <div class="invalid-feedback"></div>
+                        </div>
+                        <div class="col-12">
+                            <label class="form-label fs-tiny text-muted mb-1">State</label>
+                            <select name="states[]" class="form-select state-select">
+                                <option value="">-- Select State --</option>
+                                @foreach($states as $state)
+                                    <option value="{{ $state->name }}">{{ $state->name }}</option>
+                                @endforeach
+                            </select>
+                            <div class="invalid-feedback"></div>
+                        </div>
+                    </div>
+                </div>
+            </div>
         </div>
 
         <div class="col-12">
@@ -87,6 +105,8 @@
 
 <script>
 $(document).ready(function () {
+    const statesOptionsHtml = `@foreach($states as $state)<option value="{{ $state->name }}">{{ $state->name }}</option>@endforeach`;
+
     function restrictToDigits($input) {
         $input.on('input', function () {
             this.value = this.value.replace(/\D/g, '').slice(0, 10);
@@ -136,6 +156,57 @@ $(document).ready(function () {
     $('#phoneNumbersList').on('click', '.remove-phone-btn', function () {
         $(this).closest('.phone-row').remove();
         checkDuplicatePhones();
+    });
+
+    function initStateSelect2($select) {
+        if (typeof $.fn.select2 !== 'undefined' && !$select.hasClass('select2-hidden-accessible')) {
+            const parentModal = $select.closest('#commonModal');
+            $select.select2({
+                dropdownParent: parentModal.length ? parentModal : $(document.body),
+                placeholder: '-- Select State --',
+                allowClear: true,
+                width: '100%'
+            });
+        }
+    }
+
+    $('.state-select').each(function () {
+        initStateSelect2($(this));
+    });
+
+    $('#addAddressBtn').on('click', function () {
+        const addressRow = $(
+            '<div class="border rounded p-3 mb-2 address-block bg-lighter position-relative">' +
+                '<button type="button" class="btn btn-xs btn-label-danger remove-address-btn position-absolute top-0 end-0 m-2" title="Remove address">' +
+                    '<i class="ti ti-trash"></i>' +
+                '</button>' +
+                '<div class="row g-2">' +
+                    '<div class="col-12">' +
+                        '<label class="form-label fs-tiny text-muted mb-1">Full Address</label>' +
+                        '<textarea name="addresses[]" class="form-control address-textarea" rows="2" placeholder="Enter Full Address"></textarea>' +
+                        '<div class="invalid-feedback"></div>' +
+                    '</div>' +
+                    '<div class="col-12">' +
+                        '<label class="form-label fs-tiny text-muted mb-1">State</label>' +
+                        '<select name="states[]" class="form-select state-select">' +
+                            '<option value="">-- Select State --</option>' +
+                            statesOptionsHtml +
+                        '</select>' +
+                        '<div class="invalid-feedback"></div>' +
+                    '</div>' +
+                '</div>' +
+            '</div>'
+        );
+        $('#customerAddressesList').append(addressRow);
+        initStateSelect2(addressRow.find('.state-select'));
+    });
+
+    $('#customerAddressesList').on('click', '.remove-address-btn', function () {
+        const $select = $(this).closest('.address-block').find('.state-select');
+        if ($select.hasClass('select2-hidden-accessible')) {
+            $select.select2('destroy');
+        }
+        $(this).closest('.address-block').remove();
     });
 
     $('#commonModalForm').on('submit', function () {

@@ -60,6 +60,7 @@ class Order extends Model
         'final_amount',
         'is_gst',
         'tax_amount',
+        'is_shipping',
         'shipping_charge',
         'source',
         'discount_type',
@@ -81,6 +82,7 @@ class Order extends Model
         return [
             'is_default' => 'boolean',
             'is_gst' => 'boolean',
+            'is_shipping' => 'boolean',
             'use_credit_balance' => 'boolean',
             'final_amount' => 'decimal:2',
             'paid_cash_amount' => 'decimal:2',

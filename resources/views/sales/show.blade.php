@@ -156,6 +156,11 @@
                             <i class="ti ti-file-text me-1"></i> Tax Invoice
                         </a>
                     @endif
+                    @if($order->is_shipping || (float)$order->shipping_charge > 0 || $order->customer_address_id)
+                        <a href="{{ route('admin.sales.label', [$order, 'auto_print' => 1]) }}" class="btn btn-label-success" target="_blank">
+                            <i class="ti ti-printer me-1"></i> Print Label
+                        </a>
+                    @endif
                 @endif
             @endcan
 

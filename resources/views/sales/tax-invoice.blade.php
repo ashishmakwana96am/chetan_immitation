@@ -204,13 +204,28 @@
         <tr>
             <td style="width: 50%;">
                 <span class="label">Name</span> : {{ strtoupper($customerName) }}<br>
-                <span class="label">Address</span> : {{ strtoupper($customerAddress) }}<br>
-                <span class="label">Phone</span> : {{ $customerPhone }}<br>
-                <span class="label">GSTIN</span> : {{ $customerGst }}<br>
-                <span class="label">State</span> : {{ $stateName }}
+                @if(!empty(trim($customerAddress ?? '')) && $customerAddress !== '-')
+                    <span class="label">Address</span> : {{ strtoupper($customerAddress) }}<br>
+                @endif
+                @if(!empty(trim($customerPhone ?? '')) && $customerPhone !== '-')
+                    <span class="label">Phone</span> : {{ $customerPhone }}<br>
+                @endif
+                @if(!empty(trim($customerGst ?? '')) && $customerGst !== '-')
+                    <span class="label">GSTIN</span> : {{ $customerGst }}<br>
+                @endif
+                @if(!empty(trim($stateName ?? '')))
+                    <span class="label">State</span> : {{ $stateName }}
+                @endif
             </td>
             <td class="ship-box" style="width: 50%;">
-                <div class="ship-lr">
+                @if($order->is_shipping && $addr)
+                    @if(!empty(trim($addr->name ?? '')))<span class="label">Name</span> : {{ strtoupper($addr->name) }}<br>@endif
+                    @if(!empty(trim($addr->address ?? '')))<span class="label">Address</span> : {{ strtoupper($addr->address) }}<br>@endif
+                    @if(!empty(trim($addr->city ?? '')))<span class="label">City</span> : {{ strtoupper($addr->city) }}<br>@endif
+                    @if(!empty(trim($addr->state ?? '')))<span class="label">State</span> : {{ strtoupper($addr->state) }}<br>@endif
+                    @if(!empty(trim($addr->phone ?? '')))<span class="label">Phone</span> : {{ $addr->phone }}<br>@endif
+                @endif
+                <div class="ship-lr" style="{{ ($order->is_shipping && $addr) ? 'margin-top: 6px;' : 'margin-top: 54px;' }}">
                     <span class="label">Lr No</span> :<br>
                     <span class="label">Lr No Date</span> :
                 </div>

@@ -247,6 +247,9 @@ class SaleController extends Controller
                     if ($order->is_gst) {
                         $actions .= '<a href="' . route('admin.sales.tax-invoice', [$order, 'auto_print' => 1]) . '" class="dropdown-item" target="_blank"><i class="ti ti-file-text me-2"></i>Tax Invoice</a>';
                     }
+                    if ($order->is_shipping || (float)$order->shipping_charge > 0 || $order->customer_address_id) {
+                        $actions .= '<a href="' . route('admin.sales.label', [$order, 'auto_print' => 1]) . '" class="dropdown-item" target="_blank"><i class="ti ti-printer me-2"></i>Print Label</a>';
+                    }
                 }
             }
             $isEditable = ($order->source ?? 'POS') === 'POS' &&
@@ -344,6 +347,7 @@ class SaleController extends Controller
         $user = auth()->user();
         $isRestricted = $user->location_id && !$user->hasRole('super-admin');
         $customers = Customer::where('status', 1)
+            ->with('addresses')
             ->when($isRestricted, fn($q) => $q->where('location_id', $user->location_id))
             ->orderBy('name')->get();
         if ($isRestricted) {
@@ -353,7 +357,8 @@ class SaleController extends Controller
         }
         $orderNo = generate_invoice_no('SA', Order::class, 'order_no');
         $defaultLocationId = $isRestricted ? $user->location_id : null;
-        return view('sales.create', compact('customers', 'locations', 'orderNo', 'isRestricted', 'defaultLocationId'));
+        $states = State::where('status', State::STATUS_ACTIVE)->orderBy('name')->get();
+        return view('sales.create', compact('customers', 'locations', 'states', 'orderNo', 'isRestricted', 'defaultLocationId'));
     }
 
     public function store(Request $request)
@@ -379,6 +384,7 @@ class SaleController extends Controller
                     }
                 }
             ],
+            'customer_address_id' => ['nullable', 'exists:customer_addresses,id'],
             'paid_cash_amount' => ['required_if:payment_status,2,3', 'nullable', 'numeric', 'min:0'],
             'paid_online_amount' => ['required_if:payment_status,2,3', 'nullable', 'numeric', 'min:0'],
             'items' => ['required', 'array', 'min:1'],
@@ -395,6 +401,7 @@ class SaleController extends Controller
             'order_discount_type' => ['nullable', 'string', 'in:flat,percentage'],
             'order_discount_value' => ['nullable', 'numeric', 'min:0'],
             'use_credit_balance' => ['nullable', 'boolean'],
+            'is_shipping' => ['nullable', 'boolean'],
             'status' => ['nullable', 'integer', 'in:1,2,6'],
             'payment_status' => ['nullable', 'integer', 'in:1,2,3'],
             'source' => ['nullable', 'string', 'in:POS,ONLINE'],
@@ -402,6 +409,7 @@ class SaleController extends Controller
         ], [], [
             'location_id' => 'location',
             'customer_id' => 'customer',
+            'customer_address_id' => 'shipping address',
             'coupon_id'   => 'coupon',
         ]);
 
@@ -410,6 +418,30 @@ class SaleController extends Controller
                 'status' => 'error',
                 'message' => $validator->errors(),
             ], 422);
+        }
+
+        if ($request->boolean('is_shipping')) {
+            if (empty($request->customer_id) || $request->customer_id === '0') {
+                return response()->json([
+                    'status' => 'error',
+                    'message' => ['customer_id' => ['Shipping cannot be applied to Walk-in customer. Please select a customer.']],
+                ], 422);
+            }
+            $customer = Customer::with('addresses')->find($request->customer_id);
+            $selectedAddress = null;
+            if ($request->filled('customer_address_id')) {
+                $selectedAddress = CustomerAddress::where('customer_id', $request->customer_id)->where('id', $request->customer_address_id)->first();
+            }
+            if (!$selectedAddress && $customer) {
+                $selectedAddress = $customer->addresses()->first();
+            }
+
+            if (!$selectedAddress || empty(trim($selectedAddress->address ?? '')) || empty(trim($selectedAddress->state ?? ''))) {
+                return response()->json([
+                    'status' => 'error',
+                    'message' => ['customer_address_id' => ['Customer address and state are mandatory when shipping is enabled. Please update customer details.']],
+                ], 422);
+            }
         }
 
         if ((int) ($request->payment_status ?? 0) === Order::PAYMENT_STATUS_PARTIAL) {
@@ -460,25 +492,27 @@ class SaleController extends Controller
         }
 
         $order = null;
-
-        DB::transaction(function () use ($request, $isApprove, &$order) {
-            $totalAmount = 0.0;
-            $itemsData = [];
+        try {
+            $order = DB::transaction(function () use ($request, $isApprove) {
+                $totalAmount = 0.0;
+                $itemsData = [];
 
             foreach ($request->items as $itemData) {
                 $qty = (int) $itemData['quantity'];
                 $price = (float) $itemData['price'];
-                $mrp = isset($itemData['mrp']) && $itemData['mrp'] !== '' ? (float) $itemData['mrp'] : null;
-                $basePrice = ($mrp !== null && $mrp > 0) ? $mrp : $price;
-                $subtotal = $qty * $basePrice;
-
+                $mrp = (isset($itemData['mrp']) && is_numeric($itemData['mrp']) && (float) $itemData['mrp'] > 0)
+                    ? (float) $itemData['mrp']
+                    : $price;
+                $discType = $itemData['discount_type'] ?? null;
                 $discVal = (float) ($itemData['discount_value'] ?? 0);
-                $discType = $itemData['discount_type'] ?? 'flat';
 
+                $basePrice = $mrp > 0 ? $mrp : $price;
+                $subtotal = $basePrice * $qty;
                 $discAmount = 0.0;
+
                 if ($discType === 'flat') {
                     $discAmount = $discVal;
-                } else if ($discType === 'percentage') {
+                } elseif ($discType === 'percentage') {
                     $discAmount = $subtotal * ($discVal / 100);
                 }
 
@@ -575,7 +609,33 @@ class SaleController extends Controller
                 $taxAmount = $finalAmount * ($gstRate / 100);
             }
 
-            $grandTotal = round($finalAmount + $taxAmount);
+            $isShipping = $request->boolean('is_shipping');
+            $shippingCharge = 0.0;
+            $resolvedAddressId = null;
+            if ($isShipping && $request->customer_id) {
+                $customerObj = Customer::with('addresses')->find($request->customer_id);
+                $selectedAddress = null;
+                if ($request->filled('customer_address_id')) {
+                    $selectedAddress = CustomerAddress::where('customer_id', $request->customer_id)->where('id', $request->customer_address_id)->first();
+                }
+                if (!$selectedAddress && $customerObj) {
+                    $selectedAddress = $customerObj->addresses()->first();
+                }
+
+                if ($selectedAddress) {
+                    $resolvedAddressId = $selectedAddress->id;
+                    if ($finalAmount < 2000 && !empty($selectedAddress->state)) {
+                        $stateObj = State::where('name', $selectedAddress->state)
+                            ->orWhereRaw('LOWER(name) = ?', [strtolower(trim($selectedAddress->state))])
+                            ->first();
+                        if ($stateObj) {
+                            $shippingCharge = (float) $stateObj->shipping_charge;
+                        }
+                    }
+                }
+            }
+
+            $grandTotal = round($finalAmount + $taxAmount + $shippingCharge);
 
             $useCreditBalance = $request->boolean('use_credit_balance', false);
 
@@ -598,6 +658,7 @@ class SaleController extends Controller
 
             $order = Order::create([
                 'customer_id' => $request->customer_id,
+                'customer_address_id' => $resolvedAddressId,
                 'location_id' => $request->location_id,
                 'user_id' => auth()->id(),
                 'order_no' => generate_invoice_no($orderPrefix, Order::class, 'order_no'),
@@ -610,6 +671,8 @@ class SaleController extends Controller
                 'paid_online_amount' => $paidOnline,
                 'is_gst' => $isGst,
                 'tax_amount' => $taxAmount,
+                'is_shipping' => $isShipping,
+                'shipping_charge' => $shippingCharge,
                 'final_amount' => $grandTotal,
                 'source' => $source,
                 'order_discount_type' => $discType,
@@ -668,10 +731,18 @@ class SaleController extends Controller
                     \App\Services\PurchaseBatchService::deductBatchStock((int)$request->location_id, (int)$item['product_id'], !empty($item['product_variant_id']) ? (int)$item['product_variant_id'] : null, $unitPrice, (float)$stockDeduct);
                 }
             }
-        });
 
-        return response()->json(['status' => 'success', 'message' => 'Sale created successfully.', 'id' => $order->id]);
+            return $order;
+        });
+    } catch (\Throwable $e) {
+        return response()->json([
+            'status' => 'error',
+            'message' => ['items' => ['Something went wrong. Please try again.']],
+        ], 422);
     }
+
+    return response()->json(['status' => 'success', 'message' => 'Sale created successfully.', 'id' => $order->id]);
+}
 
     public function show(Order $sale)
     {
@@ -884,8 +955,8 @@ class SaleController extends Controller
             abort(403);
         }
 
-        if (($sale->source ?? 'POS') !== 'ONLINE') {
-            abort(403, 'Shipping label print is only available for online orders.');
+        if (($sale->source ?? 'POS') !== 'ONLINE' && !$sale->is_shipping && (float)$sale->shipping_charge <= 0 && !$sale->customer_address_id) {
+            abort(403, 'Shipping label print is only available for online orders or sales with shipping.');
         }
 
         if (request()->boolean('auto_print') && !request()->boolean('stream')) {
@@ -958,6 +1029,7 @@ class SaleController extends Controller
         }
 
         $customers = Customer::where('status', 1)
+            ->with('addresses')
             ->when($isRestricted, fn($q) => $q->where(fn($sub) => $sub->where('location_id', $user->location_id)->orWhere('id', $sale->customer_id)))
             ->orderBy('name')->get();
         if ($isRestricted) {
@@ -965,7 +1037,7 @@ class SaleController extends Controller
         } else {
             $locations = Location::where('status', 1)->orderBy('name')->get();
         }
-        $sale->load(['items.product.variants.attributeValue.attribute', 'salePayments']);
+        $sale->load(['items.product.variants.attributeValue.attribute', 'salePayments', 'customer.addresses', 'customerAddress']);
         $defaultLocationId = $isRestricted ? $user->location_id : null;
 
         $existingItems = $sale->items->map(function ($item) {
@@ -1012,7 +1084,8 @@ class SaleController extends Controller
                 ] : null,
             ];
         })->values();
-        return view('sales.edit', ['order' => $sale, 'customers' => $customers, 'locations' => $locations, 'existingItems' => $existingItems, 'isRestricted' => $isRestricted, 'defaultLocationId' => $defaultLocationId]);
+        $states = State::where('status', State::STATUS_ACTIVE)->orderBy('name')->get();
+        return view('sales.edit', ['order' => $sale, 'customers' => $customers, 'locations' => $locations, 'states' => $states, 'existingItems' => $existingItems, 'isRestricted' => $isRestricted, 'defaultLocationId' => $defaultLocationId]);
     }
 
     public function update(Request $request, Order $sale)
@@ -1057,6 +1130,7 @@ class SaleController extends Controller
                     }
                 }
             ],
+            'customer_address_id' => ['nullable', 'exists:customer_addresses,id'],
             'paid_cash_amount' => ['required_if:payment_status,2,3', 'nullable', 'numeric', 'min:0'],
             'paid_online_amount' => ['required_if:payment_status,2,3', 'nullable', 'numeric', 'min:0'],
             'items' => ['required', 'array', 'min:1'],
@@ -1075,6 +1149,7 @@ class SaleController extends Controller
             'discount_value' => ['nullable', 'numeric', 'min:0'],
             'order_discount_type' => ['nullable', 'string', 'in:flat,percentage'],
             'order_discount_value' => ['nullable', 'numeric', 'min:0'],
+            'is_shipping' => ['nullable', 'boolean'],
             'status' => ['nullable', 'integer', 'in:1,2,6'],
             'payment_status' => ['nullable', 'integer', 'in:1,2,3'],
             'source' => ['nullable', 'string', 'in:POS,ONLINE'],
@@ -1082,11 +1157,36 @@ class SaleController extends Controller
         ], [], [
             'location_id' => 'location',
             'customer_id' => 'customer',
+            'customer_address_id' => 'shipping address',
             'coupon_id'   => 'coupon',
         ]);
 
         if ($validator->fails()) {
             return response()->json(['status' => 'error', 'message' => $validator->errors()], 422);
+        }
+
+        if ($request->boolean('is_shipping')) {
+            if (empty($request->customer_id) || $request->customer_id === '0') {
+                return response()->json([
+                    'status' => 'error',
+                    'message' => ['customer_id' => ['Shipping cannot be applied to Walk-in customer. Please select a customer.']],
+                ], 422);
+            }
+            $customer = Customer::with('addresses')->find($request->customer_id);
+            $selectedAddress = null;
+            if ($request->filled('customer_address_id')) {
+                $selectedAddress = CustomerAddress::where('customer_id', $request->customer_id)->where('id', $request->customer_address_id)->first();
+            }
+            if (!$selectedAddress && $customer) {
+                $selectedAddress = $customer->addresses()->first();
+            }
+
+            if (!$selectedAddress || empty(trim($selectedAddress->address ?? '')) || empty(trim($selectedAddress->state ?? ''))) {
+                return response()->json([
+                    'status' => 'error',
+                    'message' => ['customer_address_id' => ['Customer address and state are mandatory when shipping is enabled. Please update customer details.']],
+                ], 422);
+            }
         }
 
         if ((int) ($request->payment_status ?? 0) === Order::PAYMENT_STATUS_PARTIAL) {
@@ -1340,7 +1440,33 @@ class SaleController extends Controller
                     $taxAmount = $finalAmount * ($gstRate / 100);
                 }
 
-                $grandTotal = round($finalAmount + $taxAmount);
+                $isShipping = $request->boolean('is_shipping');
+                $shippingCharge = 0.0;
+                $resolvedAddressId = null;
+                if ($isShipping && $request->customer_id) {
+                    $customerObj = Customer::with('addresses')->find($request->customer_id);
+                    $selectedAddress = null;
+                    if ($request->filled('customer_address_id')) {
+                        $selectedAddress = CustomerAddress::where('customer_id', $request->customer_id)->where('id', $request->customer_address_id)->first();
+                    }
+                    if (!$selectedAddress && $customerObj) {
+                        $selectedAddress = $customerObj->addresses()->first();
+                    }
+
+                    if ($selectedAddress) {
+                        $resolvedAddressId = $selectedAddress->id;
+                        if ($finalAmount < 2000 && !empty($selectedAddress->state)) {
+                            $stateObj = State::where('name', $selectedAddress->state)
+                                ->orWhereRaw('LOWER(name) = ?', [strtolower(trim($selectedAddress->state))])
+                                ->first();
+                            if ($stateObj) {
+                                $shippingCharge = (float) $stateObj->shipping_charge;
+                            }
+                        }
+                    }
+                }
+
+                $grandTotal = round($finalAmount + $taxAmount + $shippingCharge);
 
                 $resolvedPaymentStatus = $isCancelled ? Order::PAYMENT_STATUS_PENDING : ($request->payment_status ?? $sale->payment_status ?? 1);
 
@@ -1372,6 +1498,7 @@ class SaleController extends Controller
 
                 $updateData = [
                     'customer_id' => $request->customer_id,
+                    'customer_address_id' => $resolvedAddressId,
                     'location_id' => $request->location_id,
                     'use_credit_balance' => $useCreditBalance,
                     'payment_method' => $paymentMethod,
@@ -1381,6 +1508,8 @@ class SaleController extends Controller
                     'payment_status' => $resolvedPaymentStatus,
                     'is_gst' => $isGst,
                     'tax_amount' => $taxAmount,
+                    'is_shipping' => $isShipping,
+                    'shipping_charge' => $shippingCharge,
                     'final_amount' => $grandTotal,
                     'source' => $source,
                     'order_discount_type' => $discType,
