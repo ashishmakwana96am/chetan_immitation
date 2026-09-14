@@ -15,6 +15,16 @@ class PurchaseBill extends Model
         return 'Purchase Bill';
     }
 
+    protected static function booted(): void
+    {
+        static::saved(function () {
+            Product::clearMappedCaches();
+        });
+        static::deleted(function () {
+            Product::clearMappedCaches();
+        });
+    }
+
     const STATUS_PENDING = 1;
     const STATUS_ACCEPTED = 2;
     const STATUS_REJECTED = 3;
