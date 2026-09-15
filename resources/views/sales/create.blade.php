@@ -411,9 +411,12 @@
                                     <span class="text-muted" id="summarySGSTLabel">SGST (1.5%)</span>
                                     <span id="summarySGSTAmount" class="fw-semibold">0.00</span>
                                 </div>
-                                <div class="d-flex justify-content-between mb-3 d-none" id="summaryShippingRow">
+                                <div class="d-flex justify-content-between align-items-center mb-3 d-none" id="summaryShippingRow">
                                     <span class="text-muted">Shipping</span>
-                                    <span id="summaryShippingAmount" class="fw-semibold">0.00</span>
+                                    <div class="input-group input-group-sm" style="max-width: 170px;">
+                                        <span class="input-group-text fw-bold text-primary px-2">{{ currency_symbol() }}</span>
+                                        <input type="number" id="summaryShippingInput" name="shipping_charge" class="form-control text-end fw-bold text-primary fs-5 py-1 px-2" value="" min="0" step="0.01" placeholder="0.00" />
+                                    </div>
                                 </div>
                                 <hr />
                                 <div class="d-flex justify-content-between align-items-center">
@@ -605,17 +608,6 @@ $(document).ready(function () {
         allProducts = res || [];
     });
     const locations = @json($locations);
-    const stateShippingCharges = @json(($states ?? collect())->pluck('shipping_charge', 'name'));
-    function getStateShippingCharge(stateName) {
-        if (!stateName) return 0;
-        const cleanState = String(stateName).trim().toLowerCase();
-        for (const [sName, charge] of Object.entries(stateShippingCharges)) {
-            if (String(sName).trim().toLowerCase() === cleanState) {
-                return parseFloat(charge) || 0;
-            }
-        }
-        return 0;
-    }
     const customerEditUrlTemplate = '{{ route('admin.customers.edit', ['customer' => '__ID__']) }}';
     let pendingGstFixCustomerId = null;
 
@@ -854,6 +846,7 @@ $(document).ready(function () {
             if (!customerVal || customerVal === '0') {
                 toastr.error('Shipping cannot be applied to Walk-in customer. Please select a customer.');
                 $(this).prop('checked', false);
+                $('#summaryShippingInput').val('');
                 syncShippingAddressDropdown();
                 updateSummary();
                 return;
@@ -871,7 +864,18 @@ $(document).ready(function () {
 
             syncShippingAddressDropdown();
         } else {
+            $('#summaryShippingInput').val('');
             syncShippingAddressDropdown();
+        }
+        updateSummary();
+    });
+
+    $(document).on('input change', '#summaryShippingInput', function () {
+        const val = parseFloat($(this).val()) || 0;
+        if ($('#is_shipping_switch').is(':checked') && val <= 0) {
+            $(this).addClass('is-invalid');
+        } else {
+            $(this).removeClass('is-invalid');
         }
         updateSummary();
     });
@@ -1850,15 +1854,15 @@ $(document).ready(function () {
         const isShipping = $('#is_shipping_switch').is(':checked');
         let shippingCharge = 0;
         if (isShipping) {
-            const customerState = getSelectedShippingState();
-            if (finalAmount < 2000) {
-                shippingCharge = getStateShippingCharge(customerState);
+            shippingCharge = parseFloat($('#summaryShippingInput').val()) || 0;
+            if (shippingCharge <= 0) {
+                $('#summaryShippingInput').addClass('is-invalid');
             } else {
-                shippingCharge = 0;
+                $('#summaryShippingInput').removeClass('is-invalid');
             }
             $('#summaryShippingRow').removeClass('d-none');
-            $('#summaryShippingAmount').text(shippingCharge > 0 ? (symbol + ' ' + formatPrice(shippingCharge)) : 'Free');
         } else {
+            $('#summaryShippingInput').removeClass('is-invalid');
             $('#summaryShippingRow').addClass('d-none');
         }
 
@@ -1930,10 +1934,7 @@ $(document).ready(function () {
         const isShipping = $('#is_shipping_switch').is(':checked');
         let shippingCharge = 0;
         if (isShipping) {
-            const customerState = getSelectedShippingState();
-            if (itemsTotal < 2000) {
-                shippingCharge = getStateShippingCharge(customerState);
-            }
+            shippingCharge = parseFloat($('#summaryShippingInput').val()) || 0;
         }
 
         const maxAllowedGrandTotal = Math.round(itemsTotal * taxMultiplier + shippingCharge);
@@ -2215,6 +2216,13 @@ $(document).ready(function () {
             const validAddresses = addresses.filter(a => (a.address || '').trim() && (a.state || '').trim());
             if (!validAddresses.length) {
                 return 'Customer address and state are mandatory when shipping is enabled. Please update customer details.';
+            }
+            const shippingVal = parseFloat($('#summaryShippingInput').val()) || 0;
+            if (shippingVal <= 0) {
+                $('#summaryShippingInput').addClass('is-invalid').focus();
+                return 'Shipping charge must be greater than 0 when shipping is enabled.';
+            } else {
+                $('#summaryShippingInput').removeClass('is-invalid');
             }
         }
 
