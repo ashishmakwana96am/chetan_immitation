@@ -402,6 +402,7 @@ class SaleController extends Controller
             'order_discount_value' => ['nullable', 'numeric', 'min:0'],
             'use_credit_balance' => ['nullable', 'boolean'],
             'is_shipping' => ['nullable', 'boolean'],
+            'shipping_charge' => ['nullable', 'numeric', 'min:0'],
             'status' => ['nullable', 'integer', 'in:1,2,6'],
             'payment_status' => ['nullable', 'integer', 'in:1,2,3'],
             'source' => ['nullable', 'string', 'in:POS,ONLINE'],
@@ -440,6 +441,14 @@ class SaleController extends Controller
                 return response()->json([
                     'status' => 'error',
                     'message' => ['customer_address_id' => ['Customer address and state are mandatory when shipping is enabled. Please update customer details.']],
+                ], 422);
+            }
+
+            $shippingCharge = (float) $request->input('shipping_charge', 0);
+            if ($shippingCharge <= 0) {
+                return response()->json([
+                    'status' => 'error',
+                    'message' => ['shipping_charge' => ['Shipping charge must be greater than 0 when shipping is enabled.']],
                 ], 422);
             }
         }
@@ -612,27 +621,22 @@ class SaleController extends Controller
             $isShipping = $request->boolean('is_shipping');
             $shippingCharge = 0.0;
             $resolvedAddressId = null;
-            if ($isShipping && $request->customer_id) {
-                $customerObj = Customer::with('addresses')->find($request->customer_id);
-                $selectedAddress = null;
-                if ($request->filled('customer_address_id')) {
-                    $selectedAddress = CustomerAddress::where('customer_id', $request->customer_id)->where('id', $request->customer_address_id)->first();
-                }
-                if (!$selectedAddress && $customerObj) {
-                    $selectedAddress = $customerObj->addresses()->first();
-                }
+            if ($isShipping) {
+                if ($request->customer_id) {
+                    $customerObj = Customer::with('addresses')->find($request->customer_id);
+                    $selectedAddress = null;
+                    if ($request->filled('customer_address_id')) {
+                        $selectedAddress = CustomerAddress::where('customer_id', $request->customer_id)->where('id', $request->customer_address_id)->first();
+                    }
+                    if (!$selectedAddress && $customerObj) {
+                        $selectedAddress = $customerObj->addresses()->first();
+                    }
 
-                if ($selectedAddress) {
-                    $resolvedAddressId = $selectedAddress->id;
-                    if ($finalAmount < 2000 && !empty($selectedAddress->state)) {
-                        $stateObj = State::where('name', $selectedAddress->state)
-                            ->orWhereRaw('LOWER(name) = ?', [strtolower(trim($selectedAddress->state))])
-                            ->first();
-                        if ($stateObj) {
-                            $shippingCharge = (float) $stateObj->shipping_charge;
-                        }
+                    if ($selectedAddress) {
+                        $resolvedAddressId = $selectedAddress->id;
                     }
                 }
+                $shippingCharge = max(0, (float) $request->input('shipping_charge', 0));
             }
 
             $grandTotal = round($finalAmount + $taxAmount + $shippingCharge);
@@ -1150,6 +1154,7 @@ class SaleController extends Controller
             'order_discount_type' => ['nullable', 'string', 'in:flat,percentage'],
             'order_discount_value' => ['nullable', 'numeric', 'min:0'],
             'is_shipping' => ['nullable', 'boolean'],
+            'shipping_charge' => ['nullable', 'numeric', 'min:0'],
             'status' => ['nullable', 'integer', 'in:1,2,6'],
             'payment_status' => ['nullable', 'integer', 'in:1,2,3'],
             'source' => ['nullable', 'string', 'in:POS,ONLINE'],
@@ -1185,6 +1190,14 @@ class SaleController extends Controller
                 return response()->json([
                     'status' => 'error',
                     'message' => ['customer_address_id' => ['Customer address and state are mandatory when shipping is enabled. Please update customer details.']],
+                ], 422);
+            }
+
+            $shippingCharge = (float) $request->input('shipping_charge', 0);
+            if ($shippingCharge <= 0) {
+                return response()->json([
+                    'status' => 'error',
+                    'message' => ['shipping_charge' => ['Shipping charge must be greater than 0 when shipping is enabled.']],
                 ], 422);
             }
         }
@@ -1443,27 +1456,22 @@ class SaleController extends Controller
                 $isShipping = $request->boolean('is_shipping');
                 $shippingCharge = 0.0;
                 $resolvedAddressId = null;
-                if ($isShipping && $request->customer_id) {
-                    $customerObj = Customer::with('addresses')->find($request->customer_id);
-                    $selectedAddress = null;
-                    if ($request->filled('customer_address_id')) {
-                        $selectedAddress = CustomerAddress::where('customer_id', $request->customer_id)->where('id', $request->customer_address_id)->first();
-                    }
-                    if (!$selectedAddress && $customerObj) {
-                        $selectedAddress = $customerObj->addresses()->first();
-                    }
+                if ($isShipping) {
+                    if ($request->customer_id) {
+                        $customerObj = Customer::with('addresses')->find($request->customer_id);
+                        $selectedAddress = null;
+                        if ($request->filled('customer_address_id')) {
+                            $selectedAddress = CustomerAddress::where('customer_id', $request->customer_id)->where('id', $request->customer_address_id)->first();
+                        }
+                        if (!$selectedAddress && $customerObj) {
+                            $selectedAddress = $customerObj->addresses()->first();
+                        }
 
-                    if ($selectedAddress) {
-                        $resolvedAddressId = $selectedAddress->id;
-                        if ($finalAmount < 2000 && !empty($selectedAddress->state)) {
-                            $stateObj = State::where('name', $selectedAddress->state)
-                                ->orWhereRaw('LOWER(name) = ?', [strtolower(trim($selectedAddress->state))])
-                                ->first();
-                            if ($stateObj) {
-                                $shippingCharge = (float) $stateObj->shipping_charge;
-                            }
+                        if ($selectedAddress) {
+                            $resolvedAddressId = $selectedAddress->id;
                         }
                     }
+                    $shippingCharge = max(0, (float) $request->input('shipping_charge', 0));
                 }
 
                 $grandTotal = round($finalAmount + $taxAmount + $shippingCharge);
