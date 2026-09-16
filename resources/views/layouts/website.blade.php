@@ -231,7 +231,7 @@
                         <!-- Shop By Collection -->
                         @if(isset($sharedCollections) && count($sharedCollections) > 0)
                         <div class="group relative" onmouseenter="setHeaderCategoryArrow(true, 'desktopCollectionArrow')" onmouseleave="setHeaderCategoryArrow(false, 'desktopCollectionArrow')" onfocusin="setHeaderCategoryArrow(true, 'desktopCollectionArrow')" onfocusout="setHeaderCategoryArrow(false, 'desktopCollectionArrow')">
-                            <a href="{{ route('shop-by-category', ['collection' => '']) }}" class="flex items-center gap-2 text-white hover:text-[#B4771E] text-base 2xl:text-lg pb-1 transition-colors duration-300">
+                            <a href="{{ route('shop-by-category') }}" class="flex items-center gap-2 text-white hover:text-[#B4771E] text-base 2xl:text-lg pb-1 transition-colors duration-300">
                                 Collections
                                 <i id="desktopCollectionArrow" class="fa-solid fa-angle-down text-xl transition-transform duration-300 group-hover:rotate-180"></i>
                             </a>
