@@ -4161,7 +4161,7 @@ class ReportController extends Controller
         $jsonPayload = [
             'gstin' => $companyGstin,
             'fp' => $fp,
-            'b2c' => $b2cList,
+            'b2cs' => $b2cList,
             'hsn' => [
                 'hsn_b2c' => $hsnB2c,
             ],
