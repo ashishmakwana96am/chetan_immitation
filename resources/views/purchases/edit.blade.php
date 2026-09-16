@@ -933,8 +933,8 @@ $(document).ready(function () {
         if (isGst) {
             if (storeState === 'gujarat') {
                 const halfRate = gstRate / 2;
-                const cgst = finalAmount * (halfRate / 100);
-                const sgst = finalAmount * (halfRate / 100);
+                const cgst = Math.round(finalAmount * (halfRate / 100) * 100) / 100;
+                const sgst = Math.round(finalAmount * (halfRate / 100) * 100) / 100;
                 taxAmount = cgst + sgst;
 
                 $('#summaryCGSTLabel').text('CGST (' + halfRate + '%)');
@@ -946,7 +946,7 @@ $(document).ready(function () {
                 $('#summarySGSTRow').removeClass('d-none');
                 $('#summaryIGSTRow').addClass('d-none');
             } else {
-                const igst = finalAmount * (gstRate / 100);
+                const igst = Math.round(finalAmount * (gstRate / 100) * 100) / 100;
                 taxAmount = igst;
 
                 $('#summaryIGSTLabel').text('IGST (' + gstRate + '%)');

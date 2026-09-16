@@ -423,7 +423,7 @@
                                 @if($isLocalGujarat)
                                     @php
                                         $halfRate = $gstRate / 2;
-                                        $halfTax = $taxAmount / 2;
+                                        $halfTax = round($taxAmount / 2, 2);
                                     @endphp
                                     <tr>
                                         <td colspan="5" class="text-end fw-semibold text-muted">CGST ({{ $halfRate }}%)</td>

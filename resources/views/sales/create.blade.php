@@ -1835,8 +1835,8 @@ $(document).ready(function () {
 
         if (isGst) {
             const halfRate = gstRate / 2;
-            const cgst = finalAmount * (halfRate / 100);
-            const sgst = finalAmount * (halfRate / 100);
+            const cgst = Math.round(finalAmount * (halfRate / 100) * 100) / 100;
+            const sgst = Math.round(finalAmount * (halfRate / 100) * 100) / 100;
             taxAmount = cgst + sgst;
 
             $('#summaryCGSTLabel').text('CGST (' + halfRate + '%)');

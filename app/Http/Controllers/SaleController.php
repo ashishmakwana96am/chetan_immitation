@@ -615,7 +615,10 @@ class SaleController extends Controller
             if ($isGst) {
                 $orderPrefix = 'GS';
                 $gstRate = (float) \App\Models\Setting::getValue('purchase_gst_rate', 3);
-                $taxAmount = $finalAmount * ($gstRate / 100);
+                $halfRate = $gstRate / 2;
+                $cgst = round($finalAmount * ($halfRate / 100), 2);
+                $sgst = round($finalAmount * ($halfRate / 100), 2);
+                $taxAmount = $cgst + $sgst;
             }
 
             $isShipping = $request->boolean('is_shipping');
@@ -1450,7 +1453,10 @@ class SaleController extends Controller
                 if ($isGst) {
                     $orderPrefix = 'GS';
                     $gstRate = (float) \App\Models\Setting::getValue('purchase_gst_rate', 3);
-                    $taxAmount = $finalAmount * ($gstRate / 100);
+                    $halfRate = $gstRate / 2;
+                    $cgst = round($finalAmount * ($halfRate / 100), 2);
+                    $sgst = round($finalAmount * ($halfRate / 100), 2);
+                    $taxAmount = $cgst + $sgst;
                 }
 
                 $isShipping = $request->boolean('is_shipping');

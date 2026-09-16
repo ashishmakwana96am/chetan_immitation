@@ -243,7 +243,7 @@ if (!function_exists('format_price')) {
         $negative = $amount < 0 ? '-' : '';
         $amount = abs($amount);
         
-        $parts = explode('.', number_format($amount, $decimals, '.', ''));
+        $parts = explode('.', number_format(round($amount, $decimals), $decimals, '.', ''));
         $integer = $parts[0];
         $decimal = isset($parts[1]) ? '.' . $parts[1] : '';
         
