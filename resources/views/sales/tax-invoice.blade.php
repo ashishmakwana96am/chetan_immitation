@@ -166,9 +166,9 @@
     $buyerState = strtolower(trim($stateName));
     $storeState = strtolower(trim($setting::getValue('store_state', 'Gujarat')));
     $isIntraState = $buyerState === '' || $buyerState === $storeState;
-    $cgst = $order->is_gst && $isIntraState ? $taxAmount / 2 : 0;
-    $sgst = $order->is_gst && $isIntraState ? $taxAmount / 2 : 0;
-    $igst = $order->is_gst && ! $isIntraState ? $taxAmount : 0;
+    $cgst = $order->is_gst && $isIntraState ? round($taxAmount / 2, 2) : 0;
+    $sgst = $order->is_gst && $isIntraState ? round($taxAmount / 2, 2) : 0;
+    $igst = $order->is_gst && ! $isIntraState ? round($taxAmount, 2) : 0;
     $halfRate = $gstRate / 2;
 
     $totalQty = $order->items->sum('quantity');

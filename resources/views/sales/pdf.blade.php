@@ -643,7 +643,7 @@
                 @if($isPos || $buyerState === '' || $buyerState === $storeState)
                     @php
                         $halfRate = $gstRate / 2;
-                        $halfTax = $taxAmount / 2;
+                        $halfTax = round($taxAmount / 2, 2);
                     @endphp
                     <tr class="cgst-row">
                         <td colspan="5" class="text-right">CGST ({{ $halfRate }}%)</td>

@@ -354,7 +354,10 @@ class PurchaseController extends Controller
                 if ($isGst) {
                     $invoicePrefix = 'GP';
                     $gstRate = (float) \App\Models\Setting::getValue('purchase_gst_rate', 3);
-                    $taxAmount = $finalAmount * ($gstRate / 100);
+                    $halfRate = $gstRate / 2;
+                    $cgst = round($finalAmount * ($halfRate / 100), 2);
+                    $sgst = round($finalAmount * ($halfRate / 100), 2);
+                    $taxAmount = $cgst + $sgst;
                 }
 
                 $grandTotal = round($finalAmount + $taxAmount);
@@ -733,7 +736,10 @@ class PurchaseController extends Controller
             if ($isGst) {
                 $invoicePrefix = 'GP';
                 $gstRate = (float) \App\Models\Setting::getValue('purchase_gst_rate', 3);
-                $taxAmount = $finalAmount * ($gstRate / 100);
+                $halfRate = $gstRate / 2;
+                $cgst = round($finalAmount * ($halfRate / 100), 2);
+                $sgst = round($finalAmount * ($halfRate / 100), 2);
+                $taxAmount = $cgst + $sgst;
             }
 
             $grandTotal = round($finalAmount + $taxAmount);
