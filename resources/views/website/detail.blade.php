@@ -1868,6 +1868,7 @@ Order Amount
                 currency:    data.currency,
                 name:        'Chetan Imitation',
                 description: 'Order Payment (ORD: ' + data.order.order_no + ')',
+                image:       'https://chetanimitation.com/assets/img/favicon/favicon.png',
                 order_id:    data.order_id,
                 config: {
                     display: {
