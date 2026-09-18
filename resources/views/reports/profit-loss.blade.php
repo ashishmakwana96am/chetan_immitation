@@ -152,7 +152,7 @@
                             <span class="text-muted small">Taxable Amount</span>
                             <h5 class="mb-0 mt-1 text-info">{{ format_price($totalTax) }}</h5>
                         </div>
-                        <span class="badge bg-label-info rounded p-2"><i class="ti ti-file-dollar ti-sm"></i></span>
+                        <span class="badge bg-label-info rounded p-2"><i class="ti ti-currency-rupee ti-sm"></i></span>
                     </div>
                 </div>
             </div>

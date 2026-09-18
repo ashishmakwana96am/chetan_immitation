@@ -239,7 +239,7 @@
                                 <h4 class="mb-0 mt-1 text-warning">{{ format_price($totalGstAmount ?? 0) }}</h4>
                                 <small class="text-muted d-block mt-1">Total Tax</small>
                             </div>
-                            <span class="badge bg-label-warning rounded p-2"><i class="ti ti-file-dollar ti-sm"></i></span>
+                            <span class="badge bg-label-warning rounded p-2"><i class="ti ti-currency-rupee ti-sm"></i></span>
                         </div>
                     </div>
                 </div>
