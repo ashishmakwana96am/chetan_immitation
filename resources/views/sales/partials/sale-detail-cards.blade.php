@@ -62,7 +62,7 @@
         {{-- Sale Info --}}
         <div class="card">
             <div class="card-header d-flex align-items-center gap-2">
-                <span class="card-title-icon"><i class="ti ti-receipt-2"></i></span>
+                <span class="card-title-icon"><i class="ti ti-currency-rupee"></i></span>
                 <h6 class="mb-0 fw-semibold">Sale Info</h6>
             </div>
             <div class="card-body py-1 px-3">
