@@ -464,6 +464,232 @@ class PurchaseStockService
     }
 
     /**
+     * Remove only the items matching this purchase from affected sales orders.
+     * If all items in a sales order are removed (0 items left), delete the sales order.
+     * Otherwise, recalculate order subtotals, discounts, tax (GST), final_amount,
+     * and update payment split and ledger entries.
+     */
+    public static function adjustOrDeleteSalesForPurchase(Purchase $purchase): void
+    {
+        $purchase->load(['items.product', 'items.allocations']);
+        $purchaseItemIds = $purchase->items->pluck('id')->all();
+        $productIds = $purchase->items->pluck('product_id')->unique()->all();
+
+        $purchaseItemSignatures = $purchase->items->map(function ($pi) {
+            return [
+                'id'                 => $pi->id,
+                'product_id'         => (int) $pi->product_id,
+                'product_variant_id' => (int) ($pi->product_variant_id ?? 0),
+                'purchase_price'     => (float) $pi->purchase_price,
+            ];
+        });
+
+        // 1. Direct match by purchase_item_id
+        $orderItemsDirect = OrderItem::whereIn('purchase_item_id', $purchaseItemIds)
+            ->whereNull('deleted_at')
+            ->whereHas('order', fn($q) => $q->whereNull('deleted_at')->where('order_type', 'sale'))
+            ->get();
+
+        // 2. Match by product_id and signature within recent timeframe
+        $createdAtMin = $purchase->created_at ? $purchase->created_at->subMinutes(5) : null;
+        $orderItemsByProd = OrderItem::with(['product', 'order'])
+            ->whereIn('product_id', $productIds)
+            ->whereNull('deleted_at')
+            ->whereHas('order', function ($q) use ($createdAtMin) {
+                $q->whereNull('deleted_at')->where('order_type', 'sale');
+                if ($createdAtMin) {
+                    $q->where('created_at', '>=', $createdAtMin);
+                }
+            })
+            ->get();
+
+        $allMatchingOrderItems = $orderItemsDirect->merge($orderItemsByProd)->unique('id');
+
+        $orderItemIdsToDelete = [];
+        $affectedOrderIds = [];
+
+        foreach ($allMatchingOrderItems as $oi) {
+            foreach ($purchaseItemSignatures as $sig) {
+                if (self::isMatchingOrderItemSingle($oi, $sig)) {
+                    $orderItemIdsToDelete[] = $oi->id;
+                    $affectedOrderIds[] = $oi->order_id;
+                    break;
+                }
+            }
+        }
+
+        $orderItemIdsToDelete = array_unique($orderItemIdsToDelete);
+        $affectedOrderIds = array_unique($affectedOrderIds);
+
+        if (empty($affectedOrderIds)) {
+            return;
+        }
+
+        $orders = Order::with(['items', 'salePayments', 'customer'])->whereIn('id', $affectedOrderIds)->get();
+
+        foreach ($orders as $order) {
+            $matchingItems = $order->items->whereIn('id', $orderItemIdsToDelete);
+            if ($matchingItems->isEmpty()) {
+                continue;
+            }
+
+            $totalItemsCount = $order->items->count();
+            $matchingItemsCount = $matchingItems->count();
+
+            // If ALL items in the order belong to this purchase, delete the entire order
+            if ($matchingItemsCount >= $totalItemsCount) {
+                $order->delete();
+                continue;
+            }
+
+            // Otherwise, delete only the matching order items
+            foreach ($matchingItems as $itemToDelete) {
+                $itemToDelete->delete();
+            }
+
+            // Reload remaining items
+            $order->load('items');
+            $remainingItems = $order->items;
+
+            $newSubtotal = 0.0;
+            foreach ($remainingItems as $item) {
+                $newSubtotal += (float) $item->total;
+            }
+
+            // Recalculate order discount
+            $discVal = (float) ($order->order_discount_value ?? 0);
+            $discType = $order->order_discount_type ?? 'flat';
+            $orderDiscountAmount = 0.0;
+
+            if ($discVal > 0) {
+                if ($discType === 'percentage') {
+                    $orderDiscountAmount = $newSubtotal * ($discVal / 100);
+                } else {
+                    $orderDiscountAmount = min($discVal, $newSubtotal);
+                }
+            }
+            if ($orderDiscountAmount > $newSubtotal) {
+                $orderDiscountAmount = $newSubtotal;
+            }
+
+            $finalBeforeTaxShipping = max(0.0, $newSubtotal - $orderDiscountAmount);
+
+            // Recalculate GST if is_gst
+            $newTaxAmount = 0.0;
+            if ($order->is_gst && ($order->source ?? 'POS') !== 'ONLINE') {
+                $gstRate = (float) \App\Models\Setting::getValue('purchase_gst_rate', 3);
+                $halfRate = $gstRate / 2;
+                $cgst = round($finalBeforeTaxShipping * ($halfRate / 100), 2);
+                $sgst = round($finalBeforeTaxShipping * ($halfRate / 100), 2);
+                $newTaxAmount = $cgst + $sgst;
+            }
+
+            $shippingCharge = (float) ($order->shipping_charge ?? 0);
+            $newFinalAmount = round($finalBeforeTaxShipping + $newTaxAmount + $shippingCharge);
+
+            // Recalculate payment status & paid amounts
+            $oldPaidCash = (float) ($order->paid_cash_amount ?? 0);
+            $oldPaidOnline = (float) ($order->paid_online_amount ?? 0);
+            $oldPaidTotal = $oldPaidCash + $oldPaidOnline;
+
+            $newPaidCash = 0.0;
+            $newPaidOnline = 0.0;
+            $newPaymentStatus = (int) $order->payment_status;
+
+            if ($newPaymentStatus === Order::PAYMENT_STATUS_PAID) {
+                if ($oldPaidTotal > 0) {
+                    if ($oldPaidCash > 0 && $oldPaidOnline <= 0) {
+                        $newPaidCash = $newFinalAmount;
+                        $newPaidOnline = 0.0;
+                    } elseif ($oldPaidOnline > 0 && $oldPaidCash <= 0) {
+                        $newPaidCash = 0.0;
+                        $newPaidOnline = $newFinalAmount;
+                    } else {
+                        // Split proportionally
+                        $ratio = $oldPaidTotal > 0 ? ($newFinalAmount / $oldPaidTotal) : 1.0;
+                        $newPaidCash = round($oldPaidCash * $ratio, 2);
+                        $newPaidOnline = round($newFinalAmount - $newPaidCash, 2);
+                    }
+                } else {
+                    $isOnline = in_array(strtolower($order->payment_method ?? ''), ['online', 'upi', 'razorpay', 'bank_transfer', 'bank transfer'], true);
+                    if ($isOnline) {
+                        $newPaidOnline = $newFinalAmount;
+                    } else {
+                        $newPaidCash = $newFinalAmount;
+                    }
+                }
+            } elseif ($newPaymentStatus === Order::PAYMENT_STATUS_PARTIAL) {
+                if ($oldPaidTotal >= $newFinalAmount && $newFinalAmount > 0) {
+                    $newPaymentStatus = Order::PAYMENT_STATUS_PAID;
+                    if ($oldPaidCash > 0 && $oldPaidOnline <= 0) {
+                        $newPaidCash = $newFinalAmount;
+                        $newPaidOnline = 0.0;
+                    } elseif ($oldPaidOnline > 0 && $oldPaidCash <= 0) {
+                        $newPaidCash = 0.0;
+                        $newPaidOnline = $newFinalAmount;
+                    } else {
+                        $ratio = $oldPaidTotal > 0 ? ($newFinalAmount / $oldPaidTotal) : 1.0;
+                        $newPaidCash = round($oldPaidCash * $ratio, 2);
+                        $newPaidOnline = round($newFinalAmount - $newPaidCash, 2);
+                    }
+                } else {
+                    $newPaidCash = $oldPaidCash;
+                    $newPaidOnline = $oldPaidOnline;
+                }
+            } else {
+                $newPaidCash = 0.0;
+                $newPaidOnline = 0.0;
+                $newPaymentStatus = Order::PAYMENT_STATUS_PENDING;
+            }
+
+            // Update order (which triggers OrderObserver to update Location & Customer Ledgers)
+            $order->update([
+                'tax_amount'         => $newTaxAmount,
+                'final_amount'       => $newFinalAmount,
+                'paid_cash_amount'   => $newPaidCash,
+                'paid_online_amount' => $newPaidOnline,
+                'payment_status'     => $newPaymentStatus,
+            ]);
+
+            // Sync sale_payments table if records exist
+            $newPaidTotal = $newPaidCash + $newPaidOnline;
+            $salePayments = $order->salePayments()->latest()->get();
+            if ($salePayments->isNotEmpty()) {
+                $currentSpTotal = (float) $salePayments->sum('amount');
+                $excess = max(0.0, round($currentSpTotal - $newPaidTotal, 2));
+                if ($excess > 0) {
+                    $diffToReduce = $excess;
+                    foreach ($salePayments as $sp) {
+                        if ($diffToReduce <= 0) break;
+                        $spAmt = (float) $sp->amount;
+                        if ($spAmt <= $diffToReduce) {
+                            $diffToReduce -= $spAmt;
+                            $sp->delete();
+                        } else {
+                            $reducedAmt = $spAmt - $diffToReduce;
+                            $sp->update([
+                                'amount'        => $reducedAmt,
+                                'cash_amount'   => min((float)$sp->cash_amount, $reducedAmt),
+                                'online_amount' => max(0.0, $reducedAmt - min((float)$sp->cash_amount, $reducedAmt)),
+                            ]);
+                            $diffToReduce = 0;
+                        }
+                    }
+                }
+            }
+
+            ActivityLogger::log(
+                'Sales',
+                'update',
+                $order,
+                ['final_amount' => (float)$order->getOriginal('final_amount')],
+                ['final_amount' => $newFinalAmount],
+                'Sale #' . $order->order_no . ' recalculated after purchase #' . $purchase->invoice_no . ' deletion'
+            );
+        }
+    }
+
+    /**
      * Multi-branch stock reversal including destination branches where stock was transferred,
      * matching by product, variant AND exact purchase_price batch.
      */

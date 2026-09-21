@@ -84,7 +84,10 @@
                             <input class="form-check-input me-3 mt-1 flex-shrink-0" type="radio" name="delete_sales_choice" id="choiceDeleteSales" value="1">
                             <div class="w-100">
                                 <div class="fw-bold text-danger mb-1 d-flex align-items-center">
-                                    <i class="ti ti-trash-x text-danger me-1"></i> Delete Purchase & Remove Associated Sales (Full Rollback)
+                                    <i class="ti ti-trash-x text-danger me-1"></i> Delete Purchase & Remove Associated Items from Sales
+                                </div>
+                                <div class="text-muted small">
+                                    Removes this purchase's items from sales and recalculates remaining sale totals & ledgers. If an order has no other items left, it will be deleted.
                                 </div>
                             </div>
                         </label>
