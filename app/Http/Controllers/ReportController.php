@@ -2166,6 +2166,8 @@ class ReportController extends Controller
             $productProfitabilityQuery->where('orders.location_id', $locationId);
         }
 
+        $baseCogsQuery = clone $productProfitabilityQuery;
+
         $productProfitabilityRaw = $productProfitabilityQuery
             ->selectRaw('
                 order_items.product_id,
@@ -2214,7 +2216,7 @@ class ReportController extends Controller
         $profitMargin = $totalRevenue > 0 ? ($netProfit / $totalRevenue) * 100 : 0.0;
 
         $monthlyRevenueMap = (clone $salesQuery)
-            ->selectRaw("DATE_FORMAT(orders.created_at, '%Y-%m') as month, SUM(COALESCE(orders.paid_cash_amount, 0) + COALESCE(orders.paid_online_amount, 0)) as total_rev")
+            ->selectRaw("DATE_FORMAT(orders.created_at, '%Y-%m') as month, SUM(COALESCE(orders.final_amount, 0)) as total_rev")
             ->groupBy(DB::raw("DATE_FORMAT(orders.created_at, '%Y-%m')"))
             ->pluck('total_rev', 'month')
             ->toArray();
@@ -2225,9 +2227,8 @@ class ReportController extends Controller
             ->pluck('total_exp', 'month')
             ->toArray();
 
-        $monthlyCogsQuery = (clone $productProfitabilityQuery);
-        $monthlyCogsMap = $monthlyCogsQuery
-            ->selectRaw("DATE_FORMAT(orders.created_at, '%Y-%m') as month, SUM(order_items.quantity * COALESCE(product_variants.purchase_price, products.purchase_price, 0)) as cogs")
+        $monthlyCogsMap = (clone $baseCogsQuery)
+            ->selectRaw("DATE_FORMAT(orders.created_at, '%Y-%m') as month, SUM(COALESCE(order_items.purchase_price, order_items.quantity * COALESCE(product_variants.purchase_price, products.purchase_price, 0))) as cogs")
             ->groupBy(DB::raw("DATE_FORMAT(orders.created_at, '%Y-%m')"))
             ->pluck('cogs', 'month')
             ->toArray();

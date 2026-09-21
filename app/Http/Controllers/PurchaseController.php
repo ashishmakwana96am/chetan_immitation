@@ -1186,14 +1186,7 @@ class PurchaseController extends Controller
             \App\Models\SupplierAdvancePayment::restoreAdvanceForPurchase($purchase);
 
             if ($deleteSales) {
-                $impact = PurchaseStockService::getImpactData($purchase);
-                if (!empty($impact['sales'])) {
-                    $orderIds = collect($impact['sales'])->pluck('id')->all();
-                    $ordersToDelete = \App\Models\Order::whereIn('id', $orderIds)->get();
-                    foreach ($ordersToDelete as $order) {
-                        $order->delete();
-                    }
-                }
+                PurchaseStockService::adjustOrDeleteSalesForPurchase($purchase);
             }
 
             if ($purchase->status == Purchase::STATUS_APPROVE) {
