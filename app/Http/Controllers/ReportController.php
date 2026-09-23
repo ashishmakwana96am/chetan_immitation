@@ -3991,6 +3991,12 @@ class ReportController extends Controller
 
         $allMonthOrdersQuery = Order::where('order_type', 'sale')
             ->where('is_gst', 1)
+            ->whereIn('status', [
+                Order::STATUS_APPROVE,
+                Order::STATUS_SHIPPED,
+                Order::STATUS_OUT_FOR_DELIVERY,
+                Order::STATUS_DELIVERED
+            ])
             ->whereYear('created_at', $year)
             ->whereMonth('created_at', $month);
 
@@ -5804,6 +5810,7 @@ class ReportController extends Controller
             ->keyBy('location_id');
 
         $purchasesByLocation = Purchase::query()
+            ->where('status', Purchase::STATUS_APPROVE)
             ->whereDate('created_at', $date)
             ->when($locationId, function ($q) use ($locationId) {
                 $q->where(function ($subQ) use ($locationId) {
@@ -6030,6 +6037,7 @@ class ReportController extends Controller
         $purchaseLocationMap = DB::table('purchase_items')
             ->join('purchase_allocations', 'purchase_allocations.purchase_item_id', '=', 'purchase_items.id')
             ->join('purchases', 'purchases.id', '=', 'purchase_items.purchase_id')
+            ->where('purchases.status', Purchase::STATUS_APPROVE)
             ->whereDate('purchases.created_at', $date)
             ->whereIn('purchase_allocations.location_id', $locationIds)
             ->select('purchase_items.purchase_id', 'purchase_allocations.location_id')
@@ -6038,6 +6046,7 @@ class ReportController extends Controller
             ->keyBy('purchase_id');
 
         $purchaseRows = Purchase::with(['supplier'])
+            ->where('status', Purchase::STATUS_APPROVE)
             ->whereIn('id', $purchaseLocationMap->keys())
             ->latest()
             ->latest('id')
@@ -6557,6 +6566,12 @@ class ReportController extends Controller
         $sales = Order::with('location')
             ->where('customer_id', $customer->id)
             ->where('order_type', 'sale')
+            ->whereIn('status', [
+                Order::STATUS_APPROVE,
+                Order::STATUS_SHIPPED,
+                Order::STATUS_OUT_FOR_DELIVERY,
+                Order::STATUS_DELIVERED,
+            ])
             ->orderByDesc('created_at')
             ->get();
 
