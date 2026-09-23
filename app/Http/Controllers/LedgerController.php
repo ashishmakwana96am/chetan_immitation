@@ -53,7 +53,8 @@ class LedgerController extends Controller
         $isRestricted = $user->location_id && !$user->hasRole('super-admin');
         $canManageAdvance = $user->hasRole('super-admin') || !$user->location_id || (int) $user->location_id === 1;
 
-        $purchasesQuery = Purchase::with('supplier');
+        $purchasesQuery = Purchase::with('supplier')
+            ->where('status', Purchase::STATUS_APPROVE);
 
         if ($request->filled('start_date')) {
             $purchasesQuery->whereDate('created_at', '>=', $request->start_date);
@@ -184,6 +185,7 @@ class LedgerController extends Controller
         $canManageAdvance = $user->hasRole('super-admin') || !$user->location_id || (int) $user->location_id === 1;
 
         $purchasesQuery = Purchase::where('supplier_id', $request->supplier_id)
+            ->where('status', Purchase::STATUS_APPROVE)
             ->whereDate('created_at', '<=', $request->as_on_date)
             ->orderByDesc('created_at');
 
@@ -279,6 +281,7 @@ class LedgerController extends Controller
 
         \Illuminate\Support\Facades\DB::transaction(function () use ($supplier, $supplierId, $enteredAmount, $paymentMethod, $request, $user) {
             $purchases = Purchase::where('supplier_id', $supplierId)
+                ->where('status', Purchase::STATUS_APPROVE)
                 ->whereIn('payment_status', [Purchase::PAYMENT_STATUS_PENDING, Purchase::PAYMENT_STATUS_PARTIAL])
                 ->orderBy('created_at', 'asc')
                 ->get();
@@ -404,6 +407,7 @@ class LedgerController extends Controller
         $isRestricted = $user->location_id && !$user->hasRole('super-admin');
 
         $purchasesQuery = Purchase::with('supplier')
+            ->where('status', Purchase::STATUS_APPROVE)
             ->whereDate('created_at', '<=', $asOnDate);
 
         $locationName = 'All Locations';
@@ -2161,7 +2165,9 @@ class LedgerController extends Controller
         $user = auth()->user();
         $isRestricted = $user->location_id && !$user->hasRole('super-admin');
 
-        $ordersQuery = \App\Models\Order::with('customer');
+        $ordersQuery = \App\Models\Order::with('customer')
+            ->where('order_type', 'sale')
+            ->whereIn('status', [\App\Models\Order::STATUS_APPROVE, \App\Models\Order::STATUS_SHIPPED, \App\Models\Order::STATUS_OUT_FOR_DELIVERY, \App\Models\Order::STATUS_DELIVERED]);
 
         if ($request->filled('start_date')) {
             $ordersQuery->whereDate('created_at', '>=', $request->start_date);
@@ -2305,7 +2311,9 @@ class LedgerController extends Controller
         $user = auth()->user();
         $isRestricted = $user->location_id && !$user->hasRole('super-admin');
 
-        $ordersQuery = \App\Models\Order::with('customer');
+        $ordersQuery = \App\Models\Order::with('customer')
+            ->where('order_type', 'sale')
+            ->whereIn('status', [\App\Models\Order::STATUS_APPROVE, \App\Models\Order::STATUS_SHIPPED, \App\Models\Order::STATUS_OUT_FOR_DELIVERY, \App\Models\Order::STATUS_DELIVERED]);
 
         if ($request->filled('start_date')) {
             $ordersQuery->whereDate('created_at', '>=', $request->start_date);
@@ -2487,7 +2495,9 @@ class LedgerController extends Controller
         $user = auth()->user();
         $isRestricted = $user->location_id && !$user->hasRole('super-admin');
 
-        $ordersQuery = \App\Models\Order::query();
+        $ordersQuery = \App\Models\Order::query()
+            ->where('order_type', 'sale')
+            ->whereIn('status', [\App\Models\Order::STATUS_APPROVE, \App\Models\Order::STATUS_SHIPPED, \App\Models\Order::STATUS_OUT_FOR_DELIVERY, \App\Models\Order::STATUS_DELIVERED]);
 
         if ($customerId === 0) {
             $ordersQuery->whereNull('customer_id');
