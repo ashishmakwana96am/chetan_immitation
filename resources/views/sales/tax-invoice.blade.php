@@ -6,7 +6,7 @@
     <style>
         @page {
             size: A4 portrait;
-            margin: 8mm 10mm;
+            margin: 10px 12px;
         }
         * { box-sizing: border-box; }
         body {
@@ -18,25 +18,7 @@
         }
         .invoice {
             width: 100%;
-            height: 281mm;
             border: 1px solid #000;
-            overflow: hidden;
-        }
-        .items th,
-        .items td {
-            padding: 2px 3px;
-        }
-
-        .items tbody tr {
-            height: 20px;
-        }
-
-        .items .blank-row {
-            height: 100%;
-        }
-
-        .items .blank-row td {
-            height: 100% !important;
         }
         table {
             width: 100%;
@@ -69,21 +51,6 @@
             font-weight: bold;
             letter-spacing: 1px;
             padding: 4px 0 2px;
-        }
-        .items {
-            width: 100%;
-            table-layout: fixed;
-        }
-
-        .items tbody {
-            height: 100%;
-        }
-
-        .items .blank-row td {
-            height: auto !important;
-            padding: 0 !important;
-            border-top: none !important;
-            border-bottom: 1px solid #000 !important;
         }
         .company {
             text-align: center;
@@ -336,7 +303,8 @@
             @endforeach
             @php
                 $itemCount = count($order->items);
-                $blankHeight = $itemCount < 10 ? max(0, 270 - ($itemCount * 20)) : 0;
+                
+                $blankHeight = $itemCount < 18 ? max(10, 430 - ($itemCount * 22)) : 0;
             @endphp
             @if($blankHeight > 0)
                 <tr class="blank-row">
