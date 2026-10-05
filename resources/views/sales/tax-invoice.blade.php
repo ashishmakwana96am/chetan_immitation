@@ -6,13 +6,13 @@
     <style>
         @page {
             size: A4 portrait;
-            margin: 10px 12px;
+            margin: 12px 14px;
         }
         * { box-sizing: border-box; }
         body {
             margin: 0;
             font-family: DejaVu Sans, Arial, sans-serif;
-            font-size: 10px;
+            font-size: 11px;
             color: #000;
             background: #fff;
         }
@@ -37,7 +37,7 @@
         }
         td, th {
             border: 1px solid #000;
-            padding: 3px 4px;
+            padding: 4px 5px;
             vertical-align: top;
         }
         .no-border { border: none !important; }
@@ -47,28 +47,28 @@
         .border-bottom { border-bottom: 1px solid #000 !important; }
         .title {
             text-align: center;
-            font-size: 15px;
+            font-size: 16px;
             font-weight: bold;
             letter-spacing: 1px;
-            padding: 4px 0 2px;
+            padding: 5px 0 3px;
         }
         .company {
             text-align: center;
-            font-size: 14px;
+            font-size: 15px;
             font-weight: bold;
-            padding: 2px 0 1px;
+            padding: 3px 0 1px;
         }
         .company-sub {
             text-align: center;
-            font-size: 9.5px;
-            line-height: 1.25;
-            padding-bottom: 3px;
+            font-size: 10.5px;
+            line-height: 1.35;
+            padding-bottom: 4px;
         }
         .label { font-weight: bold; }
         .section-title {
             font-weight: bold;
             background: #f2f2f2;
-            padding: 3px 4px;
+            padding: 4px 5px;
         }
         .text-center { text-align: center; }
         .text-right { text-align: right; }
@@ -76,17 +76,17 @@
         .nowrap { white-space: nowrap; }
         .items th {
             text-align: center;
-            font-size: 9px;
+            font-size: 10px;
             line-height: 1.15;
-            padding: 3px 3px;
+            padding: 4px 4px;
             background: #f8f8f8;
         }
         .items td {
-            font-size: 9.5px;
-            line-height: 1.2;
-            height: 20px;
+            font-size: 10.5px;
+            line-height: 1.25;
+            height: 22px;
             vertical-align: middle;
-            padding: 2px 4px;
+            padding: 3px 5px;
         }
         .items tbody td {
             border-top: none !important;
@@ -100,35 +100,35 @@
             text-transform: uppercase;
         }
         .summary td {
-            height: 18px;
-            padding: 2px 4px;
-            font-size: 9.5px;
+            height: 20px;
+            padding: 3px 5px;
+            font-size: 10.5px;
         }
         .amount-words {
-            height: 35px;
-            line-height: 1.3;
+            height: 40px;
+            line-height: 1.35;
         }
         .terms {
-            height: 60px;
-            line-height: 1.35;
-            font-size: 9px;
-            padding: 4px 6px;
+            height: 75px;
+            line-height: 1.4;
+            font-size: 10px;
+            padding: 5px 6px;
         }
         .sign-box {
-            height: 60px;
+            height: 75px;
             text-align: center;
             vertical-align: bottom;
             font-weight: bold;
-            font-size: 9.5px;
-            padding: 4px 6px;
+            font-size: 10.5px;
+            padding: 5px 6px;
         }
         .ship-box {
-            min-height: 60px;
+            min-height: 65px;
             position: relative;
         }
         .ship-lr {
             margin-top: 25px;
-            line-height: 1.25;
+            line-height: 1.3;
         }
     </style>
 </head>
@@ -303,7 +303,7 @@
             @endforeach
             @php
                 $itemCount = count($order->items);
-                $blankHeight = $itemCount < 8 ? max(0, 180 - ($itemCount * 22)) : 0;
+                $blankHeight = $itemCount < 14 ? max(10, 360 - ($itemCount * 22)) : 0;
             @endphp
             @if($blankHeight > 0)
                 <tr class="blank-row">
@@ -329,7 +329,7 @@
 
     <table class="avoid-break">
         <tr>
-            <td style="width: 58%; vertical-align: top; padding: 4px 6px;">
+            <td style="width: 58%; vertical-align: top; padding: 6px 8px;">
                 <span class="label">Total Qty:</span> {{ rtrim(rtrim(number_format((float) $totalQty, 2), '0'), '.') }}<br>
                 <span class="label">Payment:</span>
                 @if($order->payment_method === 'online_cash')
@@ -372,8 +372,8 @@
                         <td class="text-right">{{ number_format($roundedOff, 2) }}</td>
                     </tr>
                     <tr>
-                        <td class="label" style="font-size: 11px;">Net Amount</td>
-                        <td class="text-right label" style="font-size: 11px;">{{ number_format((float) $order->final_amount, 2) }}</td>
+                        <td class="label" style="font-size: 12px;">Net Amount</td>
+                        <td class="text-right label" style="font-size: 12px;">{{ number_format((float) $order->final_amount, 2) }}</td>
                     </tr>
                 </table>
             </td>
