@@ -303,7 +303,8 @@
             @endforeach
             @php
                 $itemCount = count($order->items);
-                $blankHeight = $itemCount < 8 ? max(0, 180 - ($itemCount * 22)) : 0;
+                
+                $blankHeight = $itemCount < 18 ? max(10, 430 - ($itemCount * 22)) : 0;
             @endphp
             @if($blankHeight > 0)
                 <tr class="blank-row">
