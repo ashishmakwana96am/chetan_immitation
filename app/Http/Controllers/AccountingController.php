@@ -722,7 +722,8 @@ class AccountingController extends Controller
         $user = auth()->user();
         $isRestricted = $user->location_id && !$user->hasRole('super-admin');
 
-        $purchasesQuery = \App\Models\Purchase::with('supplier');
+        $purchasesQuery = \App\Models\Purchase::with('supplier')
+            ->where('status', \App\Models\Purchase::STATUS_APPROVE);
 
         if ($isRestricted) {
             $locationId = $user->location_id;
@@ -887,7 +888,8 @@ class AccountingController extends Controller
         $user = auth()->user();
         $isRestricted = $user->location_id && !$user->hasRole('super-admin');
 
-        $purchasesQuery = \App\Models\Purchase::where('supplier_id', $request->supplier_id);
+        $purchasesQuery = \App\Models\Purchase::where('supplier_id', $request->supplier_id)
+            ->where('status', \App\Models\Purchase::STATUS_APPROVE);
 
         if ($isRestricted) {
             $locationId = $user->location_id;
@@ -973,7 +975,8 @@ class AccountingController extends Controller
 
         $paymentMethod = $request->input('payment_method', 'cash');
 
-        $purchasesQuery = \App\Models\Purchase::whereIn('payment_status', [
+        $purchasesQuery = \App\Models\Purchase::where('status', \App\Models\Purchase::STATUS_APPROVE)
+            ->whereIn('payment_status', [
                 \App\Models\Purchase::PAYMENT_STATUS_PENDING,
                 \App\Models\Purchase::PAYMENT_STATUS_PARTIAL,
             ]);
@@ -2966,11 +2969,11 @@ class AccountingController extends Controller
         }
 
         $existingPurchases = !empty($purchasesToCheck)
-            ? \App\Models\Purchase::whereIn('invoice_no', array_keys($purchasesToCheck))->pluck('invoice_no')->flip()
+            ? \App\Models\Purchase::whereIn('invoice_no', array_keys($purchasesToCheck))->where('status', \App\Models\Purchase::STATUS_APPROVE)->pluck('invoice_no')->flip()
             : collect();
 
         $existingOrders = !empty($ordersToCheck)
-            ? \App\Models\Order::whereIn('order_no', array_keys($ordersToCheck))->pluck('order_no')->flip()
+            ? \App\Models\Order::whereIn('order_no', array_keys($ordersToCheck))->whereIn('status', [\App\Models\Order::STATUS_APPROVE, \App\Models\Order::STATUS_SHIPPED, \App\Models\Order::STATUS_OUT_FOR_DELIVERY, \App\Models\Order::STATUS_DELIVERED])->pluck('order_no')->flip()
             : collect();
 
         return $transactions->filter(function ($tx) use ($existingPurchases, $existingOrders) {
