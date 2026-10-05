@@ -6,13 +6,13 @@
     <style>
         @page {
             size: A4 portrait;
-            margin: 15px;
+            margin: 10px 12px;
         }
         * { box-sizing: border-box; }
         body {
             margin: 0;
             font-family: DejaVu Sans, Arial, sans-serif;
-            font-size: 11px;
+            font-size: 10px;
             color: #000;
             background: #fff;
         }
@@ -24,9 +24,20 @@
             width: 100%;
             border-collapse: collapse;
         }
+        thead {
+            display: table-header-group;
+        }
+        tr {
+            page-break-inside: avoid;
+            break-inside: avoid;
+        }
+        .avoid-break {
+            page-break-inside: avoid;
+            break-inside: avoid;
+        }
         td, th {
             border: 1px solid #000;
-            padding: 4px 5px;
+            padding: 3px 4px;
             vertical-align: top;
         }
         .no-border { border: none !important; }
@@ -36,27 +47,28 @@
         .border-bottom { border-bottom: 1px solid #000 !important; }
         .title {
             text-align: center;
-            font-size: 18px;
+            font-size: 15px;
             font-weight: bold;
             letter-spacing: 1px;
-            padding: 6px 0;
+            padding: 4px 0 2px;
         }
         .company {
             text-align: center;
-            font-size: 16px;
+            font-size: 14px;
             font-weight: bold;
-            padding: 5px 0 2px;
+            padding: 2px 0 1px;
         }
         .company-sub {
             text-align: center;
-            font-size: 11px;
-            line-height: 1.35;
-            padding-bottom: 4px;
+            font-size: 9.5px;
+            line-height: 1.25;
+            padding-bottom: 3px;
         }
         .label { font-weight: bold; }
         .section-title {
             font-weight: bold;
             background: #f2f2f2;
+            padding: 3px 4px;
         }
         .text-center { text-align: center; }
         .text-right { text-align: right; }
@@ -64,16 +76,17 @@
         .nowrap { white-space: nowrap; }
         .items th {
             text-align: center;
-            font-size: 10px;
+            font-size: 9px;
             line-height: 1.15;
-            padding: 5px 4px;
+            padding: 3px 3px;
             background: #f8f8f8;
         }
         .items td {
-            font-size: 10.5px;
-            line-height: 1.25;
-            height: 25px;
+            font-size: 9.5px;
+            line-height: 1.2;
+            height: 20px;
             vertical-align: middle;
+            padding: 2px 4px;
         }
         .items tbody td {
             border-top: none !important;
@@ -87,29 +100,35 @@
             text-transform: uppercase;
         }
         .summary td {
-            height: 22px;
+            height: 18px;
+            padding: 2px 4px;
+            font-size: 9.5px;
         }
         .amount-words {
-            height: 44px;
-            line-height: 1.45;
+            height: 35px;
+            line-height: 1.3;
         }
         .terms {
-            height: 92px;
-            line-height: 1.45;
+            height: 60px;
+            line-height: 1.35;
+            font-size: 9px;
+            padding: 4px 6px;
         }
         .sign-box {
-            height: 92px;
+            height: 60px;
             text-align: center;
             vertical-align: bottom;
             font-weight: bold;
+            font-size: 9.5px;
+            padding: 4px 6px;
         }
         .ship-box {
-            height: 82px;
+            min-height: 60px;
             position: relative;
         }
         .ship-lr {
-            margin-top: 54px;
-            line-height: 1.35;
+            margin-top: 25px;
+            line-height: 1.25;
         }
     </style>
 </head>
@@ -225,7 +244,7 @@
                     @if(!empty(trim($addr->state ?? '')))<span class="label">State</span> : {{ strtoupper($addr->state) }}<br>@endif
                     @if(!empty(trim($addr->phone ?? '')))<span class="label">Phone</span> : {{ $addr->phone }}<br>@endif
                 @endif
-                <div class="ship-lr" style="{{ ($order->is_shipping && $addr) ? 'margin-top: 6px;' : 'margin-top: 54px;' }}">
+                <div class="ship-lr" style="{{ ($order->is_shipping && $addr) ? 'margin-top: 4px;' : 'margin-top: 15px;' }}">
                     <span class="label">Lr No</span> :<br>
                     <span class="label">Lr No Date</span> :
                 </div>
@@ -284,9 +303,9 @@
             @endforeach
             @php
                 $itemCount = count($order->items);
-                $blankHeight = max(30, 420 - ($itemCount * 28));
+                $blankHeight = $itemCount < 8 ? max(0, 180 - ($itemCount * 22)) : 0;
             @endphp
-            @if($itemCount < 12)
+            @if($blankHeight > 0)
                 <tr class="blank-row">
                     <td style="height: {{ $blankHeight }}px;">&nbsp;</td>
                     <td style="height: {{ $blankHeight }}px;">&nbsp;</td>
@@ -308,9 +327,9 @@
         </tbody>
     </table>
 
-    <table>
+    <table class="avoid-break">
         <tr>
-            <td style="width: 58%; vertical-align: top; padding: 8px;">
+            <td style="width: 58%; vertical-align: top; padding: 4px 6px;">
                 <span class="label">Total Qty:</span> {{ rtrim(rtrim(number_format((float) $totalQty, 2), '0'), '.') }}<br>
                 <span class="label">Payment:</span>
                 @if($order->payment_method === 'online_cash')
@@ -353,15 +372,15 @@
                         <td class="text-right">{{ number_format($roundedOff, 2) }}</td>
                     </tr>
                     <tr>
-                        <td class="label" style="font-size: 13px;">Net Amount</td>
-                        <td class="text-right label" style="font-size: 13px;">{{ number_format((float) $order->final_amount, 2) }}</td>
+                        <td class="label" style="font-size: 11px;">Net Amount</td>
+                        <td class="text-right label" style="font-size: 11px;">{{ number_format((float) $order->final_amount, 2) }}</td>
                     </tr>
                 </table>
             </td>
         </tr>
     </table>
 
-    <table>
+    <table class="avoid-break">
         <tr>
             <td class="terms" style="width: 58%;">
                 <span class="label">Terms and Conditions :</span><br>
@@ -370,7 +389,7 @@
                 3. This is a computer generated invoice.
             </td>
             <td class="sign-box" style="width: 42%;">
-                For {{ $companyName }}<br><br><br><br>
+                For {{ $companyName }}<br><br><br>
                 Authorized Signatory
             </td>
         </tr>
