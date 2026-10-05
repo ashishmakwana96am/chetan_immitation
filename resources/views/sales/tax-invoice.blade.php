@@ -303,7 +303,16 @@
             @endforeach
             @php
                 $itemCount = count($order->items);
-                $blankHeight = $itemCount < 14 ? max(10, 360 - ($itemCount * 22)) : 0;
+                
+                $addrLength = strlen($customerAddress ?? '') + strlen($customerName ?? '');
+                $shipLength = ($order->is_shipping && $addr) ? strlen(($addr->name ?? '') . ($addr->address ?? '') . ($addr->city ?? '') . ($addr->state ?? '')) : 0;
+                $addressLines = max(2, ceil(max($addrLength, $shipLength) / 45));
+                $addressExtraHeight = max(0, ($addressLines - 2) * 14);
+
+                $taxRowsOffset = $isIntraState ? 20 : 0;
+
+                $targetTableHeight = 445 - $addressExtraHeight - $taxRowsOffset;
+                $blankHeight = $itemCount < 16 ? max(10, $targetTableHeight - ($itemCount * 22)) : 0;
             @endphp
             @if($blankHeight > 0)
                 <tr class="blank-row">
