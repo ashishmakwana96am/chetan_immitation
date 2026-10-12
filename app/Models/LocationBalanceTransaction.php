@@ -25,6 +25,8 @@ class LocationBalanceTransaction extends Model
         'balance_after',
         'notes',
         'created_by',
+        'created_at',
+        'updated_at',
     ];
 
     protected function casts(): array

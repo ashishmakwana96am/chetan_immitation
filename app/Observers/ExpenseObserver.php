@@ -6,6 +6,7 @@ use App\Models\Expense;
 use App\Models\LocationBalance;
 use App\Models\LocationBalanceTransaction;
 use App\Services\ActivityLogger;
+use Carbon\Carbon;
 use Illuminate\Support\Facades\DB;
 
 class ExpenseObserver
@@ -28,7 +29,10 @@ class ExpenseObserver
         if (
             !$expense->wasChanged('location_id') &&
             !$expense->wasChanged('amount') &&
-            !$expense->wasChanged('payment_method')
+            !$expense->wasChanged('payment_method') &&
+            !$expense->wasChanged('expense_date') &&
+            !$expense->wasChanged('title') &&
+            !$expense->wasChanged('category')
         ) {
             return;
         }
@@ -55,29 +59,52 @@ class ExpenseObserver
     // Helpers
     // ─────────────────────────────────────────────
 
+    private function resolveTransactionCreatedAt(Expense $expense): Carbon
+    {
+        $dateStr = $expense->expense_date
+            ? Carbon::parse($expense->expense_date)->format('Y-m-d')
+            : now()->format('Y-m-d');
+
+        $timeStr = $expense->created_at
+            ? Carbon::parse($expense->created_at)->format('H:i:s')
+            : now()->format('H:i:s');
+
+        return Carbon::parse($dateStr . ' ' . $timeStr);
+    }
+
     private function deductBalance(Expense $expense, float $amount, int $locationId, ?string $paymentMethod): void
     {
         $balanceType = $this->resolveBalanceType($paymentMethod);
         $balanceCol  = $balanceType === LocationBalanceTransaction::BALANCE_TYPE_BANK
             ? 'bank_balance'
             : 'cash_balance';
+        $txCreatedAt = $this->resolveTransactionCreatedAt($expense);
 
-        DB::transaction(function () use ($locationId, $balanceType, $balanceCol, $amount, $expense) {
-            $balance = LocationBalance::where('location_id', $locationId)->lockForUpdate()->firstOrFail();
+        DB::transaction(function () use ($locationId, $balanceType, $balanceCol, $amount, $expense, $txCreatedAt) {
+            $balance = LocationBalance::where('location_id', $locationId)->lockForUpdate()->first();
+            if (!$balance) {
+                $balance = LocationBalance::create([
+                    'location_id'  => $locationId,
+                    'cash_balance' => 0,
+                    'bank_balance' => 0,
+                ]);
+            }
 
             $oldBalance = (float) $balance->{$balanceCol};
             $newBalance = $oldBalance - $amount;
             $balance->update([$balanceCol => $newBalance]);
 
             $transaction = LocationBalanceTransaction::create([
-                'location_id'  => $locationId,
-                'expense_id'   => $expense->id,
-                'balance_type' => $balanceType,
-                'type'         => LocationBalanceTransaction::TYPE_DEBIT,
-                'amount'       => $amount,
-                'balance_after'=> $newBalance,
-                'notes'        => 'Expense: ' . ($expense->title ?: $expense->category),
-                'created_by'   => LocationBalanceTransaction::getFallbackUserId($expense->created_by),
+                'location_id'   => $locationId,
+                'expense_id'    => $expense->id,
+                'balance_type'  => $balanceType,
+                'type'          => LocationBalanceTransaction::TYPE_DEBIT,
+                'amount'        => $amount,
+                'balance_after' => $newBalance,
+                'notes'         => 'Expense: ' . ($expense->title ?: $expense->category),
+                'created_by'    => LocationBalanceTransaction::getFallbackUserId($expense->created_by),
+                'created_at'    => $txCreatedAt,
+                'updated_at'    => $txCreatedAt,
             ]);
 
             ActivityLogger::log(
@@ -89,6 +116,8 @@ class ExpenseObserver
                 'Balance deducted for Expense: ' . ($expense->title ?: $expense->category) . ' (' . format_price($amount) . ')'
             );
         });
+
+        LocationBalanceTransaction::syncLocationBalance($locationId, $balanceType);
     }
 
     private function updateExpenseBalance(?int $oldLocationId, ?string $oldMethod, float $oldAmount, ?string $oldTitle, Expense $expense): void
@@ -101,43 +130,9 @@ class ExpenseObserver
         $newLocationId = (int) $expense->location_id;
         $newNote = 'Expense: ' . ($expense->title ?: $expense->category);
         $oldNote = 'Expense: ' . $oldTitle;
+        $txCreatedAt = $this->resolveTransactionCreatedAt($expense);
 
-        DB::transaction(function () use ($oldLocationId, $oldCol, $oldAmount, $newLocationId, $newCol, $newAmount, $newType, $newNote, $oldNote, $expense) {
-            if ($oldLocationId === $newLocationId && $oldCol === $newCol) {
-                // Same location and balance type: update by difference
-                $newBalance = LocationBalance::where('location_id', $newLocationId)->lockForUpdate()->first();
-                $newBalanceVal = 0.0;
-                if ($newBalance) {
-                    $diff = $newAmount - $oldAmount;
-                    $newBalanceVal = (float) $newBalance->{$newCol} - $diff;
-                    $newBalance->update([
-                        $newCol => $newBalanceVal
-                    ]);
-                }
-            } else {
-                // Restore old amount
-                if ($oldLocationId && $oldAmount > 0) {
-                    $oldBalance = LocationBalance::where('location_id', $oldLocationId)->lockForUpdate()->first();
-                    if ($oldBalance) {
-                        $oldBalance->update([
-                            $oldCol => (float) $oldBalance->{$oldCol} + $oldAmount
-                        ]);
-                    }
-                }
-
-                // Deduct new amount
-                $newBalanceVal = 0.0;
-                if ($newLocationId && $newAmount > 0) {
-                    $newBalance = LocationBalance::where('location_id', $newLocationId)->lockForUpdate()->first();
-                    if ($newBalance) {
-                        $newBalanceVal = (float) $newBalance->{$newCol} - $newAmount;
-                        $newBalance->update([
-                            $newCol => $newBalanceVal
-                        ]);
-                    }
-                }
-            }
-
+        DB::transaction(function () use ($oldLocationId, $oldCol, $oldAmount, $newLocationId, $newCol, $newAmount, $newType, $newNote, $oldNote, $expense, $txCreatedAt) {
             $existingTx = LocationBalanceTransaction::where('expense_id', $expense->id)->first();
             if (!$existingTx) {
                 $existingTx = LocationBalanceTransaction::where(function ($q) use ($oldNote, $newNote) {
@@ -151,9 +146,11 @@ class ExpenseObserver
                     'location_id'  => $newLocationId,
                     'expense_id'   => $expense->id,
                     'balance_type' => $newType,
+                    'type'         => LocationBalanceTransaction::TYPE_DEBIT,
                     'amount'       => $newAmount,
-                    'balance_after'=> $newBalanceVal,
                     'notes'        => $newNote,
+                    'created_at'   => $txCreatedAt,
+                    'updated_at'   => $txCreatedAt,
                 ]);
             } else if ($newLocationId && $newAmount > 0) {
                 $transaction = LocationBalanceTransaction::create([
@@ -162,9 +159,11 @@ class ExpenseObserver
                     'balance_type' => $newType,
                     'type'         => LocationBalanceTransaction::TYPE_DEBIT,
                     'amount'       => $newAmount,
-                    'balance_after'=> $newBalanceVal,
+                    'balance_after'=> 0,
                     'notes'        => $newNote,
                     'created_by'   => LocationBalanceTransaction::getFallbackUserId($expense->created_by),
+                    'created_at'   => $txCreatedAt,
+                    'updated_at'   => $txCreatedAt,
                 ]);
             }
 
@@ -177,6 +176,13 @@ class ExpenseObserver
                 'Balance adjusted for updated ' . $newNote
             );
         });
+
+        if ($oldLocationId && $oldType && ($oldLocationId !== $newLocationId || $oldType !== $newType)) {
+            LocationBalanceTransaction::syncLocationBalance($oldLocationId, $oldType);
+        }
+        if ($newLocationId && $newType) {
+            LocationBalanceTransaction::syncLocationBalance($newLocationId, $newType);
+        }
     }
 
     private function reverseBalance(Expense $expense, float $amount, int $locationId, ?string $paymentMethod): void
@@ -212,12 +218,10 @@ class ExpenseObserver
                 'Balance reversed for deleted ' . $note . ' (' . format_price($amount) . ')'
             );
         });
+
+        LocationBalanceTransaction::syncLocationBalance($locationId, $balanceType);
     }
 
-    /**
-     * cash / anything else → cash_balance
-     * online / bank / upi  → bank_balance
-     */
     private function resolveBalanceType(?string $paymentMethod): string
     {
         $online = ['online', 'upi', 'bank transfer', 'bank_transfer', 'card'];

@@ -4,6 +4,7 @@ namespace App\Http\Controllers;
 
 use App\Models\Expense;
 use App\Models\Location;
+use Carbon\Carbon;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Validator;
 
@@ -144,6 +145,9 @@ class ExpenseController extends Controller
             ], 422);
         }
 
+        $expenseDate = Carbon::parse($request->expense_date)->format('Y-m-d');
+        $fullDateTime = Carbon::parse($expenseDate . ' ' . now()->format('H:i:s'));
+
         Expense::create([
             'title' => $request->title,
             'category' => $request->category,
@@ -153,6 +157,7 @@ class ExpenseController extends Controller
             'location_id' => $request->location_id,
             'notes' => $request->notes,
             'created_by' => auth()->id(),
+            'created_at' => $fullDateTime,
         ]);
 
         return response()->json([
@@ -222,6 +227,10 @@ class ExpenseController extends Controller
             ], 422);
         }
 
+        $expenseDate = Carbon::parse($request->expense_date)->format('Y-m-d');
+        $timeStr = $expense->created_at ? $expense->created_at->format('H:i:s') : now()->format('H:i:s');
+        $fullDateTime = Carbon::parse($expenseDate . ' ' . $timeStr);
+
         $expense->update([
             'title' => $request->title,
             'category' => $request->category,
@@ -230,6 +239,7 @@ class ExpenseController extends Controller
             'payment_method' => $request->payment_method,
             'location_id' => $request->location_id,
             'notes' => $request->notes,
+            'created_at' => $fullDateTime,
         ]);
 
         return response()->json([
