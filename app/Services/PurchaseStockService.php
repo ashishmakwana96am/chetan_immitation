@@ -420,14 +420,14 @@ class PurchaseStockService
         $createdAtMin = $purchase->created_at ? $purchase->created_at->subMinutes(5) : null;
 
         $orderItemsDirect = OrderItem::query()
-            ->with('product')
+            ->with(['product', 'order'])
             ->whereIn('purchase_item_id', $purchaseItemIds)
             ->whereNull('deleted_at')
             ->whereHas('order', fn($q) => $q->whereNull('deleted_at')->where('order_type', 'sale')->where('status', '!=', 3))
             ->get();
 
         $orderItemsByProdQuery = OrderItem::query()
-            ->with('product')
+            ->with(['product', 'order'])
             ->whereIn('product_id', $productIds)
             ->whereNull('deleted_at')
             ->whereHas('order', function ($q) use ($createdAtMin) {
@@ -447,6 +447,9 @@ class PurchaseStockService
                     $priceKey = number_format((float)$sig['purchase_price'], 2, '.', '');
                     $key = $sig['product_id'] . '_' . $sig['product_variant_id'] . '_' . $priceKey;
                     $shortKey = $sig['product_id'] . '_' . $sig['product_variant_id'];
+                    $locId = $oi->order?->location_id ?? 0;
+                    $locKey = $key . '_' . $locId;
+
                     $maxQty = (int) $sig['purchased_quantity'];
 
                     $currentSold = $soldMap[$key] ?? 0;
@@ -454,6 +457,7 @@ class PurchaseStockService
                         $addQty = min((int)$oi->quantity, $maxQty - $currentSold);
                         $soldMap[$key] = $currentSold + $addQty;
                         $soldMap[$shortKey] = ($soldMap[$shortKey] ?? 0) + $addQty;
+                        $soldMap[$locKey] = ($soldMap[$locKey] ?? 0) + $addQty;
                     }
                     break;
                 }
@@ -538,12 +542,63 @@ class PurchaseStockService
 
             // If ALL items in the order belong to this purchase, delete the entire order
             if ($matchingItemsCount >= $totalItemsCount) {
+                foreach ($matchingItems as $itemToDelete) {
+                    $prod = $itemToDelete->product ?? Product::find($itemToDelete->product_id);
+                    $multiplier = self::multiplierForProduct($prod, $itemToDelete->pair_type ?? null, $itemToDelete->custom_size_value ?? null);
+                    $qtyToRestore = (int) round($itemToDelete->quantity * $multiplier);
+
+                    $inventory = Inventory::firstOrCreate(
+                        [
+                            'product_id'  => $itemToDelete->product_id,
+                            'location_id' => $order->location_id,
+                        ],
+                        [
+                            'quantity'   => 0,
+                            'created_by' => auth()->id(),
+                        ]
+                    );
+                    $inventory->increment('quantity', $qtyToRestore);
+
+                    PurchaseBatchService::addBatchStock(
+                        (int)$order->location_id,
+                        (int)$itemToDelete->product_id,
+                        !empty($itemToDelete->product_variant_id) ? (int)$itemToDelete->product_variant_id : null,
+                        $itemToDelete->purchase_item_id,
+                        (float)($itemToDelete->purchase_price ?? 0),
+                        (float)$qtyToRestore
+                    );
+                }
                 $order->delete();
                 continue;
             }
 
             // Otherwise, delete only the matching order items
             foreach ($matchingItems as $itemToDelete) {
+                $prod = $itemToDelete->product ?? Product::find($itemToDelete->product_id);
+                $multiplier = self::multiplierForProduct($prod, $itemToDelete->pair_type ?? null, $itemToDelete->custom_size_value ?? null);
+                $qtyToRestore = (int) round($itemToDelete->quantity * $multiplier);
+
+                $inventory = Inventory::firstOrCreate(
+                    [
+                        'product_id'  => $itemToDelete->product_id,
+                        'location_id' => $order->location_id,
+                    ],
+                    [
+                        'quantity'   => 0,
+                        'created_by' => auth()->id(),
+                    ]
+                );
+                $inventory->increment('quantity', $qtyToRestore);
+
+                PurchaseBatchService::addBatchStock(
+                    (int)$order->location_id,
+                    (int)$itemToDelete->product_id,
+                    !empty($itemToDelete->product_variant_id) ? (int)$itemToDelete->product_variant_id : null,
+                    $itemToDelete->purchase_item_id,
+                    (float)($itemToDelete->purchase_price ?? 0),
+                    (float)$qtyToRestore
+                );
+
                 $itemToDelete->delete();
             }
 
@@ -767,12 +822,18 @@ class PurchaseStockService
                 }
             }
         } else {
+            $soldMap = self::getSoldQuantityForPurchase($purchase);
+
             // On purchase deletion, reverse stock from destination branches and remove/adjust transfers
             foreach ($purchase->items as $item) {
                 $product = $item->product;
                 $multiplier = self::multiplierFor($item);
                 $totalPurchasedQty = (int) round($item->quantity * $multiplier);
                 $priceKey = number_format((float)$item->purchase_price, 2, '.', '');
+                $itemKey = $item->product_id . '_' . ($item->product_variant_id ?? 0) . '_' . $priceKey;
+
+                $soldItemQty = $soldMap[$itemKey] ?? 0;
+                $soldItemStockQty = (int) round($soldItemQty * $multiplier);
 
                 $transferredOutQty = 0;
                 foreach ($transferredStockByProductLoc as $k => $tQty) {
@@ -781,10 +842,15 @@ class PurchaseStockService
                         $locId = (int) substr($k, strlen($prefix));
                         $affectedLocations[] = $locId;
 
+                        $soldAtDestQty = $soldMap[$itemKey . '_' . $locId] ?? 0;
+                        $soldAtDestStockQty = (int) round($soldAtDestQty * $multiplier);
+                        $deductForSalesDest = $deleteSales ? 0 : $soldAtDestStockQty;
+                        $destDeductQty = max(0, $tQty - $deductForSalesDest);
+
                         $destInv = Inventory::where('product_id', $item->product_id)->where('location_id', $locId)->first();
                         if ($destInv) {
                             $oldDestQty = (int) $destInv->quantity;
-                            $deductDest = min($oldDestQty, $tQty);
+                            $deductDest = min($oldDestQty, $destDeductQty);
                             $destInv->update(['quantity' => max(0, $oldDestQty - $deductDest)]);
 
                             $locObj = Location::find($locId);
@@ -797,12 +863,15 @@ class PurchaseStockService
                                 'qty_deducted' => '-' . $deductDest,
                             ];
                         }
-                        PurchaseBatchService::deductBatchStock($locId, (int)$item->product_id, !empty($item->product_variant_id) ? (int)$item->product_variant_id : null, (float)$item->purchase_price, (float)$tQty);
+                        PurchaseBatchService::deductBatchStock($locId, (int)$item->product_id, !empty($item->product_variant_id) ? (int)$item->product_variant_id : null, (float)$item->purchase_price, (float)$destDeductQty);
                         $transferredOutQty += $tQty;
                     }
                 }
 
-                $sourceDeductQty = max(0, $totalPurchasedQty - $transferredOutQty);
+                $soldAtSourceQty = $soldMap[$itemKey . '_' . $purchaseLocationId] ?? 0;
+                $soldAtSourceStockQty = (int) round($soldAtSourceQty * $multiplier);
+                $deductForSales = $deleteSales ? 0 : $soldAtSourceStockQty;
+                $sourceDeductQty = max(0, $totalPurchasedQty - $transferredOutQty - $deductForSales);
                 $sourceInv = Inventory::where('product_id', $item->product_id)->where('location_id', $purchaseLocationId)->first();
                 if ($sourceInv) {
                     $oldSrcQty = (int) $sourceInv->quantity;
