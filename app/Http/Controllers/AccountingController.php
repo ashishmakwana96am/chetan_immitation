@@ -1522,8 +1522,10 @@ class AccountingController extends Controller
 
     public function branchBalances()
     {
-        abort_unless(auth()->user()->hasRole('super-admin'), 403);
-        $this->authorize('manage branch balances');
+        $user = auth()->user();
+        if (!$user || (!$user->hasRole('super-admin') && !$user->can('manage branch balances'))) {
+            return redirect()->route('admin.dashboard');
+        }
 
         $locations = Location::with('balance')->where('status', 1)->orderBy('name')->get();
 
@@ -1541,8 +1543,13 @@ class AccountingController extends Controller
 
     public function branchBalancesData(Request $request)
     {
-        abort_unless(auth()->user()->hasRole('super-admin'), 403);
-        $this->authorize('manage branch balances');
+        $user = auth()->user();
+        if (!$user || (!$user->hasRole('super-admin') && !$user->can('manage branch balances'))) {
+            if ($request->ajax() || $request->wantsJson()) {
+                return response()->json(['status' => 'error', 'message' => 'Unauthorized.', 'data' => []], 403);
+            }
+            return redirect()->route('admin.dashboard');
+        }
 
         $query = LocationBalanceTransaction::select('id', 'location_id', 'balance_type', 'type', 'amount', 'balance_after', 'notes', 'created_by', 'created_at')
             ->with(['location:id,name', 'createdBy:id,name']);
@@ -1579,7 +1586,7 @@ class AccountingController extends Controller
                 $detectedSource = 'purchase_bill';
             } elseif (stripos($notes, 'Purchase') !== false || stripos($notes, 'Purchase Payment') !== false) {
                 $detectedSource = 'purchase';
-            } elseif (stripos($notes, 'Expense') !== false) {
+            } elseif (stripos($notes, 'Expense') !== false || !empty($tx->expense_id)) {
                 $detectedSource = 'expense';
             } elseif (stripos($notes, 'Transfer') !== false || stripos($notes, 'BT-') !== false) {
                 $detectedSource = 'balance_transfer';
@@ -1590,7 +1597,9 @@ class AccountingController extends Controller
             $notes = $tx->notes ?? '';
             $detectedSource = $tx->balance_type === LocationBalanceTransaction::BALANCE_TYPE_BANK ? 'bank' : 'cash';
 
-            if (stripos($notes, 'Opening Balance') !== false || stripos($notes, 'Manual Balance Adjustment') !== false || stripos($notes, 'Manual Account Balance Adjustment') !== false) {
+            $isOpeningBalance = (stripos($notes, 'Opening Balance') !== false || stripos($notes, 'Manual Balance Adjustment') !== false || stripos($notes, 'Manual Account Balance Adjustment') !== false);
+
+            if ($isOpeningBalance) {
                 $detectedSource = 'opening_balance';
             } elseif (stripos($notes, 'Sale #') !== false || stripos($notes, 'Reversal: Sale') !== false) {
                 $detectedSource = 'sale';
@@ -1598,7 +1607,7 @@ class AccountingController extends Controller
                 $detectedSource = 'purchase_bill';
             } elseif (stripos($notes, 'Purchase') !== false || stripos($notes, 'Purchase Payment') !== false) {
                 $detectedSource = 'purchase';
-            } elseif (stripos($notes, 'Expense') !== false) {
+            } elseif (stripos($notes, 'Expense') !== false || !empty($tx->expense_id)) {
                 $detectedSource = 'expense';
             } elseif (stripos($notes, 'Transfer') !== false || stripos($notes, 'BT-') !== false) {
                 $detectedSource = 'balance_transfer';
@@ -1619,26 +1628,28 @@ class AccountingController extends Controller
             $signedAmount = $isCredit ? (float) $tx->amount : -((float) $tx->amount);
 
             return [
-                'index'             => $index + 1,
-                'time'              => $tx->created_at->format('h:i A'),
-                'raw_time'          => $tx->created_at->format('H:i:s'),
-                'branch_name'       => $tx->location->name ?? '-',
-                'source_type'       => $detectedSource,
-                'balance_type'      => $balanceTypeBadge,
-                'raw_balance_type'  => $tx->balance_type === LocationBalanceTransaction::BALANCE_TYPE_BANK ? 'Bank' : 'Cash',
-                'type'              => $typeBadge,
-                'raw_type'          => $isCredit ? 'Credit' : 'Debit',
-                'is_credit'         => $isCredit,
-                'amount'            => $amountSpan,
-                'amount_raw'        => $signedAmount,
-                'raw_amount'        => $signedAmount,
-                'balance_after'     => format_price($tx->balance_after),
-                'balance_after_raw' => (float) $tx->balance_after,
-                'raw_balance_after' => (float) $tx->balance_after,
-                'notes'             => (!empty($tx->notes) && $tx->notes !== 'Manual Account Balance Adjustment') ? e($tx->notes) : 'Opening Balance Added',
-                'created_by'        => e($tx->createdBy->name ?? '-'),
-                'date_group'        => $tx->created_at->format('d M Y'),
-                'date_sort'         => $tx->created_at->format('YmdHis'),
+                'id'                 => $tx->id,
+                'index'              => $index + 1,
+                'time'               => $tx->created_at->format('h:i A'),
+                'raw_time'           => $tx->created_at->format('H:i:s'),
+                'branch_name'        => $tx->location->name ?? '-',
+                'source_type'        => $detectedSource,
+                'is_opening_balance' => ($detectedSource === 'opening_balance' && empty($tx->expense_id) && !preg_match('/Sale #|Purchase|Transfer \(|BT-/i', $notes)),
+                'balance_type'       => $balanceTypeBadge,
+                'raw_balance_type'   => $tx->balance_type === LocationBalanceTransaction::BALANCE_TYPE_BANK ? 'Bank' : 'Cash',
+                'type'               => $typeBadge,
+                'raw_type'           => $isCredit ? 'Credit' : 'Debit',
+                'is_credit'          => $isCredit,
+                'amount'             => $amountSpan,
+                'amount_raw'         => $signedAmount,
+                'raw_amount'         => $signedAmount,
+                'balance_after'      => format_price($tx->balance_after),
+                'balance_after_raw'  => (float) $tx->balance_after,
+                'raw_balance_after'  => (float) $tx->balance_after,
+                'notes'              => (!empty($tx->notes) && $tx->notes !== 'Manual Account Balance Adjustment') ? e($tx->notes) : 'Opening Balance Added',
+                'created_by'         => e($tx->createdBy->name ?? '-'),
+                'date_group'         => $tx->created_at->format('d M Y'),
+                'date_sort'          => $tx->created_at->format('YmdHis'),
             ];
         });
 
@@ -1678,8 +1689,13 @@ class AccountingController extends Controller
 
     public function branchBalancesCreate()
     {
-        abort_unless(auth()->user()->hasRole('super-admin'), 403);
-        $this->authorize('manage branch balances');
+        $user = auth()->user();
+        if (!$user || (!$user->hasRole('super-admin') && !$user->can('manage branch balances'))) {
+            if (request()->ajax() || request()->wantsJson()) {
+                return response()->json(['status' => 'error', 'message' => 'Unauthorized.'], 403);
+            }
+            return redirect()->route('admin.dashboard');
+        }
 
         $locations = Location::where('status', 1)->orderBy('name')->get();
 
@@ -1688,8 +1704,13 @@ class AccountingController extends Controller
 
     public function branchBalancesStore(Request $request)
     {
-        abort_unless(auth()->user()->hasRole('super-admin'), 403);
-        $this->authorize('manage branch balances');
+        $user = auth()->user();
+        if (!$user || (!$user->hasRole('super-admin') && !$user->can('manage branch balances'))) {
+            if ($request->ajax() || $request->wantsJson()) {
+                return response()->json(['status' => 'error', 'message' => 'Unauthorized.'], 403);
+            }
+            return redirect()->route('admin.dashboard');
+        }
 
         $validator = Validator::make($request->all(), [
             'location_id'  => ['required', 'integer', 'exists:locations,id'],
@@ -1761,6 +1782,73 @@ class AccountingController extends Controller
         return response()->json([
             'status'  => 'success',
             'message' => 'Balance entry recorded successfully.',
+        ]);
+    }
+
+    public function branchBalancesDestroy(LocationBalanceTransaction $transaction)
+    {
+        $user = auth()->user();
+        if (!$user || (!$user->hasRole('super-admin') && !$user->can('manage branch balances'))) {
+            if (request()->ajax() || request()->wantsJson()) {
+                return response()->json(['status' => 'error', 'message' => 'Unauthorized.'], 403);
+            }
+            return redirect()->route('admin.dashboard');
+        }
+
+        $notes = $transaction->notes ?? '';
+        $isOpeningBalance = (
+            stripos($notes, 'Opening Balance') !== false ||
+            stripos($notes, 'Manual Balance Adjustment') !== false ||
+            stripos($notes, 'Manual Account Balance Adjustment') !== false
+        );
+
+        if (!$isOpeningBalance || !empty($transaction->expense_id) || preg_match('/Sale #|Purchase|Transfer \(|BT-/i', $notes)) {
+            return response()->json([
+                'status'  => 'error',
+                'message' => 'Only opening balance entries can be deleted.',
+            ], 422);
+        }
+
+        $locationId = (int) $transaction->location_id;
+        $balanceType = $transaction->balance_type;
+        $balanceColumn = $balanceType === LocationBalanceTransaction::BALANCE_TYPE_BANK ? 'bank_balance' : 'cash_balance';
+
+        $locationBalance = LocationBalance::where('location_id', $locationId)->first();
+        $oldBalanceValue = $locationBalance ? (float) $locationBalance->{$balanceColumn} : 0.0;
+        $oldData = $transaction->toArray();
+        $locationName = $transaction->location?->name ?? ('Location #' . $locationId);
+        $amountFormatted = format_price($transaction->amount);
+        $transType = ucfirst($transaction->type);
+
+        try {
+            DB::transaction(function () use ($transaction, $locationId, $balanceType, $balanceColumn, $oldBalanceValue, $oldData, $locationName, $amountFormatted, $transType) {
+                $transactionId = $transaction->id;
+                $transaction->delete();
+
+                LocationBalanceTransaction::syncLocationBalance($locationId, $balanceType);
+
+                $newBalanceRecord = LocationBalance::where('location_id', $locationId)->first();
+                $newBalanceValue = $newBalanceRecord ? (float) $newBalanceRecord->{$balanceColumn} : 0.0;
+
+                ActivityLogger::log(
+                    'Opening Balance',
+                    'delete',
+                    $transaction,
+                    array_merge($oldData, [$balanceColumn => $oldBalanceValue]),
+                    [$balanceColumn => $newBalanceValue, 'location_id' => $locationId],
+                    'Deleted opening balance entry #' . $transactionId . ' (' . $transType . ' ' . $amountFormatted . ', ' . $balanceType . ') for "' . $locationName . '". Balance adjusted from ' . format_price($oldBalanceValue) . ' to ' . format_price($newBalanceValue) . '.'
+                );
+            });
+        } catch (\Throwable $e) {
+            return response()->json([
+                'status'  => 'error',
+                'message' => 'Something went wrong. Please try again.',
+            ], 500);
+        }
+
+        return response()->json([
+            'status'  => 'success',
+            'message' => 'Opening balance entry deleted successfully.',
         ]);
     }
 
