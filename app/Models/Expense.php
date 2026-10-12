@@ -34,6 +34,7 @@ class Expense extends Model
         'location_id',
         'notes',
         'created_by',
+        'created_at',
     ];
 
     protected function casts(): array
