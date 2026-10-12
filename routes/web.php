@@ -358,6 +358,7 @@ Route::prefix('admin')->name('admin.')->group(function () {
         Route::get('accounting/opening-balances/data', [AccountingController::class, 'branchBalancesData'])->name('accounting.opening-balances.data');
         Route::get('accounting/opening-balances/create', [AccountingController::class, 'branchBalancesCreate'])->name('accounting.opening-balances.create');
         Route::post('accounting/opening-balances/store', [AccountingController::class, 'branchBalancesStore'])->name('accounting.opening-balances.store');
+        Route::delete('accounting/opening-balances/{transaction}', [AccountingController::class, 'branchBalancesDestroy'])->name('accounting.opening-balances.destroy')->whereNumber('transaction');
         Route::get('accounting/opening-balances/transfer', [AccountingController::class, 'branchBalancesTransferCreate'])->name('accounting.opening-balances.transfer');
         Route::post('accounting/opening-balances/transfer-store', [AccountingController::class, 'branchBalancesTransferStore'])->name('accounting.opening-balances.transfer-store');
         Route::post('accounting/opening-balances/transfer/{transfer}/accept', [AccountingController::class, 'branchBalancesTransferAccept'])->name('accounting.opening-balances.transfer-accept');

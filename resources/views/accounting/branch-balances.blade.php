@@ -37,7 +37,6 @@
             margin-top: 2px;
         }
 
-        /* ─── Source badges ─────────────────────────────── */
         .source-badge {
             font-size: 0.72rem;
             padding: 3px 8px;
@@ -170,6 +169,7 @@
                         <th>Balance After</th>
                         <th>Notes</th>
                         <th>Done By</th>
+                        <th>Action</th>
                         <th>Date Group</th>
                         <th>Date Sort</th>
                     </tr>
@@ -183,8 +183,6 @@
     <script src="{{ asset('assets/vendor/libs/datatables-bs5/datatables-bootstrap5.js') }}"></script>
     <script>
         $(document).ready(function () {
-
-            // Initialize Flatpickr
             const startPicker = flatpickr("#filter-start-date", {
                 dateFormat: "Y-m-d",
                 altInput: true,
@@ -233,155 +231,174 @@
 
             updateFilterButtonsVisibility();
 
-        const sourceIcons = {
-            cash:             'ti ti-cash',
-            bank:             'ti ti-building-bank',
-            opening_balance:  'ti ti-scale',
-            expense:          'ti ti-receipt',
-            sale:             'ti ti-shopping-cart',
-            purchase:         'ti ti-truck-delivery',
-            purchase_bill:    'ti ti-file-invoice',
-            balance_transfer: 'ti ti-arrows-exchange',
-        };
-        const sourceLabels = {
-            cash: 'Cash', bank: 'Bank', opening_balance: 'Opening Balance', expense: 'Expense',
-            sale: 'Sale', purchase: 'Purchase', purchase_bill: 'Purchase Bill', balance_transfer: 'Balance Transfer',
-        };
+            const sourceIcons = {
+                cash:             'ti ti-cash',
+                bank:             'ti ti-building-bank',
+                opening_balance:  'ti ti-scale',
+                expense:          'ti ti-receipt',
+                sale:             'ti ti-shopping-cart',
+                purchase:         'ti ti-truck-delivery',
+                purchase_bill:    'ti ti-file-invoice',
+                balance_transfer: 'ti ti-arrows-exchange',
+            };
+            const sourceLabels = {
+                cash: 'Cash', bank: 'Bank', opening_balance: 'Opening Balance', expense: 'Expense',
+                sale: 'Sale', purchase: 'Purchase', purchase_bill: 'Purchase Bill', balance_transfer: 'Balance Transfer',
+            };
 
-        function sourceBadge(type) {
-            const icon  = sourceIcons[type]  || 'ti ti-circle';
-            const label = sourceLabels[type] || type;
-            return '<span class="source-badge source-' + type + '"><i class="' + icon + ' me-1"></i>' + label + '</span>';
-        }
-
-        const table = $('#branchBalancesTable').DataTable({
-            responsive : false,
-            order      : [[11, 'desc']],
-            columnDefs : [
-                { targets: 0, orderable: false, searchable: false },
-                { targets: [6, 7], type: 'num' },
-                { targets: [10, 11], visible: false, searchable: false }
-            ],
-            rowGroup   : {
-                dataSrc: 'date_group',
-                startRender: function (rows, group) {
-                    return $('<tr class="group-header"/>')
-                        .append('<td colspan="10"><div class="group-header-inner"><i class="ti ti-calendar-event"></i><span>' + group + '</span><span class="badge bg-label-primary">' + rows.count() + ' transaction' + (rows.count() > 1 ? 's' : '') + '</span></div></td>');
-                }
-            },
-            ajax        : {
-                url     : '{{ route('admin.accounting.opening-balances.data') }}',
-                dataSrc : function (json) {
-                    if (json.branch_balances) {
-                        $.each(json.branch_balances, function (locId, balances) {
-                            $('#cash-balance-' + locId).text(balances.cash)
-                                .toggleClass('text-danger', balances.cash.includes('-'))
-                                .toggleClass('text-success', !balances.cash.includes('-'));
-                            $('#bank-balance-' + locId).text(balances.bank)
-                                .toggleClass('text-danger', balances.bank.includes('-'))
-                                .toggleClass('text-primary', !balances.bank.includes('-'));
-                            if (balances.customer_balance !== undefined) {
-                                $('#customer-balance-' + locId).text(balances.customer_balance);
-                            }
-                        });
-                    }
-                    return json.data;
-                },
-                cache   : false,
-                data    : function(d) {
-                    d.start_date   = $('#filter-start-date').val();
-                    d.end_date     = $('#filter-end-date').val();
-                    d.location_id  = $('#filter-location').val() || '';
-                    d.balance_type = $('#filter-balance-type').val() || '';
-                    d.source       = $('#filter-source').val() || 'all';
-                }
-            },
-            columns     : [
-                { data: 'index', orderable: false, width: '5%', render: function (data, type, row, meta) { return meta.row + meta.settings._iDisplayStart + 1; } },
-                { data: 'source_type', render: function (data) { return sourceBadge(data); } },
-                { data: 'time', render: function (data, type, row) { return (type === 'sort' || type === 'type') ? (row.raw_time || data) : data; } },
-                { data: 'branch_name' },
-                { data: 'balance_type', render: function (data, type, row) { return (type === 'sort' || type === 'type') ? (row.raw_balance_type || String(data).replace(/<[^>]*>/g, '')) : data; } },
-                { data: 'type', render: function (data, type, row) { return (type === 'sort' || type === 'type') ? (row.raw_type || String(data).replace(/<[^>]*>/g, '')) : data; } },
-                {
-                    data: 'amount',
-                    type: 'num',
-                    className: 'fw-semibold text-nowrap',
-                    render: function (data, type, row) {
-                        if (type === 'sort' || type === 'type') {
-                            if (row.raw_amount !== undefined) {
-                                return parseFloat(row.raw_amount);
-                            }
-                            if (row.amount_raw !== undefined) {
-                                return parseFloat(row.amount_raw);
-                            }
-                            const isNeg = String(data).includes('-') || row.is_credit === false;
-                            const num = parseFloat(String(data).replace(/[^0-9.]/g, '')) || 0;
-                            return isNeg ? -num : num;
-                        }
-                        return data;
-                    }
-                },
-                {
-                    data: 'balance_after',
-                    type: 'num',
-                    className: 'fw-semibold text-nowrap',
-                    render: function (d, type, row) {
-                        if (type === 'sort' || type === 'type') {
-                            return row.raw_balance_after !== undefined ? parseFloat(row.raw_balance_after) : (parseFloat(String(d).replace(/[^0-9.-]+/g, '')) || 0);
-                        }
-                        return d.includes('-') ? '<span class="text-danger">' + d + '</span>' : d;
-                    }
-                },
-                { data: 'notes' },
-                { data: 'created_by' },
-                { data: 'date_group', visible: false },
-                { data: 'date_sort', visible: false },
-            ],
-        });
-
-        function updateCardVisibility() {
-            const selectedLocId = $('#filter-location').val();
-            if (selectedLocId) {
-                $('.branch-card-col').hide();
-                $('.branch-card-col[data-location-id="' + selectedLocId + '"]').show();
-            } else {
-                $('.branch-card-col').show();
+            function sourceBadge(type) {
+                const icon  = sourceIcons[type]  || 'ti ti-circle';
+                const label = sourceLabels[type] || type;
+                return '<span class="source-badge source-' + type + '"><i class="' + icon + ' me-1"></i>' + label + '</span>';
             }
-        }
 
-        updateCardVisibility();
+            const table = $('#branchBalancesTable').DataTable({
+                responsive : false,
+                order      : [[12, 'desc']],
+                columnDefs : [
+                    { targets: 0, orderable: false, searchable: false },
+                    { targets: [6, 7], type: 'num' },
+                    { targets: 10, orderable: false, searchable: false, className: 'text-center' },
+                    { targets: [11, 12], visible: false, searchable: false }
+                ],
+                rowGroup   : {
+                    dataSrc: 'date_group',
+                    startRender: function (rows, group) {
+                        return $('<tr class="group-header"/>')
+                            .append('<td colspan="11"><div class="group-header-inner"><i class="ti ti-calendar-event"></i><span>' + group + '</span><span class="badge bg-label-primary">' + rows.count() + ' transaction' + (rows.count() > 1 ? 's' : '') + '</span></div></td>');
+                    }
+                },
+                ajax        : {
+                    url     : '{{ route('admin.accounting.opening-balances.data') }}',
+                    dataSrc : function (json) {
+                        if (json.branch_balances) {
+                            $.each(json.branch_balances, function (locId, balances) {
+                                $('#cash-balance-' + locId).text(balances.cash)
+                                    .toggleClass('text-danger', balances.cash.includes('-'))
+                                    .toggleClass('text-success', !balances.cash.includes('-'));
+                                $('#bank-balance-' + locId).text(balances.bank)
+                                    .toggleClass('text-danger', balances.bank.includes('-'))
+                                    .toggleClass('text-primary', !balances.bank.includes('-'));
+                                if (balances.customer_balance !== undefined) {
+                                    $('#customer-balance-' + locId).text(balances.customer_balance);
+                                }
+                            });
+                        }
+                        return json.data;
+                    },
+                    cache   : false,
+                    data    : function(d) {
+                        d.start_date   = $('#filter-start-date').val();
+                        d.end_date     = $('#filter-end-date').val();
+                        d.location_id  = $('#filter-location').val() || '';
+                        d.balance_type = $('#filter-balance-type').val() || '';
+                        d.source       = $('#filter-source').val() || 'all';
+                    }
+                },
+                columns     : [
+                    { data: 'index', orderable: false, width: '5%', render: function (data, type, row, meta) { return meta.row + meta.settings._iDisplayStart + 1; } },
+                    { data: 'source_type', render: function (data) { return sourceBadge(data); } },
+                    { data: 'time', render: function (data, type, row) { return (type === 'sort' || type === 'type') ? (row.raw_time || data) : data; } },
+                    { data: 'branch_name' },
+                    { data: 'balance_type', render: function (data, type, row) { return (type === 'sort' || type === 'type') ? (row.raw_balance_type || String(data).replace(/<[^>]*>/g, '')) : data; } },
+                    { data: 'type', render: function (data, type, row) { return (type === 'sort' || type === 'type') ? (row.raw_type || String(data).replace(/<[^>]*>/g, '')) : data; } },
+                    {
+                        data: 'amount',
+                        type: 'num',
+                        className: 'fw-semibold text-nowrap',
+                        render: function (data, type, row) {
+                            if (type === 'sort' || type === 'type') {
+                                if (row.raw_amount !== undefined) {
+                                    return parseFloat(row.raw_amount);
+                                }
+                                if (row.amount_raw !== undefined) {
+                                    return parseFloat(row.amount_raw);
+                                }
+                                const isNeg = String(data).includes('-') || row.is_credit === false;
+                                const num = parseFloat(String(data).replace(/[^0-9.]/g, '')) || 0;
+                                return isNeg ? -num : num;
+                            }
+                            return data;
+                        }
+                    },
+                    {
+                        data: 'balance_after',
+                        type: 'num',
+                        className: 'fw-semibold text-nowrap',
+                        render: function (d, type, row) {
+                            if (type === 'sort' || type === 'type') {
+                                return row.raw_balance_after !== undefined ? parseFloat(row.raw_balance_after) : (parseFloat(String(d).replace(/[^0-9.-]+/g, '')) || 0);
+                            }
+                            return d.includes('-') ? '<span class="text-danger">' + d + '</span>' : d;
+                        }
+                    },
+                    { data: 'notes' },
+                    { data: 'created_by' },
+                    {
+                        data: 'action',
+                        orderable: false,
+                        searchable: false,
+                        className: 'text-center',
+                        render: function (data, type, row) {
+                            if (row.is_opening_balance) {
+                                const deleteUrl = '{{ route("admin.accounting.opening-balances.destroy", ":id") }}'.replace(':id', row.id);
+                                return `
+                                    <div class="dropdown table-action-dropdown">
+                                        <button class="btn btn-sm btn-label-primary action-dropdown-btn dropdown-toggle" data-bs-toggle="dropdown" data-bs-boundary="viewport" aria-expanded="false">
+                                            <span>Actions</span>
+                                        </button>
+                                        <div class="dropdown-menu dropdown-menu-end action-dropdown-menu m-0">
+                                            <a href="javascript:void(0);" class="dropdown-item text-danger" data-common-delete="${deleteUrl}">
+                                                <i class="ti ti-trash me-2"></i>Delete
+                                            </a>
+                                        </div>
+                                    </div>
+                                `;
+                            }
+                            return '-';
+                        }
+                    },
+                    { data: 'date_group', visible: false },
+                    { data: 'date_sort', visible: false },
+                ],
+            });
 
-        window.refreshTable = function () {
-            window.showAjaxLoader && window.showAjaxLoader();
+            function updateCardVisibility() {
+                const selectedLocId = $('#filter-location').val();
+                if (selectedLocId) {
+                    $('.branch-card-col').hide();
+                    $('.branch-card-col[data-location-id="' + selectedLocId + '"]').show();
+                } else {
+                    $('.branch-card-col').show();
+                }
+            }
+
             updateCardVisibility();
-            table.ajax.reload(function () {
-                window.hideAjaxLoader && window.hideAjaxLoader();
-            }, false);
-        };
 
-        // Apply Filters
-        $(document).on('click', '#applyFiltersBtn', function (e) {
-            e.preventDefault();
-            isFiltered = true;
-            window.refreshTable();
-        });
+            window.refreshTable = function () {
+                updateCardVisibility();
+                table.ajax.reload(null, false);
+            };
 
-        // Clear Filters
-        $(document).on('click', '#clearFiltersBtn', function (e) {
-            e.preventDefault();
-            $('#filter-start-date').val('');
-            $('#filter-end-date').val('');
-            $('#filter-location').val('').trigger('change');
-            $('#filter-balance-type').val('').trigger('change');
-            $('#filter-source').val('all').trigger('change');
-            if (startPicker) startPicker.clear();
-            if (endPicker) endPicker.clear();
-            updateFilterButtonsVisibility();
-            isFiltered = false;
-            window.refreshTable();
-        });
+            $(document).on('click', '#applyFiltersBtn', function (e) {
+                e.preventDefault();
+                isFiltered = true;
+                window.refreshTable();
+            });
 
+            $(document).on('click', '#clearFiltersBtn', function (e) {
+                e.preventDefault();
+                $('#filter-start-date').val('');
+                $('#filter-end-date').val('');
+                $('#filter-location').val('').trigger('change');
+                $('#filter-balance-type').val('').trigger('change');
+                $('#filter-source').val('all').trigger('change');
+                if (startPicker) startPicker.clear();
+                if (endPicker) endPicker.clear();
+                updateFilterButtonsVisibility();
+                isFiltered = false;
+                window.refreshTable();
+            });
         });
     </script>
 @endsection
