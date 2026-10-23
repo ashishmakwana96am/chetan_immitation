@@ -1222,10 +1222,6 @@ class LedgerController extends Controller
             return response()->json(['status' => 'error', 'message' => 'No location available.'], 422);
         }
 
-        // One row per bill (not per in/out side) — a transfer between two of the
-        // filtered locations only needs listing once, naming both branches.
-        // Only unpaid/partial bills belong here; once marked Paid it drops off, same as
-        // the Pending Payments Between Branches summary below.
         $stockTransfersQuery = PurchaseBill::with(['items.product', 'items.variant', 'fromLocation', 'toLocation'])
             ->where(function ($q) use ($locationIds) {
                 $q->whereIn('from_location_id', $locationIds)
@@ -1297,7 +1293,6 @@ class LedgerController extends Controller
             ];
         });
 
-        // Balance transfers from BranchBalanceTransfer table
         $btTransfersQuery = BranchBalanceTransfer::with(['fromLocation', 'toLocation'])
             ->where(function ($q) use ($locationIds) {
                 $q->whereIn('from_location_id', $locationIds)
@@ -1841,7 +1836,35 @@ class LedgerController extends Controller
     private function purchasePriceForLedgerItem(PurchaseBillItem $item): float
     {
         $product = $item->product;
-        return (float) (($item->purchase_price > 0) ? $item->purchase_price : ($item->variant->purchase_price ?? $product?->purchase_price ?? 0));
+        $basePrice = (float) (($item->purchase_price > 0) ? $item->purchase_price : ($item->variant->purchase_price ?? $product?->purchase_price ?? 0));
+
+        if (!$product || !$product->pair_product) {
+            return $basePrice;
+        }
+
+        $selectedSize = (float) $item->custom_size_value;
+        if ($selectedSize <= 0) {
+            if ($item->pair_type === 'single') {
+                return (float) ($basePrice * 0.5);
+            }
+            return $basePrice;
+        }
+
+        $sizes = ($item->variant && !empty($item->variant->custom_sizes))
+            ? $item->variant->custom_sizes
+            : ($product->custom_sizes ?? []);
+
+        $maxSize = collect($sizes)
+            ->pluck('size')
+            ->map(fn ($size) => (float) $size)
+            ->filter(fn ($size) => $size > 0)
+            ->max();
+
+        if (!$maxSize || $maxSize <= 0) {
+            return $basePrice;
+        }
+
+        return (float) ($basePrice * ($selectedSize / (float) $maxSize));
     }
 
     private function resolveLocations(): array
