@@ -989,12 +989,28 @@ class PurchaseStockService
             $product = $item->product;
             $basePrice = (float) (($item->purchase_price > 0) ? $item->purchase_price : ($item->variant->purchase_price ?? $product?->purchase_price ?? 0));
 
-            if ($product && $product->pair_product && (float)$item->custom_size_value > 0) {
+            if ($product && $product->pair_product) {
+                $selectedSize = (float) ($item->custom_size_value ?? 0);
                 $sizes = ($item->variant && !empty($item->variant->custom_sizes))
                     ? $item->variant->custom_sizes
                     : ($product->custom_sizes ?? []);
-                $maxSize = collect($sizes)->pluck('size')->map(fn($s) => (float)$s)->filter(fn($s) => $s > 0)->max() ?: 1.0;
-                $unitPrice = (float) ($basePrice * ((float)$item->custom_size_value / $maxSize));
+                $sizesCollection = collect($sizes)->pluck('size')->map(fn($s) => (float)$s)->filter(fn($s) => $s > 0);
+                $maxSize = $sizesCollection->count() > 0 ? (float)$sizesCollection->max() : ($product ? (float)$product->getPairPackSize() : 2.0);
+                if ($maxSize <= 0) {
+                    $maxSize = 2.0;
+                }
+
+                if ($selectedSize <= 0) {
+                    if (($item->pair_type ?? '') === 'single') {
+                        $selectedSize = 1.0;
+                    } else {
+                        $unitPrice = $basePrice;
+                    }
+                }
+
+                if (!isset($unitPrice)) {
+                    $unitPrice = (float) ($basePrice * ($selectedSize / $maxSize));
+                }
             } else {
                 $unitPrice = $basePrice;
             }

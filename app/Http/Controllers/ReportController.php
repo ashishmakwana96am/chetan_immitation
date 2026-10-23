@@ -713,7 +713,7 @@ class ReportController extends Controller
                     ->whereNull('purchase_bills.deleted_at')
                     ->where('purchase_bills.status', 2)
                     ->when($locationId, fn($q) => $q->where('purchase_bills.to_location_id', $locationId))
-                    ->select('purchase_bill_items.id', 'purchase_bill_items.quantity', 'purchase_bill_items.purchase_price', 'purchase_bills.created_at')
+                    ->select('purchase_bill_items.id', 'purchase_bill_items.product_variant_id', 'purchase_bill_items.quantity', 'purchase_bill_items.purchase_price', 'purchase_bill_items.custom_size_value', 'purchase_bill_items.pair_type', 'purchase_bills.created_at')
                     ->get();
 
                 $pAllocations = DB::table('purchase_allocations')
@@ -736,7 +736,7 @@ class ReportController extends Controller
                     ->whereNull('purchase_bills.deleted_at')
                     ->where('purchase_bills.status', 2)
                     ->when($locationId, fn($q) => $q->where('purchase_bills.from_location_id', $locationId))
-                    ->select('purchase_bill_items.id', 'purchase_bill_items.quantity', 'purchase_bill_items.purchase_price')
+                    ->select('purchase_bill_items.id', 'purchase_bill_items.product_variant_id', 'purchase_bill_items.quantity', 'purchase_bill_items.purchase_price', 'purchase_bill_items.custom_size_value', 'purchase_bill_items.pair_type')
                     ->get();
 
                 $pSoldItems = DB::table('order_items')
@@ -755,9 +755,12 @@ class ReportController extends Controller
 
                 $batches = [];
                 foreach ($pAllBatches as $t) {
+                    $unitP = (isset($t->custom_size_value) || isset($t->pair_type))
+                        ? $this->resolveItemPurchasePrice($product, $t)
+                        : (float)$t->purchase_price;
                     $batches[] = [
                         'id'    => $t->id,
-                        'price' => (float)$t->purchase_price,
+                        'price' => $unitP,
                         'qty'   => (float)$t->quantity,
                     ];
                 }
@@ -985,6 +988,48 @@ class ReportController extends Controller
         return $controller->computeStockTotals($productQuery, $locations, $locationId);
     }
 
+    private function resolveItemPurchasePrice($product, $item): float
+    {
+        $basePrice = (float) ($item->purchase_price ?? 0);
+        if ($basePrice <= 0 && !empty($item->product_variant_id)) {
+            $variant = ($product && isset($product->variants)) ? $product->variants->firstWhere('id', $item->product_variant_id) : null;
+            $basePrice = (float) ($variant->purchase_price ?? 0);
+        }
+        if ($basePrice <= 0) {
+            $basePrice = (float) ($product->purchase_price ?? 0);
+        }
+
+        if (!$product || empty($product->pair_product)) {
+            return $basePrice;
+        }
+
+        $selectedSize = (float) ($item->custom_size_value ?? 0);
+
+        $variant = (!empty($item->product_variant_id) && $product && isset($product->variants))
+            ? $product->variants->firstWhere('id', $item->product_variant_id)
+            : null;
+        $sizes = ($variant && !empty($variant->custom_sizes))
+            ? $variant->custom_sizes
+            : ($product->custom_sizes ?? []);
+
+        $sizesCollection = collect($sizes)->pluck('size')->map(fn($s) => (float)$s)->filter(fn($s) => $s > 0);
+        $maxSize = $sizesCollection->count() > 0 ? (float)$sizesCollection->max() : ($product ? (float)$product->getPairPackSize() : 2.0);
+
+        if ($maxSize <= 0) {
+            $maxSize = 2.0;
+        }
+
+        if ($selectedSize <= 0) {
+            if (($item->pair_type ?? '') === 'single') {
+                $selectedSize = 1.0;
+            } else {
+                return $basePrice;
+            }
+        }
+
+        return (float) ($basePrice * ($selectedSize / $maxSize));
+    }
+
     private function computeStockTotals($productQuery, $locations, ?int $locationId): array
     {
         $products = $productQuery
@@ -1017,7 +1062,17 @@ class ReportController extends Controller
             ->whereNull('purchase_bills.deleted_at')
             ->where('purchase_bills.status', 2)
             ->when($locationId, fn($q) => $q->where('purchase_bills.to_location_id', $locationId))
-            ->select('purchase_bill_items.product_id', 'purchase_bill_items.id', 'purchase_bill_items.quantity', 'purchase_bill_items.purchase_price', 'purchase_bill_items.mrp', 'purchase_bills.created_at')
+            ->select(
+                'purchase_bill_items.product_id',
+                'purchase_bill_items.product_variant_id',
+                'purchase_bill_items.id',
+                'purchase_bill_items.quantity',
+                'purchase_bill_items.purchase_price',
+                'purchase_bill_items.custom_size_value',
+                'purchase_bill_items.pair_type',
+                'purchase_bill_items.mrp',
+                'purchase_bills.created_at'
+            )
             ->get()
             ->groupBy('product_id');
 
@@ -1053,7 +1108,15 @@ class ReportController extends Controller
             ->whereNull('purchase_bills.deleted_at')
             ->where('purchase_bills.status', 2)
             ->when($locationId, fn($q) => $q->where('purchase_bills.from_location_id', $locationId))
-            ->select('purchase_bill_items.product_id', 'purchase_bill_items.id', 'purchase_bill_items.quantity', 'purchase_bill_items.purchase_price')
+            ->select(
+                'purchase_bill_items.product_id',
+                'purchase_bill_items.product_variant_id',
+                'purchase_bill_items.id',
+                'purchase_bill_items.quantity',
+                'purchase_bill_items.purchase_price',
+                'purchase_bill_items.custom_size_value',
+                'purchase_bill_items.pair_type'
+            )
             ->get()
             ->groupBy('product_id');
 
@@ -1088,13 +1151,13 @@ class ReportController extends Controller
         foreach ($products as $product) {
             $invRows = $invByProduct->get($product->id, collect());
 
-            // Accumulate gross Direct Purchase, Transfer In, Transfer Out and Sales cost for breakdown report
             $pTransfersIn = $transfersGrouped->get($product->id, collect());
             $pAllocationsIn = $allocationsGrouped->get($product->id, collect());
             $pDirectPurchases = $purchasesGrouped->get($product->id, collect());
 
             foreach ($pTransfersIn as $ti) {
-                $val = ((float)$ti->quantity * (float)$ti->purchase_price);
+                $unitP = $this->resolveItemPurchasePrice($product, $ti);
+                $val = ((float)$ti->quantity * $unitP);
                 $totalTransferInVal += $val;
                 $totalInwardVal += $val;
             }
@@ -1115,7 +1178,8 @@ class ReportController extends Controller
 
             $pTransfersOut = $transfersOutwardGrouped->get($product->id, collect());
             foreach ($pTransfersOut as $to) {
-                $totalReturnVal += ((float)$to->quantity * (float)$to->purchase_price);
+                $unitP = $this->resolveItemPurchasePrice($product, $to);
+                $totalReturnVal += ((float)$to->quantity * $unitP);
             }
 
             $pSold = $soldItemsGrouped->get($product->id, collect());
@@ -1123,7 +1187,6 @@ class ReportController extends Controller
                 $totalSalesCostVal += (float)$si->purchase_price;
             }
 
-            // 1. Per-location Pair/Pcs totals for breakdown chart
             foreach ($locations as $location) {
                 $qty = (int) $invRows->where('location_id', $location->id)->sum('quantity');
 
@@ -1174,9 +1237,12 @@ class ReportController extends Controller
 
             $batches = [];
             foreach ($allBatchesList as $t) {
+                $unitP = (isset($t->custom_size_value) || isset($t->pair_type))
+                    ? $this->resolveItemPurchasePrice($product, $t)
+                    : (float)$t->purchase_price;
                 $batches[] = [
                     'id'    => $t->id,
-                    'price' => (float)$t->purchase_price,
+                    'price' => $unitP,
                     'qty'   => (float)$t->quantity,
                 ];
             }
@@ -6102,6 +6168,7 @@ class ReportController extends Controller
         }
 
         $purchaseBillRows = $purchaseBillQuery
+            ->with(['items.product.variants', 'items.variant', 'fromLocation', 'toLocation', 'createdBy'])
             ->withCount('items')
             ->latest()
             ->latest('id')
@@ -6111,8 +6178,8 @@ class ReportController extends Controller
                 $amount = 0.0;
 
                 foreach ($transfer->items as $item) {
-                    $price = $item->variant->purchase_price ?? $item->product->purchase_price ?? 0;
-                    $amount += $price * $item->quantity;
+                    $price = $this->resolveItemPurchasePrice($item->product, $item);
+                    $amount += $price * (int) $item->quantity;
                 }
 
                 return [

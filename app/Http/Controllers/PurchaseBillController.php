@@ -1285,26 +1285,32 @@ class PurchaseBillController extends Controller
             return $basePrice;
         }
 
-        $selectedSize = (float) $item->custom_size_value;
-        if ($selectedSize <= 0) {
-            return $basePrice;
-        }
+        $selectedSize = (float) ($item->custom_size_value ?? 0);
 
-        $sizes = ($item->variant && !empty($item->variant->custom_sizes))
-            ? $item->variant->custom_sizes
+        $variant = (!empty($item->product_variant_id) && $product && isset($product->variants))
+            ? $product->variants->firstWhere('id', $item->product_variant_id)
+            : ($item->variant ?? null);
+
+        $sizes = ($variant && !empty($variant->custom_sizes))
+            ? $variant->custom_sizes
             : ($product->custom_sizes ?? []);
 
-        $maxSize = collect($sizes)
-            ->pluck('size')
-            ->map(fn ($size) => (float) $size)
-            ->filter(fn ($size) => $size > 0)
-            ->max();
+        $sizesCollection = collect($sizes)->pluck('size')->map(fn ($size) => (float) $size)->filter(fn ($size) => $size > 0);
+        $maxSize = $sizesCollection->count() > 0 ? (float) $sizesCollection->max() : ($product ? (float) $product->getPairPackSize() : 2.0);
 
-        if (!$maxSize || $maxSize <= 0) {
-            return $basePrice;
+        if ($maxSize <= 0) {
+            $maxSize = 2.0;
         }
 
-        return (float) ($basePrice * ($selectedSize / (float) $maxSize));
+        if ($selectedSize <= 0) {
+            if (($item->pair_type ?? '') === 'single') {
+                $selectedSize = 1.0;
+            } else {
+                return $basePrice;
+            }
+        }
+
+        return (float) ($basePrice * ($selectedSize / $maxSize));
     }
 
     private function mrpForPurchaseBillItem(PurchaseBillItem $item, float $multiplier): float
