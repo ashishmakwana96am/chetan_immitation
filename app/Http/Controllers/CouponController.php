@@ -166,7 +166,7 @@ class CouponController extends Controller
         $coupon->update([
             'name'           => $request->name,
             'code'           => strtoupper($request->code),
-            'description'    => $request->description,
+            'description'    =>  clean($request->description),
             'discount_type'  => $request->discount_type,
             'discount_value' => $request->discount_value,
             'usage_limit'    => $request->usage_limit,
