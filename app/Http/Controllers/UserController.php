@@ -144,7 +144,10 @@ class UserController extends Controller
             'email'       => ['required', 'email', Rule::unique('users', 'email')->whereNull('deleted_at')],
             'phone'       => ['nullable', 'string', 'max:20'],
             'password'    => ['required', 'string', 'min:8'],
-            'role'        => ['required', 'exists:roles,id'],
+            'role'        => [
+                'required',
+                Rule::exists('roles', 'id')->where(fn ($q) => $q->where('name', '!=', 'super-admin'))
+            ],
             'location_id' => ['nullable', 'exists:locations,id'],
         ]);
 
@@ -155,12 +158,10 @@ class UserController extends Controller
             ], 422);
         }
 
-        // Clean up any soft-deleted record with the same email
         User::onlyTrashed()->where('email', $request->email)->forceDelete();
 
         $role = Role::findById($request->role);
 
-        // Restricted user can only create users in their own location
         $assignedLocationId = $locationId ?? ($request->location_id ?: null);
 
         $user = User::create([
@@ -187,7 +188,6 @@ class UserController extends Controller
 
         $locationId = $this->getRestrictedLocationId();
 
-        // Restricted user cannot edit users from other locations
         if ($locationId && $user->location_id !== $locationId) {
             return redirect()->route('admin.dashboard');
         }
@@ -205,7 +205,6 @@ class UserController extends Controller
 
         $locationId = $this->getRestrictedLocationId();
 
-        // Restricted user cannot update users from other locations
         if ($locationId && $user->location_id !== $locationId) {
             return response()->json(['status' => 'error', 'message' => 'Unauthorized action.'], 403);
         }
@@ -227,7 +226,6 @@ class UserController extends Controller
 
         $role = Role::findById($request->role);
 
-        // Restricted user keeps their own location; unrestricted can change it
         $assignedLocationId = $locationId ?? ($request->location_id ?: null);
 
         $user->update([
