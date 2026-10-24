@@ -213,7 +213,10 @@ class UserController extends Controller
             'name'        => ['required', 'string', 'max:100'],
             'email'       => ['required', 'email', Rule::unique('users', 'email')->ignore($user->id)->whereNull('deleted_at')],
             'phone'       => ['nullable', 'string', 'max:20'],
-            'role'        => ['required', 'exists:roles,id'],
+            'role'        => [
+                'required',
+                Rule::exists('roles', 'id')->where(fn ($q) => $q->where('name', '!=', 'super-admin'))
+            ],
             'location_id' => ['nullable', 'exists:locations,id'],
         ]);
 
