@@ -289,19 +289,19 @@ class SettingController extends Controller
             '-h', $connection['host'],
             '-P', (string) ($connection['port'] ?? 3306),
             '-u', $connection['username'],
+            '--routines',
+            '--single-transaction',
+            '--result-file=' . $filePath,
+            $connection['database'],
         ];
-        if (!empty($connection['password'])) {
-            $command[] = '-p' . $connection['password'];
-        }
-        $command[] = '--routines';
-        $command[] = '--single-transaction';
-        $command[] = '--result-file=' . $filePath;
-        $command[] = $connection['database'];
 
         $env = array_merge($_ENV, $_SERVER, [
             'SystemRoot' => getenv('SystemRoot') ?: 'C:\\Windows',
             'PATH' => getenv('PATH') ?: 'C:\\Windows\\system32;C:\\Windows',
         ]);
+        if (!empty($connection['password'])) {
+            $env['MYSQL_PWD'] = (string) $connection['password'];
+        }
 
         $mysqldumpSuccess = false;
         try {
@@ -328,17 +328,6 @@ class SettingController extends Controller
                     'message' => 'Backup failed: ' . $e->getMessage(),
                 ], 500);
             }
-        }
-
-        // Clean up "don't" / "don\'t" / "Don't" / "Don\'t" to prevent MySQL import issues
-        try {
-            $sqlContent = file_get_contents($filePath);
-            $search = ["don\\'t", "don't", "Don\\'t", "Don't"];
-            $replace = ["dont", "dont", "Dont", "Dont"];
-            $sqlContent = str_replace($search, $replace, $sqlContent);
-            file_put_contents($filePath, $sqlContent);
-        } catch (\Throwable $e) {
-            Log::error('Database backup content cleanup failed: ' . $e->getMessage());
         }
 
         $driveUploaded = false;

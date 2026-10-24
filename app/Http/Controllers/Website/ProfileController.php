@@ -72,8 +72,9 @@ class ProfileController extends Controller
             mkdir($avatarsDir, 0755, true);
         }
 
-        $filename     = 'avatar_' . $customer->id . '_' . time() . '.' . $request->file('avatar')->getClientOriginalExtension();
-        $request->file('avatar')->move($avatarsDir, $filename);
+        $file         = $request->file('avatar');
+        $filename     = $file->hashName();
+        $file->move($avatarsDir, $filename);
         $relativePath = 'avatars/' . $filename;
 
         $customer->update(['avatar' => $relativePath]);
@@ -143,6 +144,8 @@ class ProfileController extends Controller
         $customer->update([
             'password' => Hash::make($request->new_password)
         ]);
+
+        Auth::logoutOtherDevices($request->current_password);
 
         return response()->json([
             'status' => 'success',

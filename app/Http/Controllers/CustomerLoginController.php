@@ -38,7 +38,7 @@ class CustomerLoginController extends Controller
         if ($customer && $customer->status == \App\Models\Customer::STATUS_INACTIVE) {
             return response()->json([
                 'status' => 'error',
-                'errors' => ['email' => ['Your account has been deactivated. Please contact support.']],
+                'errors' => ['email' => ['These credentials do not match our records.']],
             ], 422);
         }
 

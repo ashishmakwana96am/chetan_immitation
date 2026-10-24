@@ -566,7 +566,7 @@ class CheckoutController extends Controller
         } catch (\Exception $e) {
             return response()->json([
                 'status' => 'error',
-                'message' => $e->getMessage(),
+                'message' => 'Unable to process your order. Please try again.',
             ], 500);
         }
     }
@@ -692,7 +692,7 @@ class CheckoutController extends Controller
             try {
                 Mail::to($customer->email)->send(new OrderConfirmationMail($order));
             } catch (\Exception $e) {
-                Log::error('Order confirmation email failed: '.$e->getMessage());
+                Log::error('Order confirmation email failed: '.'Unable to process your order. Please try again.');
             }
 
             session()->forget('pending_payment');
@@ -1011,7 +1011,7 @@ class CheckoutController extends Controller
             ]);
 
         } catch (\Exception $e) {
-            return response()->json(['status' => 'error', 'message' => $e->getMessage()], 500);
+            return response()->json(['status' => 'error', 'message' => 'Unable to process your order. Please try again.'], 500);
         }
     }
 
@@ -1373,7 +1373,7 @@ class CheckoutController extends Controller
                 try {
                     Mail::to($customer->email)->send(new OrderConfirmationMail($order));
                 } catch (\Exception $e) {
-                    Log::error('COD order confirmation email failed: '.$e->getMessage());
+                    Log::error('COD order confirmation email failed: '.'Unable to process your order. Please try again.');
                 }
 
                 return $order;
@@ -1392,7 +1392,7 @@ class CheckoutController extends Controller
         } catch (\Exception $e) {
             return response()->json([
                 'status' => 'error',
-                'message' => $e->getMessage(),
+                'message' => 'Unable to process your order. Please try again.',
             ], 500);
         }
     }

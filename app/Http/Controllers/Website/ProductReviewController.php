@@ -74,7 +74,7 @@ class ProductReviewController extends Controller
         }
 
         foreach ($request->file('images', []) as $file) {
-            $filename = time().'_'.uniqid().'.'.$file->getClientOriginalExtension();
+            $filename = $file->hashName();
             $file->move($dir, $filename);
 
             ReviewImage::create([

@@ -50,6 +50,8 @@ class ProfileController extends Controller
             'password' => Hash::make($request->new_password),
         ]);
 
+        Auth::logoutOtherDevices($request->current_password);
+
         return response()->json([
             'status'  => 'success',
             'message' => 'Password changed successfully.',

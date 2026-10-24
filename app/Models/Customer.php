@@ -34,6 +34,8 @@ class Customer extends Authenticatable
     protected $hidden = [
         'password',
         'remember_token',
+        'otp',
+        'otp_expires_at'
     ];
 
     protected function casts(): array

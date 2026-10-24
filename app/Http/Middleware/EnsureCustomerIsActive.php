@@ -22,14 +22,14 @@ class EnsureCustomerIsActive
             if ($request->expectsJson() || $request->ajax()) {
                 return response()->json([
                     'status' => 'error',
-                    'message' => 'Your account has been deactivated. Please contact support.',
+                    'message' => 'These credentials do not match our records.',
                     'redirect_url' => route('login')
                 ], 401);
             }
 
             return redirect()
                 ->route('login')
-                ->with('error', 'Your account has been deactivated. Please contact support.');
+                ->with('error', 'These credentials do not match our records.');
         }
 
         return $next($request);
