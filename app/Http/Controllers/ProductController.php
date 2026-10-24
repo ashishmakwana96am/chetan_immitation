@@ -336,6 +336,8 @@ class ProductController extends Controller
      */
     public function prepareBarcodePrint(\Illuminate\Http\Request $request)
     {
+        $this->authorize('view products');
+
         $items = $request->input('items', []);
         if (empty($items)) {
             return response()->json(['status' => 'error', 'message' => 'No items to print.'], 422);
@@ -349,6 +351,8 @@ class ProductController extends Controller
 
     public function printBarcodes(\Illuminate\Http\Request $request)
     {
+        $this->authorize('view products');
+
         if ($request->filled('token')) {
             $itemsInput = Cache::get('barcode_print:' . $request->input('token'), []);
         } else {
@@ -1840,6 +1844,8 @@ class ProductController extends Controller
 
     public function generateBarcodeImage($id)
     {
+        $this->authorize('view products');
+
         $product = Product::withTrashed()->find($id);
         if (!$product) {
             return response('Product Not Found', 404);

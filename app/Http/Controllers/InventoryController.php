@@ -8,6 +8,8 @@ class InventoryController extends Controller
 {
     public function stock()
     {
+        $this->authorize('view products');
+        
         $productId = request('product_id');
         $locationId = request('location_id');
         $variantId = request('variant_id');

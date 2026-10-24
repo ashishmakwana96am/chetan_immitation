@@ -347,6 +347,8 @@ class AttributeController extends Controller
 
     public function getAttributesWithValues()
     {
+        $this->authorize('view products');
+        
         $attributes = Attribute::with('values')->where('status', 1)->orderBy('name')->get();
 
         return response()->json($attributes);
