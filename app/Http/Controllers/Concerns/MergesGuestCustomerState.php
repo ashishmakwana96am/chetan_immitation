@@ -84,8 +84,18 @@ trait MergesGuestCustomerState
 
     protected function resolveIntendedUrl(Request $request): string
     {
-        return $request->query('intended')
-            ?? session()->pull('url.intended')
-            ?? route('home');
+        $candidate = $request->query('intended') ?? session()->pull('url.intended');
+
+        if (is_string($candidate) && $candidate !== '' && !str_contains($candidate, '\\')) {
+            $host = parse_url($candidate, PHP_URL_HOST);
+            if ($host === null && str_starts_with($candidate, '/') && !str_starts_with($candidate, '//')) {
+                return url($candidate);
+            }
+            if ($host === $request->getHost()) {
+                return $candidate;
+            }
+        }
+
+        return route('home');
     }
 }

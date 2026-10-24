@@ -251,7 +251,7 @@ class ProfileController extends Controller
         }
 
         if ((int) $order->status === Order::STATUS_DELIVERED) {
-            if (!$order->delivered_at || now()->diffInHours($order->delivered_at) > 24) {
+            if (!$order->delivered_at || now()->greaterThan($order->delivered_at->copy()->addHours(24))) {
                 return response()->json([
                     'status' => 'error',
                     'message' => 'Orders can only be cancelled within 24 hours of delivery.',

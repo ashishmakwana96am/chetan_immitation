@@ -1261,6 +1261,8 @@ class PurchaseController extends Controller
 
     public function getProductPrice(Product $product)
     {
+        $this->authorize('view products');
+
         return response()->json([
             'status' => 'success',
             'data'   => [
@@ -1500,6 +1502,8 @@ class PurchaseController extends Controller
 
     public function getMappedProductsJson()
     {
+        $this->authorize('view products');
+        
         return response()->json($this->getMappedProducts());
     }
 

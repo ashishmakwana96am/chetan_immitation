@@ -260,6 +260,9 @@ class LedgerController extends Controller
 
     public function paySupplierAdvance(Request $request)
     {
+        $this->authorizeLedger('view supplier ledger');
+        $this->authorize('edit purchases payment status');
+
         $user = auth()->user();
         $isMainBranchUser = $user->hasRole('super-admin') || !$user->location_id || (int) $user->location_id === 1;
 

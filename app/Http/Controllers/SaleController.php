@@ -8,6 +8,8 @@ use App\Models\CustomerAddress;
 use App\Models\Inventory;
 use App\Models\Location;
 use App\Models\Order;
+use App\Models\PurchaseItem;
+use App\Models\PurchaseBillItem;
 use App\Models\OrderCancellationRequest;
 use App\Models\OrderItem;
 use App\Models\OrderPayment;
@@ -537,9 +539,13 @@ class SaleController extends Controller
                 $physicalQty = ($customSizeVal !== null && $customSizeVal > 0) ? ($qty * $customSizeVal) : ($pairType === 'pair' ? ($qty * 2.0) : (float) $qty);
 
                 $purchaseItemId = !empty($itemData['purchase_item_id']) ? (int) $itemData['purchase_item_id'] : null;
-                $unitPurchasePrice = (isset($itemData['purchase_price']) && is_numeric($itemData['purchase_price']) && (float)$itemData['purchase_price'] > 0)
-                    ? (float) $itemData['purchase_price']
-                    : ($purchaseItemId ? (float) (\App\Models\PurchaseItem::where('id', $purchaseItemId)->value('purchase_price') ?? \App\Models\PurchaseBillItem::where('id', $purchaseItemId)->value('purchase_price')) : null);
+                $unitPurchasePrice = $purchaseItemId
+                    ? (float) (PurchaseItem::where('id', $purchaseItemId)->value('purchase_price')
+                        ?? PurchaseBillItem::where('id', $purchaseItemId)->value('purchase_price'))
+                    : null;
+                if ($unitPurchasePrice !== null && $unitPurchasePrice <= 0) {
+                    $unitPurchasePrice = null;
+                }
 
                 $batchAlloc = \App\Services\PurchaseBatchService::calculateTotalCostPrice(
                     (int) $itemData['product_id'],
@@ -1324,9 +1330,13 @@ class SaleController extends Controller
                     } else {
                         // Newly added item during sale edit
                         $purchaseItemId = !empty($itemData['purchase_item_id']) ? (int) $itemData['purchase_item_id'] : null;
-                        $unitPurchasePrice = (isset($itemData['purchase_price']) && is_numeric($itemData['purchase_price']) && (float)$itemData['purchase_price'] > 0)
-                            ? (float) $itemData['purchase_price']
-                            : ($purchaseItemId ? (float) (\App\Models\PurchaseItem::where('id', $purchaseItemId)->value('purchase_price') ?? \App\Models\PurchaseBillItem::where('id', $purchaseItemId)->value('purchase_price')) : null);
+                        $unitPurchasePrice = $purchaseItemId
+                            ? (float) (PurchaseItem::where('id', $purchaseItemId)->value('purchase_price')
+                                ?? PurchaseBillItem::where('id', $purchaseItemId)->value('purchase_price'))
+                            : null;
+                        if ($unitPurchasePrice !== null && $unitPurchasePrice <= 0) {
+                            $unitPurchasePrice = null;
+                        }
 
                         $batchAlloc = \App\Services\PurchaseBatchService::calculateTotalCostPrice(
                             (int) $itemData['product_id'],
@@ -2659,6 +2669,8 @@ class SaleController extends Controller
 
     public function getAllMappedProductsJson()
     {
+        $this->authorize('view products');
+
         return response()->json($this->getAllMappedProductsForSales());
     }
 
@@ -2750,6 +2762,8 @@ class SaleController extends Controller
 
     public function getProductBatches(\Illuminate\Http\Request $request)
     {
+        $this->authorize('view products');
+        
         $productId = (int) $request->input('product_id');
         $variantId = $request->filled('product_variant_id') ? (int) $request->input('product_variant_id') : null;
         $locationId = $request->filled('location_id') ? (int) $request->input('location_id') : null;
