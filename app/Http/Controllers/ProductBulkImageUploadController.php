@@ -25,7 +25,6 @@ class ProductBulkImageUploadController extends Controller
             'zip_file' => ['required', 'file', 'mimes:zip', 'max:512000'],
         ]);
 
-        // Large ZIPs (thousands of images) can take a while to process synchronously.
         set_time_limit(0);
 
         try {
@@ -82,7 +81,6 @@ class ProductBulkImageUploadController extends Controller
             '100003_2.jpg',
         ];
 
-        // Generate a real, valid JPEG image stream
         $imageBytes = null;
         if (function_exists('imagecreatetruecolor')) {
             ob_start();
@@ -97,7 +95,6 @@ class ProductBulkImageUploadController extends Controller
         }
 
         if (!$imageBytes) {
-            // Fallback valid minimal JPEG binary
             $imageBytes = base64_decode('/9j/4AAQSkZJRgABAQEASABIAAD/2wBDAP//////////////////////////////////////////////////////////////////////////////////////wgALCAABAAEBAREA/8QAFBABAAAAAAAAAAAAAAAAAAAAAP/aAAgBAQABPxA=');
         }
 

@@ -57,7 +57,7 @@ class WebsiteContentController extends Controller
         $truncate = fn ($v) => strlen($v) > 200 ? substr($v, 0, 200) . '…' : $v;
 
         foreach ($fields as $field) {
-            $newValue = $request->$field ?? '';
+            $newValue = $request->$field ? clean($request->$field) : '';
             $existingValue = Setting::getValue($field, '');
 
             if ($newValue === '' && $existingValue !== '') {

@@ -51,7 +51,7 @@ class Setting extends Model
     public static function getInstagramPosts(): array
     {
         $profileUrl = self::getInstagramProfileUrl();
-        $accessToken = self::getValue('instagram_access_token', 'IGAAWZA8ewYnlBBZAFk2SVA1ZAHNpclhYVUh3dWo4STFRNTRvMGN3VnlXWG1hMGJmTGpoWGNYTExJSnQ1UFBNRFAzUEV2b1pmWVBpS1JSbDZApWEdCZAW85UW8zXzZATMGttVTVEdGNjMms1NnBVNDg3cWRqRW5ENEZA2N1FYdGVIeDkzdwZDZD');
+        $accessToken = self::getValue('instagram_access_token', '');
 
         if (!empty($accessToken)) {
             return \Illuminate\Support\Facades\Cache::remember('instagram_feed_posts_v6', 3600, function () use ($accessToken, $profileUrl) {

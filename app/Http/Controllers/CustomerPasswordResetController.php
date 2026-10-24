@@ -8,6 +8,7 @@ use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Mail;
 use Illuminate\Support\Facades\Validator;
 use Illuminate\Support\Str;
+use Illuminate\Support\Facades\RateLimiter;
 
 class CustomerPasswordResetController extends Controller
 {
@@ -52,6 +53,8 @@ class CustomerPasswordResetController extends Controller
                 'otp_expires_at' => now()->addMinutes(10),
             ]);
 
+            RateLimiter::clear('otp-verify:' . $request->email);
+
             try {
                 Mail::to($customer->email)->send(new PasswordResetOtpMail($otp, $customer->name));
             } catch (\Throwable $e) {
@@ -92,21 +95,41 @@ class CustomerPasswordResetController extends Controller
             ], 422);
         }
 
-        $customer = Customer::where('email', $request->email)->first();
+        $key = 'otp-verify:' . $request->email;
 
-        if (!$customer || $customer->otp !== $request->otp) {
+        if (RateLimiter::tooManyAttempts($key, 5)) {
+            Customer::where('email', $request->email)->update([
+                'otp'            => null,
+                'otp_expires_at' => null,
+            ]);
+
+            return response()->json([
+                'status' => 'error',
+                'errors' => ['otp' => ['Too many attempts. Please request a new OTP.']],
+            ], 429);
+        }
+
+        $customer = Customer::where('email', $request->email)
+            ->where('is_website', true)
+            ->first();
+
+        if ($customer && $customer->otp_expires_at && now()->isAfter($customer->otp_expires_at)) {
+            return response()->json([
+                'status' => 'error',
+                'errors' => ['otp' => ['OTP has expired. Please request a new one.']],
+            ], 422);
+        }
+
+        if (!$customer || !$customer->otp || !hash_equals((string) $customer->otp, (string) $request->otp)) {
+            RateLimiter::hit($key, 600);
+
             return response()->json([
                 'status' => 'error',
                 'errors' => ['otp' => ['Invalid OTP. Please try again.']],
             ], 422);
         }
 
-        if (!$customer->otp_expires_at || now()->isAfter($customer->otp_expires_at)) {
-            return response()->json([
-                'status' => 'error',
-                'errors' => ['otp' => ['OTP has expired. Please request a new one.']],
-            ], 422);
-        }
+        RateLimiter::clear($key);
 
         $resetToken = Str::random(64);
         session([
@@ -114,7 +137,10 @@ class CustomerPasswordResetController extends Controller
             'pw_reset_token' => $resetToken,
         ]);
 
-        $customer->update(['otp' => null, 'otp_expires_at' => null]);
+        $customer->update([
+            'otp'            => null,
+            'otp_expires_at' => null,
+        ]);
 
         session()->forget('otp_pending_email');
 
@@ -151,6 +177,8 @@ class CustomerPasswordResetController extends Controller
                 'otp'            => $otp,
                 'otp_expires_at' => now()->addMinutes(10),
             ]);
+
+            RateLimiter::clear('otp-verify:' . $request->email);
 
             try {
                 Mail::to($customer->email)->send(new PasswordResetOtpMail($otp, $customer->name));
