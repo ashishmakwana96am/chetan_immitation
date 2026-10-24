@@ -432,16 +432,6 @@ Route::prefix('admin')->name('admin.')->group(function () {
     });
 });
 
-Route::get('/set-debug-true', function () {
-    Setting::setValue('app_debug', 'true');
-    return response()->json(['message' => 'Debug mode enabled. Laravel error trace will be shown.']);
-});
-
-Route::get('/set-debug-false', function () {
-    Setting::setValue('app_debug', 'false');
-    return response()->json(['message' => 'Debug mode disabled. Custom error pages (404/500) will be shown.']);
-});
-
 Route::get('/robots.txt', function () {
     $appEnv = config('app.env', 'production');
     $appUrl = config('app.url', request()->root());

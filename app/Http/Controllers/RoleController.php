@@ -61,7 +61,7 @@ class RoleController extends Controller
 
             return [
                 'index' => $index + 1,
-                'name' => '<span class="text-capitalize">' . $role->name . '</span>',
+                'name' => '<span class="text-capitalize">' . e($role->name) . '</span>',
                 'permissions' => $permissions,
                 'users' => '<span class="badge bg-label-info">' . $role->users_count . ' user(s)</span>',
                 'created_at' => format_date($role->created_at),

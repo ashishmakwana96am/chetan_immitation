@@ -311,8 +311,8 @@ class SaleController extends Controller
                 'stock_warning' => $stockWarningHtml,
                 'order_no' => '<code>' . $order->order_no . '</code>' . ($order->is_gst ? ' <span class="badge bg-label-success ms-1 fs-tiny" style="font-size: 0.65rem;">GST</span>' : ''),
                 'raw_order_no' => $order->order_no,
-                'customer' => $order->customer->name ?? '<span class="text-muted">Walk-in</span>',
-                'location' => $order->location->name ?? '-',
+                'customer' => $order->customer ? e($order->customer->name) : '<span class="text-muted">Walk-in</span>',
+                'location' => e($order->location->name ?? '-'),
                 'source' => $sourceBadge,
                 'final_amount' => format_price($order->final_amount),
                 'status' => $status,
@@ -755,7 +755,6 @@ class SaleController extends Controller
     {
         $this->authorize('view sales');
 
-        // Prevent location user from viewing other locations' sales
         if (auth()->user()->location_id && !auth()->user()->hasRole('super-admin') && $sale->location_id !== auth()->user()->location_id) {
             abort(403);
         }

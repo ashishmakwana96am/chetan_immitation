@@ -98,10 +98,10 @@ class CustomerController extends Controller
             return [
                 'id'               => $customer->id,
                 'index'            => $index + 1,
-                'name'             => $customer->name,
+                'name'              => e($customer->name),
                 'is_credit_customer' => (bool) $customer->is_credit_customer,
-                'phone'            => $customer->phone ?? '-',
-                'email'            => $customer->email ?? '-',
+                'phone'              => e($customer->phone ?? '-'),
+                'email'             => e($customer->email ?? '-'),
                 'branch'           => $customer->location->name ?? '-',
                 'gst_no'           => $customer->gst_no ? '<code>' . e($customer->gst_no) . '</code>' : '-',
                 'state'            => $effectiveState ?: '-',
