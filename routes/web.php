@@ -56,23 +56,23 @@ use Illuminate\Support\Facades\Route;
 Route::get('/', [HomeController::class, 'index'])->name('home');
 Route::get('/about-us', [HomeController::class, 'about'])->name('about');
 Route::get('/contact-us', [HomeController::class, 'contact'])->name('contact');
-Route::post('/contact-us', [ContactInquiryController::class, 'store'])->name('contact.submit');
+Route::post('/contact-us', [ContactInquiryController::class, 'store'])->middleware('throttle:5,1')->name('contact.submit');
 Route::get('/terms-conditions', [HomeController::class, 'terms'])->name('terms');
 Route::get('/privacy-policy', [HomeController::class, 'privacy'])->name('privacy');
 Route::get('/delivery-returns', [HomeController::class, 'deliveryReturns'])->name('delivery-returns');
 Route::get('/refund-cancellation', [HomeController::class, 'refundCancellation'])->name('refund-cancellation');
 Route::get('/login', [HomeController::class, 'login'])->name('login');
-Route::post('/login', [CustomerLoginController::class, 'login'])->name('login.store');
+Route::post('/login', [CustomerLoginController::class, 'login'])->middleware('throttle:5,1')->name('login.store');
 Route::post('/logout', [CustomerLoginController::class, 'logout'])->name('customer.logout');
 Route::get('/forgot-password', [HomeController::class, 'forgotPassword'])->name('forgot-password');
-Route::post('/forgot-password', [CustomerPasswordResetController::class, 'sendOtp'])->name('forgot-password.send-otp');
+Route::post('/forgot-password', [CustomerPasswordResetController::class, 'sendOtp'])->middleware('throttle:3,10')->name('forgot-password.send-otp');
 Route::get('/otp-verification', [HomeController::class, 'otpVerification'])->name('otp-verification');
-Route::post('/otp-verification', [CustomerPasswordResetController::class, 'verifyOtp'])->name('otp-verification.verify');
-Route::post('/otp-verification/resend', [CustomerPasswordResetController::class, 'resendOtp'])->name('otp-verification.resend');
+Route::post('/otp-verification', [CustomerPasswordResetController::class, 'verifyOtp'])->middleware('throttle:5,1')->name('otp-verification.verify');
+Route::post('/otp-verification/resend', [CustomerPasswordResetController::class, 'resendOtp'])->middleware('throttle:3,10')->name('otp-verification.resend');
 Route::get('/reset-password', [CustomerPasswordResetController::class, 'showResetForm'])->name('customer.reset-password');
 Route::post('/reset-password', [CustomerPasswordResetController::class, 'resetPassword'])->name('customer.reset-password.update');
 Route::get('/register', [HomeController::class, 'register'])->name('register');
-Route::post('/register', [MemberRegisterController::class, 'store'])->name('register.store');
+Route::post('/register', [MemberRegisterController::class, 'store'])->middleware('throttle:5,1')->name('register.store');
 
 // Customer protected routes
 Route::middleware('auth:customer')->group(function () {
@@ -112,7 +112,6 @@ Route::get('/shop/{slug?}', [ShopCategoryController::class, 'index'])->name('sho
 Route::post('/shop/filter', [ShopCategoryController::class, 'filter'])->name('shop.filter');
 Route::get('/product/{slug}', [HomeController::class, 'detail'])->name('product.detail');
 
-// Required by Laravel's password broker to generate reset URL in email
 Route::get('/admin/reset-password/{token}', [ResetPasswordController::class, 'showResetForm'])->name('password.reset')->middleware('admin.guest:web');
 
 // Admin routes
@@ -122,13 +121,12 @@ Route::prefix('admin')->name('admin.')->group(function () {
         return redirect()->route('admin.dashboard');
     });
 
-    // Guest routes
     Route::middleware('admin.guest:web')->group(function () {
         Route::get('/login', [LoginController::class, 'showLoginForm'])->name('login');
-        Route::post('/login', [LoginController::class, 'login']);
+        Route::post('/login', [LoginController::class, 'login'])->middleware('throttle:5,1');
 
         Route::get('/forgot-password', [ForgotPasswordController::class, 'showForgotForm'])->name('password.request');
-        Route::post('/forgot-password', [ForgotPasswordController::class, 'sendResetLink'])->name('password.email');
+        Route::post('/forgot-password', [ForgotPasswordController::class, 'sendResetLink'])->middleware('throttle:3,10')->name('password.email');
 
         Route::get('/reset-password/{token}', [ResetPasswordController::class, 'showResetForm'])->name('password.reset');
         Route::post('/reset-password', [ResetPasswordController::class, 'resetPassword'])->name('password.update');

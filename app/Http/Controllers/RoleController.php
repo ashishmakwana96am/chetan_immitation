@@ -5,6 +5,7 @@ namespace App\Http\Controllers;
 use App\Services\ActivityLogger;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Validator;
+use Illuminate\Validation\Rule;
 use App\Models\Permission;
 use App\Models\Role;
 
@@ -109,7 +110,7 @@ class RoleController extends Controller
         $this->authorize('create roles');
 
         $validator = Validator::make($request->all(), [
-            'name' => ['required', 'string', 'max:100', 'unique:roles,name'],
+            'name' => ['required', 'string', 'max:100', 'unique:roles,name',Rule::notIn(['super-admin']),],
             'permissions' => ['nullable', 'array'],
             'permissions.*' => ['exists:permissions,id'],
         ]);
@@ -139,6 +140,8 @@ class RoleController extends Controller
 
     public function edit(Role $role)
     {
+        abort_if($role->name === 'super-admin', 403);
+
         $this->authorize('edit roles');
         $customOrder = [
             'Users', 'Roles', 'Locations',
@@ -172,10 +175,12 @@ class RoleController extends Controller
 
     public function update(Request $request, Role $role)
     {
+        abort_if($role->name === 'super-admin', 403);
+
         $this->authorize('edit roles');
 
         $validator = Validator::make($request->all(), [
-            'name' => ['required', 'string', 'max:100', 'unique:roles,name,' . $role->id],
+            'name' => ['required', 'string', 'max:100', 'unique:roles,name,' . $role->id,Rule::notIn(['super-admin']),],
             'permissions' => ['nullable', 'array'],
             'permissions.*' => ['exists:permissions,id'],
         ]);
@@ -212,6 +217,8 @@ class RoleController extends Controller
 
     public function destroy(Role $role)
     {
+        abort_if($role->name === 'super-admin', 403);
+
         $this->authorize('delete roles');
 
         if ($role->users()->count() > 0) {

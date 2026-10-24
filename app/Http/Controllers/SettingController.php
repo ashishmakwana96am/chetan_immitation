@@ -3,6 +3,7 @@
 namespace App\Http\Controllers;
 
 use Illuminate\Http\Request;
+use Illuminate\Support\Str;
 use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Facades\Validator;
 use App\Models\Setting;
@@ -46,11 +47,11 @@ class SettingController extends Controller
 
         Setting::setValue('instagram_username', 'chetan_imitation');
         Setting::setValue('instagram_profile_url', 'https://www.instagram.com/chetan_imitation?igsh=Zm9lNHNoaTQ3c2t4');
-        Setting::setValue('instagram_access_token', 'IGAAWZA8ewYnlBBZAFk2SVA1ZAHNpclhYVUh3dWo4STFRNTRvMGN3VnlXWG1hMGJmTGpoWGNYTExJSnQ1UFBNRFAzUEV2b1pmWVBpS1JSbDZApWEdCZAW85UW8zXzZATMGttVTVEdGNjMms1NnBVNDg3cWRqRW5ENEZA2N1FYdGVIeDkzdwZDZD');
+        Setting::setValue('instagram_access_token', '');
 
         $instagramUsername    = Setting::getValue('instagram_username', 'chetan_imitation');
         $instagramProfileUrl  = Setting::getValue('instagram_profile_url', 'https://www.instagram.com/chetan_imitation?igsh=Zm9lNHNoaTQ3c2t4');
-        $instagramAccessToken = Setting::getValue('instagram_access_token', 'IGAAWZA8ewYnlBBZAFk2SVA1ZAHNpclhYVUh3dWo4STFRNTRvMGN3VnlXWG1hMGJmTGpoWGNYTExJSnQ1UFBNRFAzUEV2b1pmWVBpS1JSbDZApWEdCZAW85UW8zXzZATMGttVTVEdGNjMms1NnBVNDg3cWRqRW5ENEZA2N1FYdGVIeDkzdwZDZD');
+        $instagramAccessToken = Setting::getValue('instagram_access_token', '');
 
         return view('settings.index', compact(
             'razorpayPaymentMode',
@@ -187,6 +188,11 @@ class SettingController extends Controller
         try {
             $googleService = app(GoogleDriveService::class);
             $client = $googleService->getClient();
+
+            $state = Str::random(40);
+            session(['gdrive_oauth_state' => $state]);
+            $client->setState($state);
+
             $authUrl = $client->createAuthUrl();
             return redirect()->away($authUrl);
         } catch (\Throwable $e) {
@@ -198,6 +204,11 @@ class SettingController extends Controller
     {
         if (!auth()->user()->hasRole('super-admin')) {
             return redirect()->route('admin.dashboard');
+        }
+
+        $expected = session()->pull('gdrive_oauth_state');
+        if (!$expected || !hash_equals($expected, (string) $request->get('state'))) {
+            return redirect()->route('admin.settings.index')->with('error', 'Invalid OAuth state. Please try again.');
         }
 
         if ($request->has('error')) {
@@ -219,7 +230,6 @@ class SettingController extends Controller
 
             Setting::setValue('google_drive_oauth_token', $token);
 
-            // Fetch the user's email to show on settings page
             $oauth2 = new \Google\Service\Oauth2($client);
             $email = 'Connected Account';
             try {
@@ -227,7 +237,6 @@ class SettingController extends Controller
                 $email = $userInfo->email;
                 Setting::setValue('google_drive_connected_email', $email);
             } catch (\Throwable $e) {
-                // In case API fails or scope isn't granted, set default placeholder
                 Setting::setValue('google_drive_connected_email', $email);
             }
 
@@ -235,7 +244,6 @@ class SettingController extends Controller
 
             return redirect()->route('admin.settings.index')->with('success', 'Google Drive connected successfully!');
         } catch (\Throwable $e) {
-            Log::error('Google Drive OAuth callback failed: ' . $e->getMessage());
             return redirect()->route('admin.settings.index')->with('error', 'Failed to connect Google Drive: ' . $e->getMessage());
         }
     }

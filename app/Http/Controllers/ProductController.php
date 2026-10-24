@@ -370,7 +370,6 @@ class ProductController extends Controller
 
                 $variations = $product->variants->map(fn($v) => $v->attributeValue->value ?? '')->filter()->unique()->implode(', ');
 
-                // Resolve variant label from selected_variant_id
                 $variantLabel = null;
                 if (!empty($item['selected_variant_id'])) {
                     $selectedVariant = $product->variants->firstWhere('id', (int) $item['selected_variant_id']);
@@ -843,9 +842,9 @@ class ProductController extends Controller
                 'collection_id'     => $request->collection_id,
                 'barcode'         => $request->barcode,
                 'product_code'    => $request->product_code,
-                'description'     => $request->description,
-                'additional_information' => $request->additional_information,
-                'product_highlights' => $request->product_highlights,
+                'description'     => clean($request->description),
+                'additional_information' =>  clean($request->additional_information),
+                'product_highlights' =>  clean($request->product_highlights),
                 'type'            => $request->type,
                 'status'          => $request->has('status') ? 1 : 2,
                 'sale'            => $request->has('sale') ? 1 : 0,
@@ -1137,9 +1136,9 @@ class ProductController extends Controller
                 'collection_id'     => $request->collection_id,
                 'barcode'         => $request->barcode,
                 'product_code'    => $request->product_code,
-                'description'     => $request->description,
-                'additional_information' => $request->additional_information,
-                'product_highlights' => $request->product_highlights,
+                'description'     => clean($request->description),
+                'additional_information' =>  clean($request->additional_information),
+                'product_highlights' =>  clean($request->product_highlights),
                 'type'            => $request->type,
                 'status'          => $request->has('status') ? 1 : 2,
                 'sale'            => $request->has('sale') ? 1 : 0,

@@ -9,6 +9,8 @@ class ProductCollectionSubCategoryUpdateController extends Controller
 {
     public function update(Request $request, ProductCollectionSubCategoryUpdateService $service)
     {
+        $this->authorize('edit products');
+        
         $request->validate([
             'excel_file' => ['required', 'file', 'mimes:xlsx,xls', 'max:10240'],
         ]);
