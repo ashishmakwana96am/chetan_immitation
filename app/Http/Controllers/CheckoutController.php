@@ -79,6 +79,11 @@ class CheckoutController extends Controller
             return null;
         }
 
+        if ($coupon->usage_limit !== null && Order::where('coupon_id', $coupon->id)->count() >= $coupon->usage_limit) {
+            session()->forget('applied_coupon_code');
+            return null;
+        }
+
         return $coupon;
     }
 
@@ -632,6 +637,8 @@ class CheckoutController extends Controller
                     'currency'           => 'INR',
                 ]);
 
+                $stockFailed = false;
+
                 foreach ($pendingPayment['cart_items'] as $item) {
                     OrderItem::create([
                         'order_id'           => $order->id,
@@ -652,15 +659,25 @@ class CheckoutController extends Controller
                             ->where('location_id', $order->location_id)
                             ->first();
                         $oldQty = $inventoryRow?->quantity;
-                        Inventory::where('product_id', $item['product_id'])
+                        $affected = Inventory::where('product_id', $item['product_id'])
                             ->where('location_id', $order->location_id)
+                            ->where('quantity', '>=', $deductQty)
                             ->decrement('quantity', $deductQty);
 
-                        if ($inventoryRow) {
+                        if ($affected === 0) {
+                            $stockFailed = true;
+                        } elseif ($inventoryRow) {
                             $prodLabel = $itemProduct ? ($itemProduct->name . ($itemProduct->barcode ? ' (' . $itemProduct->barcode . ')' : '')) : "Product #{$item['product_id']}";
                             ActivityLogger::log('Inventory', 'update', $inventoryRow, ['quantity' => $oldQty], ['quantity' => $oldQty - $deductQty], 'Stock deducted for order #' . $order->order_no . ' [' . $prodLabel . ']');
                         }
                     }
+                }
+
+                if ($stockFailed) {
+                    $order->update([
+                        'status' => Order::STATUS_PENDING,
+                        'confirmed_at' => null,
+                    ]);
                 }
 
                 if ($pendingPayment['type'] === 'checkout') {
