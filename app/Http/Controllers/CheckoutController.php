@@ -1356,9 +1356,15 @@ class CheckoutController extends Controller
                             ->where('location_id', $order->location_id)
                             ->first();
                         $oldQty = $inventoryRow?->quantity;
-                        Inventory::where('product_id', $item->product_id)
+
+                        $affected = Inventory::where('product_id', $item->product_id)
                             ->where('location_id', $order->location_id)
+                            ->where('quantity', '>=', $deductQty)
                             ->decrement('quantity', $deductQty);
+
+                        if ($affected === 0) {
+                            throw new \RuntimeException('Insufficient stock for ' . ($item->product->name ?? 'an item') . '.');
+                        }
 
                         if ($inventoryRow) {
                             $prodLabel = $item->product ? ($item->product->name . ($item->product->barcode ? ' (' . $item->product->barcode . ')' : '')) : "Product #{$item->product_id}";
