@@ -131,17 +131,12 @@
                             </div>
                             <div class="col-md-6">
                                 <label class="form-label">Destination Location <span class="text-danger">*</span></label>
-                                @if(!empty($isAccepted))
-                                    <input type="text" class="form-control" value="{{ $purchaseBill->toLocation->name ?? '-' }}" disabled>
-                                    <input type="hidden" name="to_location_id" id="toLocation" value="{{ $purchaseBill->to_location_id }}">
-                                @else
-                                    <select name="to_location_id" id="toLocation" class="form-select">
-                                        <option value="">Select Destination</option>
-                                        @foreach($destinationLocations as $location)
-                                            <option value="{{ $location->id }}" {{ $location->id === $purchaseBill->to_location_id ? 'selected' : '' }} {{ $location->id === $defaultLocation->id ? 'disabled' : '' }}>{{ $location->name }}</option>
-                                        @endforeach
-                                    </select>
-                                @endif
+                                <select name="to_location_id" id="toLocation" class="form-select">
+                                    <option value="">Select Destination</option>
+                                    @foreach($destinationLocations as $location)
+                                        <option value="{{ $location->id }}" {{ (int) $location->id === (int) $purchaseBill->to_location_id ? 'selected' : '' }} {{ (int) $location->id === (int) $defaultLocation->id ? 'disabled' : '' }}>{{ $location->name }}</option>
+                                    @endforeach
+                                </select>
                                 <div class="invalid-feedback"></div>
                             </div>
                             <div class="col-12">
