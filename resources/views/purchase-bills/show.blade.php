@@ -64,6 +64,8 @@
 
 @section('content')
     @php
+        use App\Models\PurchaseBill;
+
         $statusColors = [1 => 'bg-label-secondary', 2 => 'bg-label-success', 3 => 'bg-label-danger'];
         $statusLabels = [1 => 'Pending', 2 => 'Accepted', 3 => 'Rejected'];
         $paymentStatusColors = [1 => 'bg-label-warning', 2 => 'bg-label-info', 3 => 'bg-label-primary'];
@@ -79,7 +81,7 @@
             <small class="text-muted">{{ format_date($transfer->created_at) }}</small>
         </div>
         <div class="d-flex gap-2 align-items-center flex-wrap">
-            @if($transfer->status == \App\Models\PurchaseBill::STATUS_PENDING)
+            @if($transfer->status == PurchaseBill::STATUS_PENDING)
                 @can('edit purchase bills')
                     @if(can_modify_past_date_record($transfer->created_at))
                     <a href="{{ route('admin.purchase-bills.edit', $transfer) }}" class="btn btn-label-primary">
@@ -95,6 +97,7 @@
                     @can('accept purchase bills')
                         <button class="btn btn-success purchase-bill-action"
                             data-url="{{ route('admin.purchase-bills.accept', $transfer) }}"
+                            data-method="PATCH"
                             data-title="Accept Purchase Bill"
                             data-text="Stock will move from source to destination location.">
                             <i class="ti ti-check me-1"></i> Accept
@@ -103,15 +106,49 @@
                     @can('reject purchase bills')
                         <button class="btn btn-label-danger purchase-bill-action"
                             data-url="{{ route('admin.purchase-bills.reject', $transfer) }}"
+                            data-method="PATCH"
                             data-title="Reject Purchase Bill"
                             data-text="No inventory stock will be changed.">
                             <i class="ti ti-x me-1"></i> Reject
                         </button>
                     @endcan
                 @endif
+                @can('delete purchase bills')
+                    @if(can_modify_past_date_record($transfer->created_at))
+                        <button class="btn btn-label-danger purchase-bill-action"
+                            data-url="{{ route('admin.purchase-bills.destroy', $transfer) }}"
+                            data-method="DELETE"
+                            data-redirect="{{ route('admin.purchase-bills.index') }}"
+                            data-title="Delete Purchase Bill"
+                            data-text="Are you sure you want to delete this pending purchase bill?">
+                            <i class="ti ti-trash me-1"></i> Delete
+                        </button>
+                    @endif
+                @endcan
+            @endif
+            @if($transfer->status == PurchaseBill::STATUS_ACCEPTED && !empty($canModifyAccepted))
+                @can('edit purchase bills')
+                    @if(can_modify_past_date_record($transfer->created_at))
+                    <a href="{{ route('admin.purchase-bills.edit', $transfer) }}" class="btn btn-label-primary">
+                        <i class="ti ti-pencil me-1"></i> Edit
+                    </a>
+                    @endif
+                @endcan
+                @can('delete purchase bills')
+                    @if(can_modify_past_date_record($transfer->created_at))
+                        <button class="btn btn-label-danger purchase-bill-action"
+                            data-url="{{ route('admin.purchase-bills.destroy', $transfer) }}"
+                            data-method="DELETE"
+                            data-redirect="{{ route('admin.purchase-bills.index') }}"
+                            data-title="Delete Purchase Bill"
+                            data-text="Transferred stock will be returned back to source branch. Are you sure you want to delete this accepted purchase bill?">
+                            <i class="ti ti-trash me-1"></i> Delete
+                        </button>
+                    @endif
+                @endcan
             @endif
             @can('edit purchase bills payment status')
-                @if($transfer->status == \App\Models\PurchaseBill::STATUS_ACCEPTED && $currentPaymentStatus !== \App\Models\PurchaseBill::PAYMENT_STATUS_PAID)
+                @if($transfer->status == PurchaseBill::STATUS_ACCEPTED && $currentPaymentStatus !== PurchaseBill::PAYMENT_STATUS_PAID)
                     <button class="btn btn-label-primary change-purchase-bill-payment-status-btn"
                         data-url="{{ route('admin.purchase-bills.update-payment-status', $transfer) }}"
                         data-history-url="{{ route('admin.purchase-bills.payment-history', $transfer) }}"
@@ -467,16 +504,22 @@ $(document).ready(function () {
             window.showAjaxLoader();
             $.ajax({
                 url: button.data('url'),
-                type: 'PATCH',
+                type: button.data('method') || 'PATCH',
                 data: { _token: $('meta[name="csrf-token"]').attr('content') },
                 success: function (res) {
                     window.hideAjaxLoader();
                     toastr.success(res.message);
-                    setTimeout(() => window.location.reload(), 600);
+                    const redirectUrl = button.data('redirect');
+                    if (redirectUrl) {
+                        setTimeout(() => window.location.href = redirectUrl, 600);
+                    } else {
+                        setTimeout(() => window.location.reload(), 600);
+                    }
                 },
                 error: function (xhr) {
                     window.hideAjaxLoader();
-                    toastr.error(xhr.responseJSON?.message || 'Something went wrong. Please try again.');
+                    const msg = xhr.responseJSON?.message || 'Something went wrong. Please try again.';
+                    toastr.error(typeof msg === 'string' ? msg : Object.values(msg)[0][0]);
                 }
             });
         });

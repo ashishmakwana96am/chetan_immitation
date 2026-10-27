@@ -131,12 +131,17 @@
                             </div>
                             <div class="col-md-6">
                                 <label class="form-label">Destination Location <span class="text-danger">*</span></label>
-                                <select name="to_location_id" id="toLocation" class="form-select">
-                                    <option value="">Select Destination</option>
-                                    @foreach($destinationLocations as $location)
-                                        <option value="{{ $location->id }}" {{ $location->id === $purchaseBill->to_location_id ? 'selected' : '' }} {{ $location->id === $defaultLocation->id ? 'disabled' : '' }}>{{ $location->name }}</option>
-                                    @endforeach
-                                </select>
+                                @if(!empty($isAccepted))
+                                    <input type="text" class="form-control" value="{{ $purchaseBill->toLocation->name ?? '-' }}" disabled>
+                                    <input type="hidden" name="to_location_id" id="toLocation" value="{{ $purchaseBill->to_location_id }}">
+                                @else
+                                    <select name="to_location_id" id="toLocation" class="form-select">
+                                        <option value="">Select Destination</option>
+                                        @foreach($destinationLocations as $location)
+                                            <option value="{{ $location->id }}" {{ $location->id === $purchaseBill->to_location_id ? 'selected' : '' }} {{ $location->id === $defaultLocation->id ? 'disabled' : '' }}>{{ $location->name }}</option>
+                                        @endforeach
+                                    </select>
+                                @endif
                                 <div class="invalid-feedback"></div>
                             </div>
                             <div class="col-12">
@@ -260,6 +265,7 @@ $(document).ready(function () {
         loadExistingItems();
     });
     const existingItems = @json($existingItems);
+    const isAccepted = {{ !empty($isAccepted) || $purchaseBill->status == 2 ? 'true' : 'false' }};
     const symbol = '{{ currency_symbol() }}';
     const searchInput = $('#productSearchInput');
     const searchResults = $('#productSearchResults');
@@ -1006,7 +1012,7 @@ $(document).ready(function () {
             const neededPcs = Math.round(qty * multiplier);
             const availPcs = parseInt(row.data('available-pcs') || row.data('available') || 0);
 
-            if (neededPcs > availPcs) {
+            if (!isAccepted && neededPcs > availPcs) {
                 toastr.error('Transfer quantity cannot be greater than available source stock.');
                 valid = false;
                 return false;

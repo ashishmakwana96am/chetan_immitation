@@ -16,6 +16,7 @@ use App\Models\ProductVariant;
 use App\Models\Setting;
 use App\Models\State;
 use App\Services\ActivityLogger;
+use App\Services\PurchaseBatchService;
 use Barryvdh\DomPDF\Facade\Pdf;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Cache;
@@ -794,10 +795,12 @@ class SaleController extends Controller
                     $stockRestore = (int) round($item->quantity * $this->stockMultiplierFor((int) $item->product_id, $item->pair_type, $item->custom_size_value));
                     $this->logInventoryChange((int) $item->product_id, (int) $sale->location_id, $stockRestore, 'Stock restored for deleted sale #' . $sale->order_no);
                     $unitPrice = $stockRestore > 0 ? ((float)$item->purchase_price / $stockRestore) : (float)$item->purchase_price;
-                    \App\Services\PurchaseBatchService::addBatchStock((int)$sale->location_id, (int)$item->product_id, !empty($item->product_variant_id) ? (int)$item->product_variant_id : null, $item->purchase_item_id, $unitPrice, (float)$stockRestore);
+                    PurchaseBatchService::addBatchStock((int)$sale->location_id, (int)$item->product_id, !empty($item->product_variant_id) ? (int)$item->product_variant_id : null, $item->purchase_item_id, $unitPrice, (float)$stockRestore);
                 }
             }
 
+            $sale->items()->delete();
+            $sale->salePayments()->delete();
             $sale->delete();
         });
 

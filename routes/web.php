@@ -198,7 +198,7 @@ Route::prefix('admin')->name('admin.')->group(function () {
         Route::get('purchase-bills/{purchaseBill}/payment-history', [PurchaseBillController::class, 'paymentHistory'])->name('purchase-bills.payment-history');
         Route::resource('purchase-bills', PurchaseBillController::class)
             ->parameters(['purchase-bills' => 'purchaseBill'])
-            ->only(['index', 'create', 'store', 'show', 'edit', 'update']);
+            ->only(['index', 'create', 'store', 'show', 'edit', 'update', 'destroy']);
 
         // Suppliers
         Route::get('suppliers/data', [SupplierController::class, 'data'])->name('suppliers.data');

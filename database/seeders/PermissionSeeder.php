@@ -94,6 +94,7 @@ class PermissionSeeder extends Seeder
             'accept purchase bills' => 'Purchase Bill',
             'reject purchase bills' => 'Purchase Bill',
             'export purchase bills' => 'Purchase Bill',
+            'delete purchase bills' => 'Purchase Bill',
             'edit purchase bills payment status' => 'Purchase Bill',
 
             // Expenses
