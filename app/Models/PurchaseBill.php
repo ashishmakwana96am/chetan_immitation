@@ -20,6 +20,10 @@ class PurchaseBill extends Model
         static::saved(function () {
             Product::clearMappedCaches();
         });
+        static::deleting(function (PurchaseBill $bill) {
+            $bill->items()->delete();
+            $bill->payments()->delete();
+        });
         static::deleted(function () {
             Product::clearMappedCaches();
         });

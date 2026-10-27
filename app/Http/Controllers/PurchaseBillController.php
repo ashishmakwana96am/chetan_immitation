@@ -8,7 +8,11 @@ use App\Models\Product;
 use App\Models\ProductVariant;
 use App\Models\PurchaseBill;
 use App\Models\PurchaseBillItem;
+use App\Models\LocationBalance;
+use App\Models\LocationBalanceTransaction;
 use App\Services\ActivityLogger;
+use App\Services\PurchaseBatchService;
+use App\Services\PurchaseStockService;
 use App\Services\ReportExportService;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Cache;
@@ -172,11 +176,15 @@ class PurchaseBillController extends Controller
         $canReject = auth()->user()->can('reject purchase bills');
         $canEditPaymentStatus = auth()->user()->can('edit purchase bills payment status');
         $canEdit = auth()->user()->can('edit purchase bills');
+        $canDelete = auth()->user()->hasRole('super-admin')
+            || auth()->user()->can('delete purchase bills')
+            || auth()->user()->can('edit purchase bills');
 
         $user = auth()->user();
 
-        $data = $transfers->map(function ($transfer, $index) use ($user, $canAccept, $canReject, $canEditPaymentStatus, $canEdit) {
+        $data = $transfers->map(function ($transfer, $index) use ($user, $canAccept, $canReject, $canEditPaymentStatus, $canEdit, $canDelete) {
             $canEditRecord = $canEdit && can_modify_past_date_record($transfer->created_at);
+            $canDeleteRecord = $canDelete && can_modify_past_date_record($transfer->created_at);
             $isDestinationUserOrAdmin = !$user->location_id || $user->hasRole('super-admin') || (int) $transfer->to_location_id === (int) $user->location_id;
             $canAcceptRecord = $canAccept && $isDestinationUserOrAdmin;
             $canRejectRecord = $canReject && $isDestinationUserOrAdmin;
@@ -200,6 +208,19 @@ class PurchaseBillController extends Controller
                 }
                 if ($canRejectRecord) {
                     $actions .= '<button class="dropdown-item text-danger purchase-bill-action" data-url="' . route('admin.purchase-bills.reject', $transfer) . '" data-method="PATCH" data-title="Reject Purchase Bill" data-text="No inventory stock will be changed."><i class="ti ti-x me-2"></i>Reject</button>';
+                }
+                if ($canDeleteRecord) {
+                    $actions .= '<button class="dropdown-item text-danger purchase-bill-action" data-url="' . route('admin.purchase-bills.destroy', $transfer) . '" data-method="DELETE" data-title="Delete Purchase Bill" data-text="Are you sure you want to delete this pending purchase bill?"><i class="ti ti-trash me-2"></i>Delete</button>';
+                }
+            } elseif ($transfer->status == PurchaseBill::STATUS_ACCEPTED) {
+                $canModifyAccepted = PurchaseStockService::canEditOrDeletePurchaseBill($transfer);
+                if ($canModifyAccepted) {
+                    if ($canEditRecord) {
+                        $actions .= '<a href="' . route('admin.purchase-bills.edit', $transfer) . '" class="dropdown-item"><i class="ti ti-pencil me-2"></i>Edit</a>';
+                    }
+                    if ($canDeleteRecord) {
+                        $actions .= '<button class="dropdown-item text-danger purchase-bill-action" data-url="' . route('admin.purchase-bills.destroy', $transfer) . '" data-method="DELETE" data-title="Delete Purchase Bill" data-text="Transferred stock will be returned back to source branch. Are you sure you want to delete this accepted purchase bill?"><i class="ti ti-trash me-2"></i>Delete</button>';
+                    }
                 }
             }
             if ($canPaymentStatusRecord && $transfer->status == PurchaseBill::STATUS_ACCEPTED && (int) ($transfer->payment_status ?? PurchaseBill::PAYMENT_STATUS_PENDING) !== PurchaseBill::PAYMENT_STATUS_PAID) {
@@ -424,18 +445,25 @@ class PurchaseBillController extends Controller
             return redirect()->route('admin.purchase-bills.index')->with('error', 'You do not have permission to edit past date records.');
         }
 
-        if ($purchaseBill->status != PurchaseBill::STATUS_PENDING) {
-            return redirect()->route('admin.purchase-bills.show', $purchaseBill)->with('error', 'Only pending purchase bills can be edited.');
+        if ($purchaseBill->status == PurchaseBill::STATUS_ACCEPTED) {
+            if (!PurchaseStockService::canEditOrDeletePurchaseBill($purchaseBill)) {
+                return redirect()->route('admin.purchase-bills.show', $purchaseBill)->with('error', 'This accepted purchase bill cannot be edited because transferred items have already been sold in the destination branch.');
+            }
+        } elseif ($purchaseBill->status != PurchaseBill::STATUS_PENDING) {
+            return redirect()->route('admin.purchase-bills.show', $purchaseBill)->with('error', 'Only pending or unsold accepted purchase bills can be edited.');
         }
 
         $user = auth()->user();
-        $canChooseSource = $user->hasRole('super-admin');
+        $isAccepted = ($purchaseBill->status == PurchaseBill::STATUS_ACCEPTED);
+        $canChooseSource = !$isAccepted && $user->hasRole('super-admin');
         $defaultLocation = $purchaseBill->fromLocation;
 
         $sourceLocations = $canChooseSource
             ? Location::where('status', 1)->orderBy('name')->get()
             : collect([$defaultLocation]);
-        $destinationLocations = Location::where('status', 1)->orderBy('name')->get();
+        $destinationLocations = $isAccepted
+            ? collect([$purchaseBill->toLocation])
+            : Location::where('status', 1)->orderBy('name')->get();
 
         $purchaseBill->load('items.product', 'items.variant');
         $existingItems = $purchaseBill->items->map(function ($item) {
@@ -470,7 +498,7 @@ class PurchaseBillController extends Controller
             ];
         })->values();
 
-        return view('purchase-bills.edit', compact('purchaseBill', 'defaultLocation', 'sourceLocations', 'canChooseSource', 'destinationLocations', 'existingItems'));
+        return view('purchase-bills.edit', compact('purchaseBill', 'defaultLocation', 'sourceLocations', 'canChooseSource', 'destinationLocations', 'existingItems', 'isAccepted'));
     }
 
     public function update(Request $request, PurchaseBill $purchaseBill)
@@ -482,20 +510,30 @@ class PurchaseBillController extends Controller
             return response()->json(['status' => 'error', 'message' => 'You do not have permission to edit past date records.'], 403);
         }
 
-        if ($purchaseBill->status != PurchaseBill::STATUS_PENDING) {
-            return response()->json(['status' => 'error', 'message' => 'Only pending purchase bills can be edited.'], 422);
-        }
-
-        $user = auth()->user();
-        if ($user->hasRole('super-admin') && $request->filled('from_location_id')) {
-            $fromLocation = Location::where('id', $request->from_location_id)->where('status', 1)->first();
-            if (!$fromLocation) {
-                return response()->json(['status' => 'error', 'message' => ['from_location_id' => ['Selected source location is invalid.']]], 422);
+        $isAccepted = ($purchaseBill->status == PurchaseBill::STATUS_ACCEPTED);
+        if ($isAccepted) {
+            if (!PurchaseStockService::canEditOrDeletePurchaseBill($purchaseBill)) {
+                return response()->json(['status' => 'error', 'message' => 'This accepted purchase bill cannot be edited because transferred items have already been sold in the destination branch.'], 422);
             }
-        } else {
             $fromLocation = $purchaseBill->fromLocation;
+            $request->merge([
+                'from_location_id' => $purchaseBill->from_location_id,
+                'to_location_id'   => $purchaseBill->to_location_id,
+            ]);
+        } elseif ($purchaseBill->status != PurchaseBill::STATUS_PENDING) {
+            return response()->json(['status' => 'error', 'message' => 'Only pending or unsold accepted purchase bills can be edited.'], 422);
+        } else {
+            $user = auth()->user();
+            if ($user->hasRole('super-admin') && $request->filled('from_location_id')) {
+                $fromLocation = Location::where('id', $request->from_location_id)->where('status', 1)->first();
+                if (!$fromLocation) {
+                    return response()->json(['status' => 'error', 'message' => ['from_location_id' => ['Selected source location is invalid.']]], 422);
+                }
+            } else {
+                $fromLocation = $purchaseBill->fromLocation;
+            }
+            $request->merge(['from_location_id' => $fromLocation->id]);
         }
-        $request->merge(['from_location_id' => $fromLocation->id]);
 
         $validator = Validator::make($request->all(), [
             'from_location_id' => ['required', 'exists:locations,id'],
@@ -518,12 +556,19 @@ class PurchaseBillController extends Controller
             return response()->json(['status' => 'error', 'message' => $validator->errors()], 422);
         }
 
-        $stockError = $this->getStockError($request->items, (int) $fromLocation->id);
-        if ($stockError) {
-            return response()->json(['status' => 'error', 'message' => ['items' => [$stockError]]], 422);
+        if ($isAccepted) {
+            $deltaStockError = $this->getAcceptedStockDeltaError($purchaseBill, $request->items);
+            if ($deltaStockError) {
+                return response()->json(['status' => 'error', 'message' => ['items' => [$deltaStockError]]], 422);
+            }
+        } else {
+            $stockError = $this->getStockError($request->items, (int) $fromLocation->id);
+            if ($stockError) {
+                return response()->json(['status' => 'error', 'message' => ['items' => [$stockError]]], 422);
+            }
         }
 
-        DB::transaction(function () use ($request, $fromLocation, $purchaseBill) {
+        DB::transaction(function () use ($request, $fromLocation, $purchaseBill, $isAccepted) {
             $oldItems = $purchaseBill->items()->get();
             $oldItemsSnapshot = $oldItems->map(function ($item) {
                 return [
@@ -571,7 +616,7 @@ class PurchaseBillController extends Controller
                         if ($sourceBatchPrice !== null && (float)$sourceBatchPrice > 0) {
                             $unitPrice = (float) $sourceBatchPrice;
                         } else {
-                            $unitPrice = \App\Services\PurchaseBatchService::resolveFallbackPurchasePrice((int)$item['product_id'], !empty($item['product_variant_id']) ? (int)$item['product_variant_id'] : null);
+                            $unitPrice = PurchaseBatchService::resolveFallbackPurchasePrice((int)$item['product_id'], !empty($item['product_variant_id']) ? (int)$item['product_variant_id'] : null);
                         }
                     }
 
@@ -587,6 +632,99 @@ class PurchaseBillController extends Controller
 
                 if ($oldNorm != $newNorm) {
                     $itemsChanged = true;
+                }
+            }
+
+            if ($isAccepted && $itemsChanged) {
+                $fromLocId = (int) $purchaseBill->from_location_id;
+                $toLocId   = (int) $purchaseBill->to_location_id;
+                $fromLocName = $purchaseBill->fromLocation?->name ?? 'Source Branch';
+                $toLocName   = $purchaseBill->toLocation?->name ?? 'Destination Branch';
+
+                $oldMap = [];
+                $oldPriceMap = [];
+                foreach ($oldItems as $oi) {
+                    $prod = $oi->product ?? Product::find($oi->product_id);
+                    $mult = $this->stockMultiplierFor($prod, $oi->pair_type, $oi->custom_size_value);
+                    $k = $oi->product_id . '_' . ($oi->product_variant_id ?: 0);
+                    $oldMap[$k] = ($oldMap[$k] ?? 0) + (int) round($oi->quantity * $mult);
+                    $oldPriceMap[$k] = (float) $oi->purchase_price;
+                }
+
+                $newMap = [];
+                $newPriceMap = [];
+                $prodObjs = [];
+                foreach ($normalizedNewItems as $ni) {
+                    $prod = Product::find($ni['product_id']);
+                    $customSizeVal = $this->resolveCustomSizeValue($prod, $ni);
+                    $mult = $this->stockMultiplierFor($prod, $ni['pair_type'] ?? null, $customSizeVal);
+                    $k = $ni['product_id'] . '_' . ($ni['product_variant_id'] ?: 0);
+                    $newMap[$k] = ($newMap[$k] ?? 0) + (int) round($ni['quantity'] * $mult);
+                    $prodObjs[$k] = ['product' => $prod, 'variant_id' => $ni['product_variant_id'] ?: null];
+
+                    $variantObj = !empty($ni['product_variant_id']) ? ProductVariant::find($ni['product_variant_id']) : null;
+                    $unitPrice = (isset($ni['purchase_price']) && is_numeric($ni['purchase_price']) && (float)$ni['purchase_price'] > 0)
+                        ? (float) $ni['purchase_price']
+                        : ($variantObj ? (float)$variantObj->purchase_price : ($prod ? (float)$prod->purchase_price : 0));
+                    if ($unitPrice <= 0) {
+                        $unitPrice = PurchaseBatchService::resolveFallbackPurchasePrice((int)$ni['product_id'], !empty($ni['product_variant_id']) ? (int)$ni['product_variant_id'] : null);
+                    }
+                    $newPriceMap[$k] = $unitPrice;
+                }
+
+                $allKeys = array_unique(array_merge(array_keys($oldMap), array_keys($newMap)));
+                foreach ($allKeys as $k) {
+                    $oldQty = $oldMap[$k] ?? 0;
+                    $newQty = $newMap[$k] ?? 0;
+                    $delta = $newQty - $oldQty;
+                    if ($delta == 0) continue;
+
+                    [$pId, $vId] = explode('_', $k);
+                    $variantId = $vId > 0 ? (int)$vId : null;
+                    $prod = $prodObjs[$k]['product'] ?? Product::find($pId);
+                    $price = $newPriceMap[$k] ?? ($oldPriceMap[$k] ?? 0);
+                    $prodLabel = $prod ? ($prod->name . ($prod->barcode ? ' (' . $prod->barcode . ')' : '')) : "Product #{$pId}";
+
+                    if ($delta > 0) {
+                        $srcInv = Inventory::firstOrCreate(
+                            ['product_id' => $pId, 'location_id' => $fromLocId],
+                            ['quantity' => 0, 'created_by' => auth()->id()]
+                        );
+                        $oldSrcQty = $srcInv->quantity;
+                        $srcInv->decrement('quantity', $delta);
+                        ActivityLogger::log('Inventory', 'update', $srcInv, ['quantity' => $oldSrcQty], ['quantity' => $oldSrcQty - $delta], 'Stock moved out from ' . $fromLocName . ' to ' . $toLocName . ' on purchase bill #' . $purchaseBill->transfer_no . ' edit [' . $prodLabel . ']');
+
+                        $destInv = Inventory::firstOrCreate(
+                            ['product_id' => $pId, 'location_id' => $toLocId],
+                            ['quantity' => 0, 'created_by' => auth()->id()]
+                        );
+                        $oldDestQty = $destInv->quantity;
+                        $destInv->increment('quantity', $delta);
+                        ActivityLogger::log('Inventory', 'update', $destInv, ['quantity' => $oldDestQty], ['quantity' => $oldDestQty + $delta], 'Stock moved in to ' . $toLocName . ' from ' . $fromLocName . ' on purchase bill #' . $purchaseBill->transfer_no . ' edit [' . $prodLabel . ']');
+
+                        PurchaseBatchService::deductBatchStock($fromLocId, (int)$pId, $variantId, (float)$price, (float)$delta);
+                        PurchaseBatchService::addBatchStock($toLocId, (int)$pId, $variantId, null, (float)$price, (float)$delta);
+                    } else {
+                        $absDelta = abs($delta);
+                        $destInv = Inventory::where('product_id', $pId)->where('location_id', $toLocId)->first();
+                        $oldDestQty = $destInv->quantity;
+                        $destInv->decrement('quantity', $absDelta);
+                        ActivityLogger::log('Inventory', 'update', $destInv, ['quantity' => $oldDestQty], ['quantity' => $oldDestQty - $absDelta], 'Stock returned from ' . $toLocName . ' to ' . $fromLocName . ' on purchase bill #' . $purchaseBill->transfer_no . ' edit [' . $prodLabel . ']');
+
+                        $srcInv = Inventory::firstOrCreate(
+                            ['product_id' => $pId, 'location_id' => $fromLocId],
+                            ['quantity' => 0, 'created_by' => auth()->id()]
+                        );
+                        $oldSrcQty = $srcInv->quantity;
+                        $srcInv->increment('quantity', $absDelta);
+                        ActivityLogger::log('Inventory', 'update', $srcInv, ['quantity' => $oldSrcQty], ['quantity' => $oldSrcQty + $absDelta], 'Stock restored to ' . $fromLocName . ' from ' . $toLocName . ' on purchase bill #' . $purchaseBill->transfer_no . ' edit [' . $prodLabel . ']');
+
+                        PurchaseBatchService::deductBatchStock($toLocId, (int)$pId, $variantId, (float)$price, (float)$absDelta);
+                        PurchaseBatchService::addBatchStock($fromLocId, (int)$pId, $variantId, null, (float)$price, (float)$absDelta);
+                    }
+
+                    PurchaseBatchService::syncProductBatchStocks($fromLocId, (int)$pId, $variantId);
+                    PurchaseBatchService::syncProductBatchStocks($toLocId, (int)$pId, $variantId);
                 }
             }
 
@@ -638,7 +776,7 @@ class PurchaseBillController extends Controller
                         if ($sourceBatchPrice !== null && (float)$sourceBatchPrice > 0) {
                             $unitPrice = (float) $sourceBatchPrice;
                         } else {
-                            $unitPrice = \App\Services\PurchaseBatchService::resolveFallbackPurchasePrice((int)$item['product_id'], !empty($item['product_variant_id']) ? (int)$item['product_variant_id'] : null);
+                            $unitPrice = PurchaseBatchService::resolveFallbackPurchasePrice((int)$item['product_id'], !empty($item['product_variant_id']) ? (int)$item['product_variant_id'] : null);
                         }
                     }
 
@@ -662,6 +800,31 @@ class PurchaseBillController extends Controller
                 }
             }
 
+            if ($isAccepted) {
+                $purchaseBill->load(['items.product', 'items.variant']);
+                [$newTotalAmount] = $this->purchaseBillTotals($purchaseBill);
+                $oldPaidAmount = (float) ($purchaseBill->paid_amount ?? 0);
+
+                if ($purchaseBill->payment_status == PurchaseBill::PAYMENT_STATUS_PAID) {
+                    $diffAmount = round($newTotalAmount - $oldPaidAmount, 2);
+                    if ($diffAmount > 0) {
+                        $this->applyLocationBalanceTransfer($purchaseBill, $diffAmount);
+                    } elseif ($diffAmount < 0) {
+                        $this->applyLocationBalanceTransfer($purchaseBill, abs($diffAmount), true);
+                    }
+                    $purchaseBill->update(['paid_amount' => $newTotalAmount]);
+                } elseif ($purchaseBill->payment_status == PurchaseBill::PAYMENT_STATUS_PARTIAL) {
+                    if ($oldPaidAmount > $newTotalAmount) {
+                        $excess = round($oldPaidAmount - $newTotalAmount, 2);
+                        $this->applyLocationBalanceTransfer($purchaseBill, $excess, true);
+                        $purchaseBill->update([
+                            'paid_amount'    => $newTotalAmount,
+                            'payment_status' => PurchaseBill::PAYMENT_STATUS_PAID,
+                        ]);
+                    }
+                }
+            }
+
             if ($itemsChanged || !empty($fieldsDiff)) {
                 ActivityLogger::log(
                     'Purchase Bill',
@@ -675,6 +838,166 @@ class PurchaseBillController extends Controller
         });
 
         return response()->json(['status' => 'success', 'message' => 'Purchase bill updated successfully.']);
+    }
+
+    public function destroy(PurchaseBill $purchaseBill)
+    {
+        $user = auth()->user();
+        if (!$user->can('delete purchase bills') && !$user->can('edit purchase bills') && !$user->hasRole('super-admin')) {
+            abort(403);
+        }
+
+        $this->guardLocationAccess($purchaseBill);
+
+        if (!can_modify_past_date_record($purchaseBill->created_at)) {
+            return response()->json([
+                'status'  => 'error',
+                'message' => 'You do not have permission to delete past date records.'
+            ], 403);
+        }
+
+        if ($purchaseBill->status == PurchaseBill::STATUS_ACCEPTED) {
+            if (!PurchaseStockService::canEditOrDeletePurchaseBill($purchaseBill)) {
+                return response()->json([
+                    'status'  => 'error',
+                    'message' => 'This accepted purchase bill cannot be deleted because items have already been sold in the destination branch.'
+                ], 422);
+            }
+        }
+
+        DB::transaction(function () use ($purchaseBill) {
+            $purchaseBill->load(['items.product', 'items.variant', 'fromLocation', 'toLocation']);
+
+            if ($purchaseBill->status == PurchaseBill::STATUS_ACCEPTED) {
+                $fromLocId = (int) $purchaseBill->from_location_id;
+                $toLocId   = (int) $purchaseBill->to_location_id;
+                $fromLocName = $purchaseBill->fromLocation?->name ?? 'Source Branch';
+                $toLocName   = $purchaseBill->toLocation?->name ?? 'Destination Branch';
+
+                foreach ($purchaseBill->items as $item) {
+                    $multiplier = $this->stockMultiplierFor($item->product, $item->pair_type, $item->custom_size_value);
+                    $stockQty = (int) round($item->quantity * $multiplier);
+                    $destInv = Inventory::where('product_id', $item->product_id)->where('location_id', $toLocId)->first();
+                    $destQty = $destInv ? (int) $destInv->quantity : 0;
+                    if ($destQty < $stockQty) {
+                        $prodName = $item->product?->name ?? "Product #{$item->product_id}";
+                        throw new \Exception("Cannot delete purchase bill: destination branch only has {$destQty} in stock for '{$prodName}', but {$stockQty} required to restore.");
+                    }
+                }
+
+                foreach ($purchaseBill->items as $item) {
+                    $multiplier = $this->stockMultiplierFor($item->product, $item->pair_type, $item->custom_size_value);
+                    $stockQty = (int) round($item->quantity * $multiplier);
+                    $unitPrice = (float) $item->purchase_price;
+                    $prodLabel = $item->product ? ($item->product->name . ($item->product->barcode ? ' (' . $item->product->barcode . ')' : '')) : "Product #{$item->product_id}";
+
+                    $destInv = Inventory::where('product_id', $item->product_id)->where('location_id', $toLocId)->first();
+                    $oldDestQty = $destInv->quantity;
+                    $destInv->decrement('quantity', $stockQty);
+                    ActivityLogger::log('Inventory', 'update', $destInv, ['quantity' => $oldDestQty], ['quantity' => $oldDestQty - $stockQty], 'Stock reversed out from ' . $toLocName . ' on deletion of purchase bill #' . $purchaseBill->transfer_no . ' [' . $prodLabel . ']');
+
+                    $srcInv = Inventory::firstOrCreate(
+                        ['product_id' => $item->product_id, 'location_id' => $fromLocId],
+                        ['quantity' => 0, 'created_by' => auth()->id()]
+                    );
+                    $oldSrcQty = $srcInv->quantity;
+                    $srcInv->increment('quantity', $stockQty);
+                    ActivityLogger::log('Inventory', 'update', $srcInv, ['quantity' => $oldSrcQty], ['quantity' => $oldSrcQty + $stockQty], 'Stock restored to ' . $fromLocName . ' on deletion of purchase bill #' . $purchaseBill->transfer_no . ' [' . $prodLabel . ']');
+
+                    PurchaseBatchService::deductBatchStock($toLocId, (int)$item->product_id, !empty($item->product_variant_id) ? (int)$item->product_variant_id : null, $unitPrice, (float)$stockQty);
+                    PurchaseBatchService::addBatchStock($fromLocId, (int)$item->product_id, !empty($item->product_variant_id) ? (int)$item->product_variant_id : null, $item->id, $unitPrice, (float)$stockQty);
+
+                    PurchaseBatchService::syncProductBatchStocks($toLocId, (int)$item->product_id, !empty($item->product_variant_id) ? (int)$item->product_variant_id : null);
+                    PurchaseBatchService::syncProductBatchStocks($fromLocId, (int)$item->product_id, !empty($item->product_variant_id) ? (int)$item->product_variant_id : null);
+                }
+
+                $paidAmount = (float) ($purchaseBill->paid_amount ?? 0);
+                if ($paidAmount > 0) {
+                    $this->applyLocationBalanceTransfer($purchaseBill, $paidAmount, true);
+                }
+                $purchaseBill->payments()->delete();
+            }
+
+            $purchaseBill->items()->delete();
+            $purchaseBill->delete();
+
+            ActivityLogger::log(
+                'Purchase Bill',
+                'delete',
+                $purchaseBill,
+                ['status' => $purchaseBill->status, 'transfer_no' => $purchaseBill->transfer_no],
+                [],
+                'Purchase Bill #' . $purchaseBill->transfer_no . ' deleted'
+            );
+        });
+
+        return response()->json([
+            'status'  => 'success',
+            'message' => 'Purchase bill deleted successfully.'
+        ]);
+    }
+
+    private function getAcceptedStockDeltaError(PurchaseBill $purchaseBill, iterable $newItems): ?string
+    {
+        $oldItems = $purchaseBill->items()->get();
+        $fromLocId = (int) $purchaseBill->from_location_id;
+        $toLocId   = (int) $purchaseBill->to_location_id;
+
+        $oldMap = [];
+        foreach ($oldItems as $oi) {
+            $prod = $oi->product ?? Product::find($oi->product_id);
+            $mult = $this->stockMultiplierFor($prod, $oi->pair_type, $oi->custom_size_value);
+            $k = $oi->product_id . '_' . ($oi->product_variant_id ?: 0);
+            $oldMap[$k] = ($oldMap[$k] ?? 0) + (int) round($oi->quantity * $mult);
+        }
+
+        $newMap = [];
+        $prodObjs = [];
+        foreach ($this->normalizeItems($newItems) as $ni) {
+            $prod = Product::with('variants.attributeValue.attribute')->find($ni['product_id']);
+            if (!$prod) return 'Selected product not found.';
+            $mult = $this->stockMultiplierFor($prod, $ni['pair_type'] ?? null, $ni['custom_size_value'] ?? null);
+            $k = $ni['product_id'] . '_' . ($ni['product_variant_id'] ?: 0);
+            $newMap[$k] = ($newMap[$k] ?? 0) + (int) round($ni['quantity'] * $mult);
+            $prodObjs[$k] = ['product' => $prod, 'variant_id' => $ni['product_variant_id'] ?: null];
+        }
+
+        $allKeys = array_unique(array_merge(array_keys($oldMap), array_keys($newMap)));
+        foreach ($allKeys as $k) {
+            $oldQty = $oldMap[$k] ?? 0;
+            $newQty = $newMap[$k] ?? 0;
+            $delta = $newQty - $oldQty;
+
+            [$pId, $vId] = explode('_', $k);
+            $prod = $prodObjs[$k]['product'] ?? Product::find($pId);
+            $variantId = $vId > 0 ? (int)$vId : null;
+            $label = $prod?->name ?? "Product #{$pId}";
+
+            if ($delta > 0) {
+                if ($variantId) {
+                    $stockData = $prod->getVariantStock($fromLocId);
+                    $avail = (int) ($stockData['variants'][$variantId] ?? 0);
+                } else {
+                    $avail = (int) Inventory::where('product_id', $pId)->where('location_id', $fromLocId)->value('quantity');
+                }
+                if ($avail < $delta) {
+                    return "Product '{$label}' needs {$delta} more pcs from source branch, but only {$avail} pcs available.";
+                }
+            } elseif ($delta < 0) {
+                $absDelta = abs($delta);
+                if ($variantId) {
+                    $stockData = $prod->getVariantStock($toLocId);
+                    $avail = (int) ($stockData['variants'][$variantId] ?? 0);
+                } else {
+                    $avail = (int) Inventory::where('product_id', $pId)->where('location_id', $toLocId)->value('quantity');
+                }
+                if ($avail < $absDelta) {
+                    return "Cannot reduce quantity of '{$label}': destination branch only has {$avail} pcs in stock, but {$absDelta} pcs need to be returned to source.";
+                }
+            }
+        }
+
+        return null;
     }
 
     public function show(PurchaseBill $purchaseBill)
@@ -707,11 +1030,13 @@ class PurchaseBillController extends Controller
         }
 
         [$totalAmount, $totalMrp] = $this->purchaseBillTotals($purchaseBill);
+        $canModifyAccepted = PurchaseStockService::canEditOrDeletePurchaseBill($purchaseBill);
 
         return view('purchase-bills.show', [
             'transfer' => $purchaseBill,
             'totalAmount' => $totalAmount,
             'totalMrp' => $totalMrp,
+            'canModifyAccepted' => $canModifyAccepted,
         ]);
     }
 
@@ -794,18 +1119,18 @@ class PurchaseBillController extends Controller
                     : (($sourceBatchPrice !== null && (float)$sourceBatchPrice > 0) ? (float)$sourceBatchPrice : $this->purchasePriceForPurchaseBillItem($item));
 
                 if ($unitPrice <= 0) {
-                    $unitPrice = \App\Services\PurchaseBatchService::resolveFallbackPurchasePrice((int)$item->product_id, !empty($item->product_variant_id) ? (int)$item->product_variant_id : null);
+                    $unitPrice = PurchaseBatchService::resolveFallbackPurchasePrice((int)$item->product_id, !empty($item->product_variant_id) ? (int)$item->product_variant_id : null);
                 }
 
                 if ((float)$item->purchase_price <= 0 && $unitPrice > 0) {
                     $item->update(['purchase_price' => $unitPrice]);
                 }
 
-                \App\Services\PurchaseBatchService::deductBatchStock((int)$purchaseBill->from_location_id, (int)$item->product_id, !empty($item->product_variant_id) ? (int)$item->product_variant_id : null, (float)$unitPrice, (float)$stockQty);
-                \App\Services\PurchaseBatchService::addBatchStock((int)$purchaseBill->to_location_id, (int)$item->product_id, !empty($item->product_variant_id) ? (int)$item->product_variant_id : null, $item->id, (float)$unitPrice, (float)$stockQty);
+                PurchaseBatchService::deductBatchStock((int)$purchaseBill->from_location_id, (int)$item->product_id, !empty($item->product_variant_id) ? (int)$item->product_variant_id : null, (float)$unitPrice, (float)$stockQty);
+                PurchaseBatchService::addBatchStock((int)$purchaseBill->to_location_id, (int)$item->product_id, !empty($item->product_variant_id) ? (int)$item->product_variant_id : null, $item->id, (float)$unitPrice, (float)$stockQty);
 
-                \App\Services\PurchaseBatchService::syncProductBatchStocks((int)$purchaseBill->to_location_id, (int)$item->product_id, !empty($item->product_variant_id) ? (int)$item->product_variant_id : null);
-                \App\Services\PurchaseBatchService::syncProductBatchStocks((int)$purchaseBill->from_location_id, (int)$item->product_id, !empty($item->product_variant_id) ? (int)$item->product_variant_id : null);
+                PurchaseBatchService::syncProductBatchStocks((int)$purchaseBill->to_location_id, (int)$item->product_id, !empty($item->product_variant_id) ? (int)$item->product_variant_id : null);
+                PurchaseBatchService::syncProductBatchStocks((int)$purchaseBill->from_location_id, (int)$item->product_id, !empty($item->product_variant_id) ? (int)$item->product_variant_id : null);
             }
 
             if ($purchaseBill->payment_status == PurchaseBill::PAYMENT_STATUS_PAID) {
@@ -1137,10 +1462,10 @@ class PurchaseBillController extends Controller
         }
 
         $balanceType = strtolower($purchaseBill->payment_method ?? 'cash') === 'online'
-            ? \App\Models\LocationBalanceTransaction::BALANCE_TYPE_BANK
-            : \App\Models\LocationBalanceTransaction::BALANCE_TYPE_CASH;
+            ? LocationBalanceTransaction::BALANCE_TYPE_BANK
+            : LocationBalanceTransaction::BALANCE_TYPE_CASH;
 
-        $balanceCol = $balanceType === \App\Models\LocationBalanceTransaction::BALANCE_TYPE_BANK
+        $balanceCol = $balanceType === LocationBalanceTransaction::BALANCE_TYPE_BANK
             ? 'bank_balance'
             : 'cash_balance';
 
@@ -1148,42 +1473,40 @@ class PurchaseBillController extends Controller
         $inNote  = 'Purchase Bill In #' . $purchaseBill->transfer_no;
 
         if ($reverse) {
-            // Revert balances for from and to locations
-            $fromBalance = \App\Models\LocationBalance::where('location_id', $purchaseBill->from_location_id)->lockForUpdate()->first();
+            $fromBalance = LocationBalance::where('location_id', $purchaseBill->from_location_id)->lockForUpdate()->first();
             if ($fromBalance) {
                 $fromBalance->update([$balanceCol => (float) $fromBalance->{$balanceCol} - $totalAmount]);
             }
-            $toBalance = \App\Models\LocationBalance::where('location_id', $purchaseBill->to_location_id)->lockForUpdate()->first();
+            $toBalance = LocationBalance::where('location_id', $purchaseBill->to_location_id)->lockForUpdate()->first();
             if ($toBalance) {
                 $toBalance->update([$balanceCol => (float) $toBalance->{$balanceCol} + $totalAmount]);
             }
 
-            // Remove existing transactions so no duplicate reversal lines are shown
-            \App\Models\LocationBalanceTransaction::whereIn('notes', [$outNote, $inNote])
+            LocationBalanceTransaction::whereIn('notes', [$outNote, $inNote])
                 ->orWhere('notes', 'LIKE', '%#' . $purchaseBill->transfer_no)
                 ->delete();
             return;
         }
 
-        $fromBalance = \App\Models\LocationBalance::where('location_id', $purchaseBill->from_location_id)->lockForUpdate()->firstOrFail();
+        $fromBalance = LocationBalance::where('location_id', $purchaseBill->from_location_id)->lockForUpdate()->firstOrFail();
         $newFromBalance = (float) $fromBalance->{$balanceCol} + $totalAmount;
         $fromBalance->update([$balanceCol => $newFromBalance]);
 
-        $existingOut = \App\Models\LocationBalanceTransaction::where('notes', 'LIKE', '%' . $purchaseBill->transfer_no)->where('location_id', $purchaseBill->from_location_id)->first();
+        $existingOut = LocationBalanceTransaction::where('notes', 'LIKE', '%' . $purchaseBill->transfer_no)->where('location_id', $purchaseBill->from_location_id)->first();
         if ($existingOut) {
             $existingOut->update([
                 'location_id'   => $purchaseBill->from_location_id,
                 'balance_type'  => $balanceType,
-                'type'          => \App\Models\LocationBalanceTransaction::TYPE_CREDIT,
+                'type'          => LocationBalanceTransaction::TYPE_CREDIT,
                 'amount'        => $totalAmount,
                 'balance_after' => $newFromBalance,
                 'notes'         => $outNote,
             ]);
         } else {
-            \App\Models\LocationBalanceTransaction::create([
+            LocationBalanceTransaction::create([
                 'location_id'   => $purchaseBill->from_location_id,
                 'balance_type'  => $balanceType,
-                'type'          => \App\Models\LocationBalanceTransaction::TYPE_CREDIT,
+                'type'          => LocationBalanceTransaction::TYPE_CREDIT,
                 'amount'        => $totalAmount,
                 'balance_after' => $newFromBalance,
                 'notes'         => $outNote,
@@ -1191,25 +1514,25 @@ class PurchaseBillController extends Controller
             ]);
         }
 
-        $toBalance = \App\Models\LocationBalance::where('location_id', $purchaseBill->to_location_id)->lockForUpdate()->firstOrFail();
+        $toBalance = LocationBalance::where('location_id', $purchaseBill->to_location_id)->lockForUpdate()->firstOrFail();
         $newToBalance = (float) $toBalance->{$balanceCol} - $totalAmount;
         $toBalance->update([$balanceCol => $newToBalance]);
 
-        $existingIn = \App\Models\LocationBalanceTransaction::where('notes', 'LIKE', '%' . $purchaseBill->transfer_no)->where('location_id', $purchaseBill->to_location_id)->first();
+        $existingIn = LocationBalanceTransaction::where('notes', 'LIKE', '%' . $purchaseBill->transfer_no)->where('location_id', $purchaseBill->to_location_id)->first();
         if ($existingIn) {
             $existingIn->update([
                 'location_id'   => $purchaseBill->to_location_id,
                 'balance_type'  => $balanceType,
-                'type'          => \App\Models\LocationBalanceTransaction::TYPE_DEBIT,
+                'type'          => LocationBalanceTransaction::TYPE_DEBIT,
                 'amount'        => $totalAmount,
                 'balance_after' => $newToBalance,
                 'notes'         => $inNote,
             ]);
         } else {
-            \App\Models\LocationBalanceTransaction::create([
+            LocationBalanceTransaction::create([
                 'location_id'   => $purchaseBill->to_location_id,
                 'balance_type'  => $balanceType,
-                'type'          => \App\Models\LocationBalanceTransaction::TYPE_DEBIT,
+                'type'          => LocationBalanceTransaction::TYPE_DEBIT,
                 'amount'        => $totalAmount,
                 'balance_after' => $newToBalance,
                 'notes'         => $inNote,

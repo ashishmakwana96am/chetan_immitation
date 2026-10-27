@@ -4,6 +4,8 @@ namespace App\Services;
 
 use App\Models\Inventory;
 use App\Models\Location;
+use App\Models\LocationBalance;
+use App\Models\LocationBalanceTransaction;
 use App\Models\Order;
 use App\Models\OrderItem;
 use App\Models\Product;
@@ -12,6 +14,9 @@ use App\Models\Purchase;
 use App\Models\PurchaseBill;
 use App\Models\PurchaseBillItem;
 use App\Models\PurchaseItem;
+use App\Models\Setting;
+use App\Services\ActivityLogger;
+use App\Services\PurchaseBatchService;
 use Carbon\Carbon;
 
 class PurchaseStockService
@@ -632,7 +637,7 @@ class PurchaseStockService
             // Recalculate GST if is_gst
             $newTaxAmount = 0.0;
             if ($order->is_gst && ($order->source ?? 'POS') !== 'ONLINE') {
-                $gstRate = (float) \App\Models\Setting::getValue('purchase_gst_rate', 3);
+                $gstRate = (float) Setting::getValue('purchase_gst_rate', 3);
                 $halfRate = $gstRate / 2;
                 $cgst = round($finalBeforeTaxShipping * ($halfRate / 100), 2);
                 $sgst = round($finalBeforeTaxShipping * ($halfRate / 100), 2);
@@ -1027,27 +1032,27 @@ class PurchaseStockService
         }
 
         $balanceType = strtolower($purchaseBill->payment_method ?? 'cash') === 'online'
-            ? \App\Models\LocationBalanceTransaction::BALANCE_TYPE_BANK
-            : \App\Models\LocationBalanceTransaction::BALANCE_TYPE_CASH;
+            ? LocationBalanceTransaction::BALANCE_TYPE_BANK
+            : LocationBalanceTransaction::BALANCE_TYPE_CASH;
 
-        $balanceCol = $balanceType === \App\Models\LocationBalanceTransaction::BALANCE_TYPE_BANK
+        $balanceCol = $balanceType === LocationBalanceTransaction::BALANCE_TYPE_BANK
             ? 'bank_balance'
             : 'cash_balance';
 
         $outNote = 'Purchase Bill Out #' . $purchaseBill->transfer_no;
         $inNote  = 'Purchase Bill In #' . $purchaseBill->transfer_no;
 
-        $fromBalance = \App\Models\LocationBalance::where('location_id', $purchaseBill->from_location_id)->lockForUpdate()->first();
+        $fromBalance = LocationBalance::where('location_id', $purchaseBill->from_location_id)->lockForUpdate()->first();
         if ($fromBalance) {
             $fromBalance->update([$balanceCol => (float) $fromBalance->{$balanceCol} - $amountToReverse]);
         }
 
-        $toBalance = \App\Models\LocationBalance::where('location_id', $purchaseBill->to_location_id)->lockForUpdate()->first();
+        $toBalance = LocationBalance::where('location_id', $purchaseBill->to_location_id)->lockForUpdate()->first();
         if ($toBalance) {
             $toBalance->update([$balanceCol => (float) $toBalance->{$balanceCol} + $amountToReverse]);
         }
 
-        $existingOut = \App\Models\LocationBalanceTransaction::where('notes', 'LIKE', '%' . $purchaseBill->transfer_no)->where('location_id', $purchaseBill->from_location_id)->first();
+        $existingOut = LocationBalanceTransaction::where('notes', 'LIKE', '%' . $purchaseBill->transfer_no)->where('location_id', $purchaseBill->from_location_id)->first();
         if ($existingOut) {
             $newAmount = max(0.0, (float)$existingOut->amount - $amountToReverse);
             if ($newAmount <= 0) {
@@ -1057,7 +1062,7 @@ class PurchaseStockService
             }
         }
 
-        $existingIn = \App\Models\LocationBalanceTransaction::where('notes', 'LIKE', '%' . $purchaseBill->transfer_no)->where('location_id', $purchaseBill->to_location_id)->first();
+        $existingIn = LocationBalanceTransaction::where('notes', 'LIKE', '%' . $purchaseBill->transfer_no)->where('location_id', $purchaseBill->to_location_id)->first();
         if ($existingIn) {
             $newAmount = max(0.0, (float)$existingIn->amount - $amountToReverse);
             if ($newAmount <= 0) {
@@ -1067,8 +1072,8 @@ class PurchaseStockService
             }
         }
 
-        \App\Models\LocationBalanceTransaction::syncLocationBalance($purchaseBill->from_location_id, $balanceType);
-        \App\Models\LocationBalanceTransaction::syncLocationBalance($purchaseBill->to_location_id, $balanceType);
+        LocationBalanceTransaction::syncLocationBalance($purchaseBill->from_location_id, $balanceType);
+        LocationBalanceTransaction::syncLocationBalance($purchaseBill->to_location_id, $balanceType);
     }
 
     /**
@@ -1122,5 +1127,97 @@ class PurchaseStockService
         }
 
         return $qty . ' pcs';
+    }
+
+    public static function canEditOrDeletePurchaseBill(PurchaseBill $purchaseBill): bool
+    {
+        if ((int) $purchaseBill->status !== PurchaseBill::STATUS_ACCEPTED) {
+            return true;
+        }
+
+        $purchaseBill->loadMissing(['items.product', 'items.variant']);
+
+        $destLocationId = (int) $purchaseBill->to_location_id;
+        $billAcceptedAt = $purchaseBill->accepted_at ?? $purchaseBill->created_at;
+
+        foreach ($purchaseBill->items as $item) {
+            $productId = (int) $item->product_id;
+            $variantId = !empty($item->product_variant_id) ? (int) $item->product_variant_id : null;
+            $unitPrice = (float) $item->purchase_price;
+
+            $product = $item->product ?? Product::find($productId);
+            $multiplier = self::multiplierForProduct($product, $item->pair_type ?? null, $item->custom_size_value ?? null);
+            $billPhysicalQty = (float) $item->quantity * $multiplier;
+
+            $soldOrderItems = OrderItem::query()
+                ->with(['product', 'order'])
+                ->where('product_id', $productId)
+                ->when($variantId, fn($q) => $q->where('product_variant_id', $variantId), fn($q) => $q->whereNull('product_variant_id'))
+                ->whereNull('deleted_at')
+                ->whereHas('order', function ($q) use ($destLocationId) {
+                    $q->where('location_id', $destLocationId)
+                        ->whereNull('deleted_at')
+                        ->where('order_type', 'sale')
+                        ->where('status', '!=', 6);
+                })
+                ->get();
+
+            $totalPhysicalSold = 0.0;
+            $sig = [
+                'id'                 => 0,
+                'product_id'         => $productId,
+                'product_variant_id' => $variantId ?? 0,
+                'purchase_price'     => $unitPrice,
+            ];
+
+            foreach ($soldOrderItems as $soi) {
+                if (self::isMatchingOrderItemSingle($soi, $sig)) {
+                    $soiMultiplier = self::multiplierForProduct($soi->product ?? $product, $soi->pair_type ?? null, $soi->custom_size_value ?? null);
+                    $totalPhysicalSold += ((float) $soi->quantity * $soiMultiplier);
+                }
+            }
+
+            $priorBillItems = PurchaseBillItem::query()
+                ->with(['product', 'transfer'])
+                ->where('product_id', $productId)
+                ->when($variantId, fn($q) => $q->where('product_variant_id', $variantId), fn($q) => $q->whereNull('product_variant_id'))
+                ->whereNull('deleted_at')
+                ->whereHas('transfer', function ($q) use ($destLocationId, $purchaseBill, $billAcceptedAt) {
+                    $q->where('to_location_id', $destLocationId)
+                        ->where('status', PurchaseBill::STATUS_ACCEPTED)
+                        ->whereNull('deleted_at')
+                        ->where(function ($sub) use ($purchaseBill, $billAcceptedAt) {
+                            $sub->where('accepted_at', '<', $billAcceptedAt)
+                                ->orWhere(function ($tie) use ($purchaseBill, $billAcceptedAt) {
+                                    $tie->where('accepted_at', '=', $billAcceptedAt)
+                                        ->where('id', '<', $purchaseBill->id);
+                                });
+                        });
+                })
+                ->get();
+
+            $priorTransferredPhysicalQty = 0.0;
+            foreach ($priorBillItems as $pbi) {
+                if (abs((float)$pbi->purchase_price - $unitPrice) < 0.05) {
+                    $pbiMultiplier = self::multiplierForProduct($pbi->product ?? $product, $pbi->pair_type ?? null, $pbi->custom_size_value ?? null);
+                    $priorTransferredPhysicalQty += ((float) $pbi->quantity * $pbiMultiplier);
+                }
+            }
+
+            if ($totalPhysicalSold > $priorTransferredPhysicalQty) {
+                return false;
+            }
+
+            $destInventory = Inventory::where('product_id', $productId)
+                ->where('location_id', $destLocationId)
+                ->whereNull('deleted_at')
+                ->first();
+            $destLiveQty = $destInventory ? (float) $destInventory->quantity : 0.0;
+            if ($destLiveQty < $billPhysicalQty) {
+                return false;
+            }
+        }
+
+        return true;
     }
 }

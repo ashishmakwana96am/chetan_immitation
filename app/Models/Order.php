@@ -20,6 +20,10 @@ class Order extends Model
         static::saved(function () {
             Product::clearMappedCaches();
         });
+        static::deleting(function (Order $order) {
+            $order->items()->delete();
+            $order->salePayments()->delete();
+        });
         static::deleted(function () {
             Product::clearMappedCaches();
         });
