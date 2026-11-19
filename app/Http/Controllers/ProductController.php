@@ -9,9 +9,12 @@ use App\Models\SubCategory;
 use App\Models\Product;
 use App\Models\Inventory;
 use App\Models\Location;
+use App\Models\Order;
 use App\Models\OrderItem;
 use App\Models\ProductImage;
 use App\Models\ProductVariant;
+use App\Models\Purchase;
+use App\Models\PurchaseBill;
 use App\Models\PurchaseBillItem;
 use App\Models\PurchaseItem;
 use App\Services\ActivityLogger;
@@ -489,14 +492,13 @@ class ProductController extends Controller
         $isRestricted = (bool) $locationId;
 
         $product->load([
-            'category',
-            'subCategory',
-            'collection',
+            'category' => fn($q) => $q->whereNull('categories.deleted_at'),
+            'subCategory' => fn($q) => $q->whereNull('sub_categories.deleted_at'),
+            'collection' => fn($q) => $q->whereNull('collections.deleted_at'),
             'collections',
             'images',
             'createdBy',
             'variants.attributeValue',
-            'inventories',
             'inventories.location'
         ]);
 
@@ -515,7 +517,12 @@ class ProductController extends Controller
         $locationId = $this->restrictedLocationId();
 
         $items = $this->purchaseHistoryQuery($product, $locationId)
-            ->with(['invoice.supplier', 'invoice.location', 'variant.attributeValue'])
+            ->with([
+                'invoice' => fn($q) => $q->whereNull('deleted_at'),
+                'invoice.supplier' => fn($q) => $q->whereNull('deleted_at'),
+                'invoice.location' => fn($q) => $q->whereNull('deleted_at'),
+                'variant.attributeValue' => fn($q) => $q->whereNull('deleted_at')
+            ])
             ->get();
 
         $statusColors = [1 => 'bg-label-secondary', 2 => 'bg-label-success', 3 => 'bg-label-danger'];
@@ -555,7 +562,12 @@ class ProductController extends Controller
         $locationId = $this->restrictedLocationId();
 
         $items = $this->transferHistoryQuery($product, $locationId)
-            ->with(['transfer.fromLocation', 'transfer.toLocation', 'variant.attributeValue'])
+            ->with([
+                'transfer' => fn($q) => $q->whereNull('deleted_at'),
+                'transfer.fromLocation' => fn($q) => $q->whereNull('deleted_at'),
+                'transfer.toLocation' => fn($q) => $q->whereNull('deleted_at'),
+                'variant.attributeValue' => fn($q) => $q->whereNull('deleted_at')
+            ])
             ->get();
 
         $statusColors = [1 => 'bg-label-secondary', 2 => 'bg-label-success', 3 => 'bg-label-danger'];
@@ -593,7 +605,12 @@ class ProductController extends Controller
         $locationId = $this->restrictedLocationId();
 
         $items = $this->saleHistoryQuery($product, $locationId)
-            ->with(['order.customer', 'order.location', 'variant.attributeValue'])
+            ->with([
+                'order' => fn($q) => $q->whereNull('deleted_at'),
+                'order.customer' => fn($q) => $q->whereNull('deleted_at'),
+                'order.location' => fn($q) => $q->whereNull('deleted_at'),
+                'variant.attributeValue' => fn($q) => $q->whereNull('deleted_at')
+            ])
             ->get();
 
         $statusColors = [1 => 'bg-label-secondary', 2 => 'bg-label-success', 3 => 'bg-label-info', 4 => 'bg-label-warning', 5 => 'bg-label-success', 6 => 'bg-label-danger'];
@@ -636,8 +653,11 @@ class ProductController extends Controller
     private function purchaseHistoryQuery(Product $product, ?int $locationId)
     {
         return PurchaseItem::where('product_id', $product->id)
+            ->whereNull('deleted_at')
             ->whereHas('invoice', function ($q) use ($locationId) {
-                $q->when($locationId, fn($sub) => $sub->where('location_id', $locationId));
+                $q->whereNull('deleted_at')
+                    ->where('status', '!=', Purchase::STATUS_CANCELLED)
+                    ->when($locationId, fn($sub) => $sub->where('location_id', $locationId));
             })
             ->latest();
     }
@@ -645,10 +665,13 @@ class ProductController extends Controller
     private function transferHistoryQuery(Product $product, ?int $locationId)
     {
         return PurchaseBillItem::where('product_id', $product->id)
+            ->whereNull('deleted_at')
             ->whereHas('transfer', function ($q) use ($locationId) {
-                $q->when($locationId, fn($sub) => $sub->where(function ($w) use ($locationId) {
-                    $w->where('from_location_id', $locationId)->orWhere('to_location_id', $locationId);
-                }));
+                $q->whereNull('deleted_at')
+                    ->where('status', '!=', PurchaseBill::STATUS_REJECTED)
+                    ->when($locationId, fn($sub) => $sub->where(function ($w) use ($locationId) {
+                        $w->where('from_location_id', $locationId)->orWhere('to_location_id', $locationId);
+                    }));
             })
             ->latest();
     }
@@ -656,8 +679,11 @@ class ProductController extends Controller
     private function saleHistoryQuery(Product $product, ?int $locationId)
     {
         return OrderItem::where('product_id', $product->id)
+            ->whereNull('deleted_at')
             ->whereHas('order', function ($q) use ($locationId) {
-                $q->when($locationId, fn($sub) => $sub->where('location_id', $locationId));
+                $q->whereNull('deleted_at')
+                    ->where('status', '!=', Order::STATUS_CANCELLED)
+                    ->when($locationId, fn($sub) => $sub->where('location_id', $locationId));
             })
             ->latest();
     }

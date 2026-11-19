@@ -762,7 +762,7 @@ class PurchaseImportService
     {
         return match (strtolower($value)) {
             'pending' => Purchase::STATUS_PENDING,
-            'decline' => Purchase::STATUS_DECLINE,
+            'decline' => Purchase::STATUS_CANCELLED,
             default   => Purchase::STATUS_APPROVE,
         };
     }

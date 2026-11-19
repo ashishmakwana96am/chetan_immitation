@@ -74,7 +74,8 @@
 @section('content')
     @php
         $statusColors = [1 => 'bg-label-secondary', 2 => 'bg-label-success', 3 => 'bg-label-danger'];
-        $statusLabels = [1 => 'Pending', 2 => 'Approve', 3 => 'Decline'];
+        $statusLabels = [1 => 'Pending', 2 => 'Approve', 3 => 'Cancelled'];
+        $isCancelled = ($purchase->status == \App\Models\Purchase::STATUS_CANCELLED);
     @endphp
 
     <div class="d-flex justify-content-between align-items-start mb-4 flex-wrap gap-2">
@@ -86,51 +87,52 @@
             <!-- <a href="{{ route('admin.purchases.pdf', $purchase) }}" class="btn btn-label-info" target="_blank">
                 <i class="ti ti-file-type-pdf me-1"></i> Download PDF
             </a> -->
-            @can('edit purchases')
-                @if($purchase->status == 1 && can_modify_past_date_record($purchase->created_at))
-                    <a href="{{ route('admin.purchases.edit', $purchase) }}" class="btn btn-label-info">
-                        <i class="ti ti-pencil me-1"></i> Edit
-                    </a>
-                    <button class="btn btn-success"
-                        data-common-confirm="{{ route('admin.purchases.status', $purchase) }}"
-                        data-confirm-method="PATCH"
-                        data-confirm-title="Approve Purchase"
-                        data-confirm-text="Are you sure you want to approve this purchase? Inventory will be updated."
-                        data-confirm-btn="Yes, Approve"
-                        data-confirm-btn-class="btn-success"
-                        data-confirm-data='{"status":2}'>
-                        <i class="ti ti-check me-1"></i> Approve
-                    </button>
-                    <button class="btn btn-label-danger"
-                        data-common-confirm="{{ route('admin.purchases.status', $purchase) }}"
-                        data-confirm-method="PATCH"
-                        data-confirm-title="Decline Purchase"
-                        data-confirm-text="Are you sure you want to decline this purchase?"
-                        data-confirm-btn="Yes, Decline"
-                        data-confirm-btn-class="btn-danger"
-                        data-confirm-data='{"status":3}'>
-                        <i class="ti ti-x me-1"></i> Decline
-                    </button>
-                @endif
-                @can('edit purchases payment status')
-                    @if($purchase->status == 1 || ($purchase->status == 2 && $purchase->payment_status != 2))
-                        <button class="btn btn-success change-purchase-payment-status-btn"
-                            data-url="{{ route('admin.purchases.update-payment-status', $purchase) }}"
-                            data-history-url="{{ route('admin.purchases.payment-history', $purchase) }}"
-                            data-current="{{ $purchase->payment_status ?? 1 }}">
-                            <i class="ti ti-currency-rupee me-1"></i> Update Payment Status
+            @if(!$isCancelled)
+                @can('edit purchases')
+                    @if($purchase->status == 1 && can_modify_past_date_record($purchase->created_at))
+                        <a href="{{ route('admin.purchases.edit', $purchase) }}" class="btn btn-label-info">
+                            <i class="ti ti-pencil me-1"></i> Edit
+                        </a>
+                        <button class="btn btn-success"
+                            data-common-confirm="{{ route('admin.purchases.status', $purchase) }}"
+                            data-confirm-method="PATCH"
+                            data-confirm-title="Approve Purchase"
+                            data-confirm-text="Are you sure you want to approve this purchase? Inventory will be updated."
+                            data-confirm-btn="Yes, Approve"
+                            data-confirm-btn-class="btn-success"
+                            data-confirm-data='{"status":2}'>
+                            <i class="ti ti-check me-1"></i> Approve
                         </button>
                     @endif
+                    @can('edit purchases payment status')
+                        @if($purchase->status == 1 || ($purchase->status == 2 && $purchase->payment_status != 2))
+                            <button class="btn btn-success change-purchase-payment-status-btn"
+                                data-url="{{ route('admin.purchases.update-payment-status', $purchase) }}"
+                                data-history-url="{{ route('admin.purchases.payment-history', $purchase) }}"
+                                data-current="{{ $purchase->payment_status ?? 1 }}">
+                                <i class="ti ti-currency-rupee me-1"></i> Update Payment Status
+                            </button>
+                        @endif
+                    @endcan
                 @endcan
-            @endcan
-            @if(auth()->user()->hasRole('super-admin') && can_modify_past_date_record($purchase->created_at))
-                <button class="btn btn-label-danger purchase-delete-btn"
-                    data-url="{{ route('admin.purchases.destroy', $purchase) }}"
-                    data-impact-url="{{ route('admin.purchases.impact-check', $purchase) }}"
-                    data-invoice-no="{{ $purchase->invoice_no }}"
-                    data-redirect-url="{{ route('admin.purchases.index') }}">
-                    <i class="ti ti-trash me-1"></i> Delete
-                </button>
+                @can('return purchases')
+                    <button class="btn btn-label-danger purchase-return-btn"
+                        data-url="{{ route('admin.purchases.return', $purchase) }}"
+                        data-impact-url="{{ route('admin.purchases.return-impact', $purchase) }}"
+                        data-invoice-no="{{ $purchase->invoice_no }}"
+                        data-redirect-url="{{ route('admin.purchases.index') }}">
+                        <i class="ti ti-rotate me-1"></i> Return
+                    </button>
+                @endcan
+                @if(auth()->user()->hasRole('super-admin') && can_modify_past_date_record($purchase->created_at))
+                    <button class="btn btn-label-danger purchase-delete-btn"
+                        data-url="{{ route('admin.purchases.destroy', $purchase) }}"
+                        data-impact-url="{{ route('admin.purchases.impact-check', $purchase) }}"
+                        data-invoice-no="{{ $purchase->invoice_no }}"
+                        data-redirect-url="{{ route('admin.purchases.index') }}">
+                        <i class="ti ti-trash me-1"></i> Delete
+                    </button>
+                @endif
             @endif
             <a href="{{ route('admin.purchases.index') }}" class="btn btn-label-secondary">
                 <i class="ti ti-arrow-left me-1"></i> Back
@@ -454,6 +456,7 @@
     </div>
 
     @include('purchases.partials.delete-modal')
+    @include('purchases.partials.return-modal')
 @endsection
 
 @section('page-js')
@@ -751,6 +754,147 @@
                     error: function (xhr) {
                         $btn.prop('disabled', false).html('<i class="ti ti-trash me-1"></i> Confirm & Delete');
                         const msg = xhr.responseJSON?.message || 'Failed to delete purchase. Please try again.';
+                        toastr.error(typeof msg === 'string' ? msg : Object.values(msg)[0][0]);
+                    }
+                });
+            });
+
+            // ─── Purchase Return Modal Handler ───
+            let pendingReturnUrl = null;
+
+            $(document).on('click', '.purchase-return-btn', function (e) {
+                e.preventDefault();
+                const $btn = $(this);
+                pendingReturnUrl = $btn.data('url');
+                const impactUrl = $btn.data('impact-url');
+                const invoiceNo = $btn.data('invoice-no') || '';
+
+                function escapeHtml(str) {
+                    if (!str) return '';
+                    return String(str).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;');
+                }
+
+                window.showAjaxLoader();
+
+                $.get(impactUrl).done(function (res) {
+                    window.hideAjaxLoader();
+                    if (!res || res.status !== 'success' || !res.data) {
+                        toastr.error('Failed to analyze purchase dependencies.');
+                        return;
+                    }
+
+                    const data = res.data;
+                    const hasTransfers = data.has_transfers;
+                    const hasSales = data.has_sales;
+
+                    $('#returnModalPurchaseInvoiceNo').text(invoiceNo);
+
+                    if (hasTransfers && data.transfers.length) {
+                        $('#returnModalTransfersCount').text(data.transfers.length);
+                        let transferRows = data.transfers.map(function (t) {
+                            let itemsText = t.items.map(function (it) {
+                                let barcodeHtml = it.barcode ? ` <code class="ms-1">${escapeHtml(it.barcode)}</code>` : '';
+                                let qtyBadge = it.qty_label ? it.qty_label : (it.quantity + ' pcs');
+                                return `<div class="d-flex align-items-center justify-content-between py-1 border-bottom border-light"><span class="me-2"><i class="ti ti-point text-primary me-1"></i>${escapeHtml(it.product_name)}${barcodeHtml}</span><span class="badge bg-label-primary">${qtyBadge}</span></div>`;
+                            }).join('');
+                            return `
+                                <tr>
+                                    <td><code class="fw-bold">${escapeHtml(t.transfer_no)}</code></td>
+                                    <td><span class="badge bg-label-info">${escapeHtml(t.to_location)}</span></td>
+                                    <td>${itemsText}</td>
+                                    <td><span class="text-muted small">${escapeHtml(t.created_at)}</span></td>
+                                    <td class="text-center"><span class="badge ${t.status === 'Accepted' ? 'bg-label-success' : 'bg-label-warning'}">${t.status}</span></td>
+                                </tr>
+                            `;
+                        }).join('');
+                        $('#returnModalTransfersTableBody').html(transferRows);
+                        $('#returnModalTransfersSection').removeClass('d-none');
+                    } else {
+                        $('#returnModalTransfersSection').addClass('d-none');
+                        $('#returnModalTransfersTableBody').empty();
+                    }
+
+                    if (hasSales && data.sales.length) {
+                        $('#returnModalSalesCount').text(data.sales.length);
+                        let salesRows = data.sales.map(function (s) {
+                            let itemsHtml = (s.matching_items && s.matching_items.length)
+                                ? s.matching_items.map(function (it) {
+                                    let bcode = it.barcode ? ` <span class="badge bg-label-secondary fs-tiny" style="font-size: 0.65rem;">${escapeHtml(it.barcode)}</span>` : '';
+                                    let qtyBadge = it.qty_label ? it.qty_label : (it.quantity + ' pcs');
+                                    return `<div><i class="ti ti-point text-danger me-1"></i>${escapeHtml(it.product_name)}${bcode} <strong class="badge bg-label-dark ms-1">${qtyBadge}</strong></div>`;
+                                }).join('')
+                                : `<span class="badge bg-label-dark">${s.items_count} pcs</span>`;
+
+                            return `
+                                <tr>
+                                    <td><code class="fw-bold">${escapeHtml(s.order_no)}</code></td>
+                                    <td>${escapeHtml(s.customer_name)}</td>
+                                    <td><span class="badge bg-label-secondary">${escapeHtml(s.location_name)}</span></td>
+                                    <td>${itemsHtml}</td>
+                                    <td><span class="text-muted small">${escapeHtml(s.created_at)}</span></td>
+                                    <td class="text-end fw-bold text-dark text-nowrap">${s.final_amount}</td>
+                                    <td class="text-center"><span class="badge ${s.payment_status === 'Paid' ? 'bg-label-success' : (s.payment_status === 'Partially Paid' ? 'bg-label-primary' : 'bg-label-warning')}">${s.payment_status}</span></td>
+                                </tr>
+                            `;
+                        }).join('');
+                        $('#returnModalSalesTableBody').html(salesRows);
+                        $('#returnModalSalesSection').removeClass('d-none');
+                    } else {
+                        $('#returnModalSalesSection').addClass('d-none');
+                        $('#returnModalSalesTableBody').empty();
+                    }
+
+                    if (hasTransfers || hasSales) {
+                        $('#returnModalDecisionSection').removeClass('d-none');
+                        $('#choiceReturnPurchaseOnly').prop('checked', true);
+                        $('#returnModalSimpleNotice').addClass('d-none');
+                    } else {
+                        $('#returnModalDecisionSection').addClass('d-none');
+                        $('#returnModalSimpleNotice').removeClass('d-none');
+                    }
+
+                    const modalEl = document.getElementById('purchaseReturnImpactModal');
+                    const modal = bootstrap.Modal.getOrCreateInstance(modalEl);
+                    modal.show();
+                }).fail(function () {
+                    window.hideAjaxLoader();
+                    toastr.error('Failed to load purchase dependency details.');
+                });
+            });
+
+            $(document).on('click', '#modalConfirmReturnBtn', function (e) {
+                e.preventDefault();
+                if (!pendingReturnUrl) return;
+
+                const returnType = $('input[name="return_type_choice"]:checked').val() || 'purchase_only';
+                const $btn = $(this);
+                $btn.prop('disabled', true).html('<span class="spinner-border spinner-border-sm me-1"></span> Processing Return...');
+
+                $.ajax({
+                    url: pendingReturnUrl,
+                    type: 'POST',
+                    data: {
+                        _token: $('meta[name="csrf-token"]').attr('content'),
+                        return_type: returnType
+                    },
+                    success: function (res) {
+                        $btn.prop('disabled', false).html('<i class="ti ti-rotate me-1"></i> Confirm & Return');
+                        const modalEl = document.getElementById('purchaseReturnImpactModal');
+                        const modal = bootstrap.Modal.getInstance(modalEl);
+                        if (modal) modal.hide();
+
+                        if (res.status === 'success') {
+                            toastr.success(res.message);
+                            setTimeout(() => {
+                                window.location.href = pendingRedirectUrl;
+                            }, 800);
+                        } else {
+                            toastr.error(res.message || 'Something went wrong.');
+                        }
+                    },
+                    error: function (xhr) {
+                        $btn.prop('disabled', false).html('<i class="ti ti-rotate me-1"></i> Confirm & Return');
+                        const msg = xhr.responseJSON?.message || 'Failed to return purchase. Please try again.';
                         toastr.error(typeof msg === 'string' ? msg : Object.values(msg)[0][0]);
                     }
                 });

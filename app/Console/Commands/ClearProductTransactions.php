@@ -95,10 +95,15 @@ class ClearProductTransactions extends Command
                 }
             }
 
-            // 4. Delete Inventories
+            // 4. Delete Inventories & Purchase Batch Stocks
             $inventoryIds = DB::table('inventories')->where('product_id', $productId)->pluck('id')->toArray();
             $deletedInventories = DB::table('inventories')->where('product_id', $productId)->delete();
             $this->info("Deleted {$deletedInventories} inventory record(s).");
+
+            if (\Illuminate\Support\Facades\Schema::hasTable('purchase_batch_stocks')) {
+                $deletedBatchStocks = DB::table('purchase_batch_stocks')->where('product_id', $productId)->delete();
+                $this->info("Deleted {$deletedBatchStocks} purchase batch stock record(s).");
+            }
 
             // 5. Delete Cart Items & Wishlists
             DB::table('cart_items')->where('product_id', $productId)->delete();
@@ -127,6 +132,7 @@ class ClearProductTransactions extends Command
 
             // 7. Clear Caches
             Product::clearMappedCaches();
+            Product::clearPreloadedVariantStock();
         });
 
         $this->info("Successfully hard deleted all sales, purchases, transfers, and inventory for barcode '{$barcode}'.");

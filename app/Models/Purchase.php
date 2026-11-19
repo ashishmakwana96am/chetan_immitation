@@ -29,7 +29,7 @@ class Purchase extends Model
 
     const STATUS_APPROVE = 2;
 
-    const STATUS_DECLINE = 3;
+    const STATUS_CANCELLED = 3;
 
     const PAYMENT_STATUS_PENDING = 1;
 

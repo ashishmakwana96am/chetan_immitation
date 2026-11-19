@@ -418,6 +418,23 @@
     @endcan
 
     <div class="card">
+        @can('return purchases')
+            <div class="card-header border-bottom p-0">
+                <ul class="nav nav-tabs card-header-tabs m-0 px-3 pt-2" id="purchaseTabs" role="tablist">
+                    <li class="nav-item">
+                        <button type="button" class="nav-link active" data-bs-toggle="tab" data-tab="active">
+                            <i class="ti ti-file-text me-1"></i> Purchases
+                        </button>
+                    </li>
+                    <li class="nav-item">
+                        <button type="button" class="nav-link" data-bs-toggle="tab" data-tab="returned">
+                            <i class="ti ti-rotate me-1"></i> Returned Purchases
+                            <span class="badge bg-label-primary ms-1" id="returnedPurchasesCount">{{ $returnedPurchasesCount ?? 0 }}</span>
+                        </button>
+                    </li>
+                </ul>
+            </div>
+        @endcan
         <div class="card-datatable table-responsive">
             <table class="table border-top" id="purchasesTable">
                 <thead>
@@ -439,6 +456,7 @@
     </div>
 
     @include('purchases.partials.delete-modal')
+    @include('purchases.partials.return-modal')
 @endsection
 
 @section('page-js')
@@ -754,6 +772,13 @@
                 e.stopPropagation();
             });
 
+            let currentTab = 'active';
+
+            $(document).on('shown.bs.tab', '#purchaseTabs button[data-bs-toggle="tab"]', function (e) {
+                currentTab = $(this).data('tab') || 'active';
+                table.ajax.reload();
+            });
+
             const table = $('#purchasesTable').DataTable({
                 processing : true,
                 serverSide : true,
@@ -761,9 +786,15 @@
                 order      : [[9, 'desc']],
                 ajax       : {
                     url: '{{ route('admin.purchases.data') }}',
-                    dataSrc: 'data',
+                    dataSrc: function (json) {
+                        if (json.returned_count !== undefined) {
+                            $('#returnedPurchasesCount').text(json.returned_count);
+                        }
+                        return json.data;
+                    },
                     cache: false,
                     data: function(d) {
+                        d.tab = currentTab;
                         d.supplier_id = $('#filter-supplier').val();
                         d.status = $('#filter-status').val();
                         d.payment_status = $('#filter-payment-status').val();
@@ -1150,6 +1181,145 @@
                     error: function (xhr) {
                         $btn.prop('disabled', false).html('<i class="ti ti-trash me-1"></i> Confirm & Delete');
                         const msg = xhr.responseJSON?.message || 'Failed to delete purchase. Please try again.';
+                        toastr.error(typeof msg === 'string' ? msg : Object.values(msg)[0][0]);
+                    }
+                });
+            });
+
+            // ─── Purchase Return Modal Handler ───
+            let pendingReturnUrl = null;
+
+            $(document).on('click', '.purchase-return-btn', function (e) {
+                e.preventDefault();
+                const $btn = $(this);
+                pendingReturnUrl = $btn.data('url');
+                const impactUrl = $btn.data('impact-url');
+                const invoiceNo = $btn.data('invoice-no') || '';
+
+                function escapeHtml(str) {
+                    if (!str) return '';
+                    return String(str).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;');
+                }
+
+                window.showAjaxLoader();
+
+                $.get(impactUrl).done(function (res) {
+                    window.hideAjaxLoader();
+                    if (!res || res.status !== 'success' || !res.data) {
+                        toastr.error('Failed to analyze purchase dependencies.');
+                        return;
+                    }
+
+                    const data = res.data;
+                    const hasTransfers = data.has_transfers;
+                    const hasSales = data.has_sales;
+
+                    $('#returnModalPurchaseInvoiceNo').text(invoiceNo);
+
+                    if (hasTransfers && data.transfers.length) {
+                        $('#returnModalTransfersCount').text(data.transfers.length);
+                        let transferRows = data.transfers.map(function (t) {
+                            let itemsText = t.items.map(function (it) {
+                                let barcodeHtml = it.barcode ? ` <code class="ms-1">${escapeHtml(it.barcode)}</code>` : '';
+                                let qtyBadge = it.qty_label ? it.qty_label : (it.quantity + ' pcs');
+                                return `<div class="d-flex align-items-center justify-content-between py-1 border-bottom border-light"><span class="me-2"><i class="ti ti-point text-primary me-1"></i>${escapeHtml(it.product_name)}${barcodeHtml}</span><span class="badge bg-label-primary">${qtyBadge}</span></div>`;
+                            }).join('');
+                            return `
+                                <tr>
+                                    <td><code class="fw-bold">${escapeHtml(t.transfer_no)}</code></td>
+                                    <td><span class="badge bg-label-info">${escapeHtml(t.to_location)}</span></td>
+                                    <td>${itemsText}</td>
+                                    <td><span class="text-muted small">${escapeHtml(t.created_at)}</span></td>
+                                    <td class="text-center"><span class="badge ${t.status === 'Accepted' ? 'bg-label-success' : 'bg-label-warning'}">${t.status}</span></td>
+                                </tr>
+                            `;
+                        }).join('');
+                        $('#returnModalTransfersTableBody').html(transferRows);
+                        $('#returnModalTransfersSection').removeClass('d-none');
+                    } else {
+                        $('#returnModalTransfersSection').addClass('d-none');
+                        $('#returnModalTransfersTableBody').empty();
+                    }
+
+                    if (hasSales && data.sales.length) {
+                        $('#returnModalSalesCount').text(data.sales.length);
+                        let salesRows = data.sales.map(function (s) {
+                            let itemsHtml = (s.matching_items && s.matching_items.length)
+                                ? s.matching_items.map(function (it) {
+                                    let bcode = it.barcode ? ` <span class="badge bg-label-secondary fs-tiny" style="font-size: 0.65rem;">${escapeHtml(it.barcode)}</span>` : '';
+                                    let qtyBadge = it.qty_label ? it.qty_label : (it.quantity + ' pcs');
+                                    return `<div><i class="ti ti-point text-danger me-1"></i>${escapeHtml(it.product_name)}${bcode} <strong class="badge bg-label-dark ms-1">${qtyBadge}</strong></div>`;
+                                }).join('')
+                                : `<span class="badge bg-label-dark">${s.items_count} pcs</span>`;
+
+                            return `
+                                <tr>
+                                    <td><code class="fw-bold">${escapeHtml(s.order_no)}</code></td>
+                                    <td>${escapeHtml(s.customer_name)}</td>
+                                    <td><span class="badge bg-label-secondary">${escapeHtml(s.location_name)}</span></td>
+                                    <td>${itemsHtml}</td>
+                                    <td><span class="text-muted small">${escapeHtml(s.created_at)}</span></td>
+                                    <td class="text-end fw-bold text-dark text-nowrap">${s.final_amount}</td>
+                                    <td class="text-center"><span class="badge ${s.payment_status === 'Paid' ? 'bg-label-success' : (s.payment_status === 'Partially Paid' ? 'bg-label-primary' : 'bg-label-warning')}">${s.payment_status}</span></td>
+                                </tr>
+                            `;
+                        }).join('');
+                        $('#returnModalSalesTableBody').html(salesRows);
+                        $('#returnModalSalesSection').removeClass('d-none');
+                    } else {
+                        $('#returnModalSalesSection').addClass('d-none');
+                        $('#returnModalSalesTableBody').empty();
+                    }
+
+                    if (hasTransfers || hasSales) {
+                        $('#returnModalDecisionSection').removeClass('d-none');
+                        $('#choiceReturnPurchaseOnly').prop('checked', true);
+                        $('#returnModalSimpleNotice').addClass('d-none');
+                    } else {
+                        $('#returnModalDecisionSection').addClass('d-none');
+                        $('#returnModalSimpleNotice').removeClass('d-none');
+                    }
+
+                    const modalEl = document.getElementById('purchaseReturnImpactModal');
+                    const modal = bootstrap.Modal.getOrCreateInstance(modalEl);
+                    modal.show();
+                }).fail(function () {
+                    window.hideAjaxLoader();
+                    toastr.error('Failed to load purchase dependency details.');
+                });
+            });
+
+            $(document).on('click', '#modalConfirmReturnBtn', function (e) {
+                e.preventDefault();
+                if (!pendingReturnUrl) return;
+
+                const returnType = $('input[name="return_type_choice"]:checked').val() || 'purchase_only';
+                const $btn = $(this);
+                $btn.prop('disabled', true).html('<span class="spinner-border spinner-border-sm me-1"></span> Processing Return...');
+
+                $.ajax({
+                    url: pendingReturnUrl,
+                    type: 'POST',
+                    data: {
+                        _token: $('meta[name="csrf-token"]').attr('content'),
+                        return_type: returnType
+                    },
+                    success: function (res) {
+                        $btn.prop('disabled', false).html('<i class="ti ti-rotate me-1"></i> Confirm & Return');
+                        const modalEl = document.getElementById('purchaseReturnImpactModal');
+                        const modal = bootstrap.Modal.getInstance(modalEl);
+                        if (modal) modal.hide();
+
+                        if (res.status === 'success') {
+                            toastr.success(res.message);
+                            window.refreshTable();
+                        } else {
+                            toastr.error(res.message || 'Something went wrong.');
+                        }
+                    },
+                    error: function (xhr) {
+                        $btn.prop('disabled', false).html('<i class="ti ti-rotate me-1"></i> Confirm & Return');
+                        const msg = xhr.responseJSON?.message || 'Failed to return purchase. Please try again.';
                         toastr.error(typeof msg === 'string' ? msg : Object.values(msg)[0][0]);
                     }
                 });

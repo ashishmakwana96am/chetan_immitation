@@ -287,7 +287,7 @@ class SaleController extends Controller
                     $actions .= '<a href="' . route('admin.sales.edit', $order) . '" class="dropdown-item"><i class="ti ti-pencil me-2"></i>Edit</a>';
                 }
 
-                if ($canReturnSales && can_modify_past_date_record($order->created_at)) {
+                if ($canReturnSales && ($order->source ?? 'POS') !== 'ONLINE' && can_modify_past_date_record($order->created_at)) {
                     $actions .= '<a href="javascript:void(0);" class="dropdown-item text-warning return-sale-btn" data-url="' . route('admin.sales.return', $order) . '" data-order-no="' . e($order->order_no) . '"><i class="ti ti-rotate-clockwise me-2"></i>Return</a>';
                 }
 
@@ -2651,6 +2651,13 @@ class SaleController extends Controller
             ], 422);
         }
 
+        if (($sale->source ?? 'POS') === 'ONLINE') {
+            return response()->json([
+                'status'  => 'error',
+                'message' => 'Online orders cannot be returned through this flow.',
+            ], 422);
+        }
+
         try {
             DB::transaction(function () use ($sale, $request) {
                 $sale->load('items');
@@ -2683,6 +2690,7 @@ class SaleController extends Controller
                 // 2. Balance Reversal
                 $sale->update([
                     'status' => Order::STATUS_CANCELLED,
+                    'payment_status' => Order::PAYMENT_STATUS_PENDING,
                     'cancellation_reason' => $request->input('reason', 'Sale Returned by Customer'),
                 ]);
 

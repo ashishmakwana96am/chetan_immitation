@@ -84,6 +84,7 @@ class PermissionSeeder extends Seeder
             'create purchases' => 'Purchases',
             'edit purchases' => 'Purchases',
             'delete purchases' => 'Purchases',
+            'return purchases' => 'Purchases',
             'edit purchases status' => 'Purchases',
             'edit purchases payment status' => 'Purchases',
 

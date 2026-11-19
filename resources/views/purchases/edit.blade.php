@@ -294,7 +294,6 @@
                         <select name="status" class="form-select no-select2">
                             <option value="1" {{ $purchase->status == 1 ? 'selected' : '' }}>Pending</option>
                             <option value="2" {{ $purchase->status == 2 ? 'selected' : '' }}>Approve</option>
-                            <option value="3" {{ $purchase->status == 3 ? 'selected' : '' }}>Decline</option>
                         </select>
                     </div>
                 </div>

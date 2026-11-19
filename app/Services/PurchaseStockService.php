@@ -257,7 +257,7 @@ class PurchaseStockService
 
         $orderIdsDirect = OrderItem::whereIn('purchase_item_id', $purchaseItemIds)
             ->whereNull('deleted_at')
-            ->whereHas('order', fn($q) => $q->whereNull('deleted_at')->where('order_type', 'sale')->where('status', '!=', 3))
+            ->whereHas('order', fn($q) => $q->whereNull('deleted_at')->where('order_type', 'sale')->where('status', '!=', Order::STATUS_CANCELLED))
             ->pluck('order_id')
             ->unique()
             ->all();
@@ -269,7 +269,7 @@ class PurchaseStockService
             ->whereIn('product_id', $productIds)
             ->whereNull('deleted_at')
             ->whereHas('order', function ($q) use ($createdAtMin) {
-                $q->whereNull('deleted_at')->where('order_type', 'sale')->where('status', '!=', 3);
+                $q->whereNull('deleted_at')->where('order_type', 'sale')->where('status', '!=', Order::STATUS_CANCELLED);
                 if ($createdAtMin) {
                     $q->where('created_at', '>=', $createdAtMin);
                 }
@@ -428,7 +428,7 @@ class PurchaseStockService
             ->with(['product', 'order'])
             ->whereIn('purchase_item_id', $purchaseItemIds)
             ->whereNull('deleted_at')
-            ->whereHas('order', fn($q) => $q->whereNull('deleted_at')->where('order_type', 'sale')->where('status', '!=', 3))
+            ->whereHas('order', fn($q) => $q->whereNull('deleted_at')->where('order_type', 'sale')->where('status', '!=', Order::STATUS_CANCELLED))
             ->get();
 
         $orderItemsByProdQuery = OrderItem::query()
@@ -436,7 +436,7 @@ class PurchaseStockService
             ->whereIn('product_id', $productIds)
             ->whereNull('deleted_at')
             ->whereHas('order', function ($q) use ($createdAtMin) {
-                $q->whereNull('deleted_at')->where('order_type', 'sale')->where('status', '!=', 3);
+                $q->whereNull('deleted_at')->where('order_type', 'sale')->where('status', '!=', Order::STATUS_CANCELLED);
                 if ($createdAtMin) {
                     $q->where('created_at', '>=', $createdAtMin);
                 }
@@ -496,7 +496,7 @@ class PurchaseStockService
         // 1. Direct match by purchase_item_id
         $orderItemsDirect = OrderItem::whereIn('purchase_item_id', $purchaseItemIds)
             ->whereNull('deleted_at')
-            ->whereHas('order', fn($q) => $q->whereNull('deleted_at')->where('order_type', 'sale'))
+            ->whereHas('order', fn($q) => $q->whereNull('deleted_at')->where('order_type', 'sale')->where('status', '!=', Order::STATUS_CANCELLED))
             ->get();
 
         // 2. Match by product_id and signature within recent timeframe
@@ -505,7 +505,7 @@ class PurchaseStockService
             ->whereIn('product_id', $productIds)
             ->whereNull('deleted_at')
             ->whereHas('order', function ($q) use ($createdAtMin) {
-                $q->whereNull('deleted_at')->where('order_type', 'sale');
+                $q->whereNull('deleted_at')->where('order_type', 'sale')->where('status', '!=', Order::STATUS_CANCELLED);
                 if ($createdAtMin) {
                     $q->where('created_at', '>=', $createdAtMin);
                 }
@@ -779,7 +779,7 @@ class PurchaseStockService
 
         $transferredStockByProductLoc = [];
         foreach ($transfers as $transfer) {
-            if ($transfer->status == PurchaseBill::STATUS_REJECTED) continue;
+            if ((int) $transfer->status !== PurchaseBill::STATUS_ACCEPTED) continue;
             foreach ($transfer->items as $tbItem) {
                 // Must match product, variant AND exact purchase_price of this purchase!
                 $matchesThisPurchase = $purchaseItemSignatures->first(function ($sig) use ($tbItem) {

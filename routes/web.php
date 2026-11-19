@@ -185,6 +185,8 @@ Route::prefix('admin')->name('admin.')->group(function () {
         Route::patch('purchases/{purchase}/payment-status', [PurchaseController::class, 'updatePaymentStatus'])->name('purchases.update-payment-status');
         Route::get('purchases/{purchase}/payment-history', [PurchaseController::class, 'paymentHistory'])->name('purchases.payment-history');
         Route::get('purchases/{purchase}/impact-check', [PurchaseController::class, 'impactCheck'])->name('purchases.impact-check');
+        Route::get('purchases/{purchase}/return-impact', [PurchaseController::class, 'returnImpactCheck'])->name('purchases.return-impact');
+        Route::post('purchases/{purchase}/return', [PurchaseController::class, 'returnPurchase'])->name('purchases.return');
         Route::get('purchases/{purchase}/barcode-items', [PurchaseController::class, 'barcodeItems'])->name('purchases.barcode-items');
 
         // Purchase Bills

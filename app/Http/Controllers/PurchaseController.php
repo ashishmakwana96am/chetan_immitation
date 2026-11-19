@@ -11,7 +11,12 @@ use App\Models\PurchaseItem;
 use App\Models\PurchasePayment;
 use App\Models\PurchaseBill;
 use App\Models\Supplier;
+use App\Models\Inventory;
+use App\Models\LocationBalance;
+use App\Models\LocationBalanceTransaction;
+use App\Models\SupplierAdvancePayment;
 use App\Services\ActivityLogger;
+use App\Services\PurchaseBatchService;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Cache;
 use Illuminate\Support\Facades\DB;
@@ -23,8 +28,18 @@ class PurchaseController extends Controller
     public function index()
     {
         $this->authorize('view purchases');
+        $user = auth()->user();
         $suppliers = Supplier::where('status', 1)->orderBy('name')->get();
-        return view('purchases.index', compact('suppliers'));
+        $canReturnPurchases = $user->can('return purchases');
+        $returnedPurchasesCount = $canReturnPurchases
+            ? Purchase::when($user->location_id && !$user->hasRole('super-admin'), function($q) use ($user) {
+                $q->whereHas('items.allocations', function($sub) use ($user) {
+                    $sub->where('location_id', $user->location_id);
+                });
+            })->where('status', Purchase::STATUS_CANCELLED)->count()
+            : 0;
+
+        return view('purchases.index', compact('suppliers', 'canReturnPurchases', 'returnedPurchasesCount'));
     }
 
     public function data(Request $request)
@@ -32,11 +47,28 @@ class PurchaseController extends Controller
         $this->authorize('view purchases');
 
         $user = auth()->user();
+        $canReturnPurchases = $user->can('return purchases');
+        $tab = $request->input('tab', 'active');
+        $isReturnedTab = ($tab === 'returned' && $canReturnPurchases);
+
+        $returnedPurchasesCount = $canReturnPurchases
+            ? Purchase::when($user->location_id && !$user->hasRole('super-admin'), function($q) use ($user) {
+                $q->whereHas('items.allocations', function($sub) use ($user) {
+                    $sub->where('location_id', $user->location_id);
+                });
+            })->where('status', Purchase::STATUS_CANCELLED)->count()
+            : 0;
+
         $query = Purchase::with([
                 'supplier:id,name',
                 'items.product:id,name',
                 'createdBy:id,name'
             ])
+            ->when($isReturnedTab, function ($q) {
+                $q->where('purchases.status', Purchase::STATUS_CANCELLED);
+            }, function ($q) {
+                $q->where('purchases.status', '!=', Purchase::STATUS_CANCELLED);
+            })
             ->when($user->location_id && !$user->hasRole('super-admin'), function($q) use ($user) {
                 $q->whereHas('items.allocations', function($sub) use ($user) {
                     $sub->where('location_id', $user->location_id);
@@ -125,7 +157,7 @@ class PurchaseController extends Controller
         $canEditPurchasesPaymentStatus = auth()->user()->can('edit purchases payment status');
         $canDownloadPurchases          = auth()->user()->can('download purchases');
 
-        $data = $invoices->map(function ($invoice, $index) use ($start, $canEdit, $canDelete, $canEditPurchasesStatus, $canEditPurchasesPaymentStatus, $canDownloadPurchases) {
+        $data = $invoices->map(function ($invoice, $index) use ($start, $canEdit, $canDelete, $canEditPurchasesStatus, $canEditPurchasesPaymentStatus, $canDownloadPurchases, $isReturnedTab, $canReturnPurchases) {
             $canEditRecord = $canEdit && can_modify_past_date_record($invoice->created_at);
             $canDeleteRecord = $canDelete && can_modify_past_date_record($invoice->created_at);
             $canStatusRecord = $canEditPurchasesStatus && can_modify_past_date_record($invoice->created_at);
@@ -138,8 +170,8 @@ class PurchaseController extends Controller
             ];
             $statusLabels = [
                 1 => 'Pending',
-                2 => 'Approve',
-                3 => 'Decline',
+                2 => 'Approved',
+                3 => 'Cancelled',
             ];
             $statusBadge = '<span class="badge ' . ($statusColors[$invoice->status] ?? 'bg-label-secondary') . '">' . ($statusLabels[$invoice->status] ?? ucfirst($invoice->status)) . '</span>';
 
@@ -159,19 +191,24 @@ class PurchaseController extends Controller
             $actions .= '<button class="btn btn-sm btn-label-primary action-dropdown-btn dropdown-toggle" data-bs-toggle="dropdown" data-bs-boundary="viewport" aria-expanded="false"><span>Actions</span></button>';
             $actions .= '<div class="dropdown-menu dropdown-menu-end action-dropdown-menu m-0">';
             $actions .= '<a href="' . route('admin.purchases.show', $invoice) . '" class="dropdown-item"><i class="ti ti-eye me-2"></i>View</a>';
-            $actions .= '<button class="dropdown-item purchase-print-barcode-btn" data-purchase-ids="' . $invoice->id . '"><i class="ti ti-printer me-2"></i>Print Barcode</button>';
-            if ($canEditRecord) {
-                $actions .= '<a href="' . route('admin.purchases.edit', $invoice) . '" class="dropdown-item"><i class="ti ti-pencil me-2"></i>Edit</a>';
-            }
-            if ($canStatusRecord && $invoice->status == 1) {
-                $actions .= '<button class="dropdown-item change-purchase-status-btn" data-url="' . route('admin.purchases.status', $invoice) . '" data-current="' . $invoice->status . '"><i class="ti ti-adjustments-horizontal me-2"></i>Update Status</button>';
-            }
-            if ($canPaymentStatusRecord && ($invoice->status == 1 || ($invoice->status == 2 && $invoice->payment_status != 2))) {
-                $actions .= '<button class="dropdown-item change-purchase-payment-status-btn" data-url="' . route('admin.purchases.update-payment-status', $invoice) . '" data-history-url="' . route('admin.purchases.payment-history', $invoice) . '" data-current="' . ($invoice->payment_status ?? 1) . '"><i class="ti ti-credit-card me-2"></i>Update Payment Status</button>';
-            }
-            if ($canDeleteRecord) {
-                $actions .= '<div class="dropdown-divider"></div>';
-                $actions .= '<button class="dropdown-item text-danger purchase-delete-btn" data-url="' . route('admin.purchases.destroy', $invoice) . '" data-impact-url="' . route('admin.purchases.impact-check', $invoice) . '" data-invoice-no="' . e($invoice->invoice_no) . '"><i class="ti ti-trash me-2"></i>Delete</button>';
+            if (!$isReturnedTab) {
+                $actions .= '<button class="dropdown-item purchase-print-barcode-btn" data-purchase-ids="' . $invoice->id . '"><i class="ti ti-printer me-2"></i>Print Barcode</button>';
+                if ($canEditRecord) {
+                    $actions .= '<a href="' . route('admin.purchases.edit', $invoice) . '" class="dropdown-item"><i class="ti ti-pencil me-2"></i>Edit</a>';
+                }
+                if ($canStatusRecord && $invoice->status == 1) {
+                    $actions .= '<button class="dropdown-item change-purchase-status-btn" data-url="' . route('admin.purchases.status', $invoice) . '" data-current="' . $invoice->status . '"><i class="ti ti-adjustments-horizontal me-2"></i>Update Status</button>';
+                }
+                if ($canPaymentStatusRecord && ($invoice->status == 1 || ($invoice->status == 2 && $invoice->payment_status != 2))) {
+                    $actions .= '<button class="dropdown-item change-purchase-payment-status-btn" data-url="' . route('admin.purchases.update-payment-status', $invoice) . '" data-history-url="' . route('admin.purchases.payment-history', $invoice) . '" data-current="' . ($invoice->payment_status ?? 1) . '"><i class="ti ti-credit-card me-2"></i>Update Payment Status</button>';
+                }
+                if ($canReturnPurchases && $invoice->status != Purchase::STATUS_CANCELLED) {
+                    $actions .= '<button class="dropdown-item text-danger purchase-return-btn" data-url="' . route('admin.purchases.return', $invoice) . '" data-impact-url="' . route('admin.purchases.return-impact', $invoice) . '" data-invoice-no="' . e($invoice->invoice_no) . '"><i class="ti ti-rotate me-2"></i>Return</button>';
+                }
+                if ($canDeleteRecord) {
+                    $actions .= '<div class="dropdown-divider"></div>';
+                    $actions .= '<button class="dropdown-item text-danger purchase-delete-btn" data-url="' . route('admin.purchases.destroy', $invoice) . '" data-impact-url="' . route('admin.purchases.impact-check', $invoice) . '" data-invoice-no="' . e($invoice->invoice_no) . '"><i class="ti ti-trash me-2"></i>Delete</button>';
+                }
             }
             $actions .= '</div></div>';
 
@@ -203,6 +240,7 @@ class PurchaseController extends Controller
             'draw' => (int) $request->input('draw', 1),
             'recordsTotal' => $recordsTotal,
             'recordsFiltered' => $recordsFiltered,
+            'returned_count' => $returnedPurchasesCount,
             'data' => $data,
         ]);
     }
@@ -1130,6 +1168,166 @@ class PurchaseController extends Controller
         return response()->json([
             'status' => 'success',
             'data'   => $impact,
+        ]);
+    }
+
+    public function returnImpactCheck(Purchase $purchase)
+    {
+        $this->authorize('return purchases');
+
+        $impact = PurchaseStockService::getImpactData($purchase);
+
+        return response()->json([
+            'status' => 'success',
+            'data'   => $impact,
+        ]);
+    }
+
+    public function returnPurchase(Request $request, Purchase $purchase)
+    {
+        $this->authorize('return purchases');
+
+        if ($purchase->status == Purchase::STATUS_CANCELLED) {
+            return response()->json([
+                'status'  => 'error',
+                'message' => 'Purchase is already cancelled / returned.',
+            ], 422);
+        }
+
+        if (!can_modify_past_date_record($purchase->created_at)) {
+            return response()->json([
+                'status'  => 'error',
+                'message' => 'You do not have permission to return past date records.',
+            ], 403);
+        }
+
+        $returnType = $request->input('return_type', 'purchase_only');
+        $isCascade  = ($returnType === 'cascade_all');
+
+        $purchaseLocationId = $purchase->items->flatMap->allocations->pluck('location_id')->first()
+            ?? $purchase->location_id
+            ?? 1;
+        $productIds = $purchase->items->pluck('product_id')->unique()->all();
+
+        $transferLocationIds = PurchaseBill::where('from_location_id', $purchaseLocationId)
+            ->pluck('to_location_id')
+            ->unique()
+            ->all();
+        $allAffectedLocations = array_unique(array_filter(array_merge([$purchaseLocationId], $transferLocationIds)));
+
+        $originalInvoiceNo = $purchase->invoice_no;
+        $paidAmount = (float) $purchase->paid_amount;
+
+        $wasApproved = ((int) $purchase->status === Purchase::STATUS_APPROVE);
+
+        DB::transaction(function () use ($purchase, $isCascade, $purchaseLocationId, $allAffectedLocations, $productIds, $paidAmount, $wasApproved) {
+            // 1. Restore supplier advance
+            SupplierAdvancePayment::restoreAdvanceForPurchase($purchase);
+
+            // Mark purchase as cancelled FIRST so that syncProductBatchStocks sees it as cancelled
+            Purchase::withoutEvents(function () use ($purchase) {
+                $purchase->update([
+                    'status'         => Purchase::STATUS_CANCELLED,
+                    'payment_status' => Purchase::PAYMENT_STATUS_PENDING,
+                    'paid_amount'    => 0,
+                ]);
+            });
+
+            if ($isCascade) {
+                // 2. Cascade reversal of associated sales & transfers
+                PurchaseStockService::adjustOrDeleteSalesForPurchase($purchase);
+
+                if ($wasApproved) {
+                    PurchaseStockService::reversePurchaseWithTransfers($purchase, deleteSales: true, reason: 'deletion');
+                }
+            } else {
+                // Option 1: Only return purchase at purchase location
+                if ($wasApproved) {
+                    foreach ($purchase->items as $item) {
+                        $multiplier = PurchaseStockService::multiplierForProduct($item->product, $item->pair_type ?? null, $item->custom_size_value ?? null);
+                        $purchasedQty = (int) round($item->quantity * $multiplier);
+
+                        $sourceInv = Inventory::where('product_id', $item->product_id)->where('location_id', $purchaseLocationId)->first();
+                        if ($sourceInv) {
+                            $curQty = (int) $sourceInv->quantity;
+                            $deductQty = min($curQty, $purchasedQty);
+                            $sourceInv->update(['quantity' => max(0, $curQty - $deductQty)]);
+                        }
+
+                        PurchaseBatchService::deductBatchStock(
+                            $purchaseLocationId,
+                            (int) $item->product_id,
+                            !empty($item->product_variant_id) ? (int) $item->product_variant_id : null,
+                            (float) $item->purchase_price,
+                            (float) $purchasedQty
+                        );
+                    }
+                }
+            }
+
+            // 3. Sync batch stocks across all affected locations
+            foreach ($allAffectedLocations as $locId) {
+                foreach ($productIds as $prodId) {
+                    PurchaseBatchService::syncProductBatchStocks((int)$locId, (int)$prodId);
+                }
+            }
+
+            // 4. Revert payment & location balance
+            if ($paidAmount > 0) {
+                $existingTx = LocationBalanceTransaction::where(function ($q) use ($purchase) {
+                    $q->where('notes', 'LIKE', '%Purchase #' . $purchase->invoice_no . '%');
+                })->first();
+
+                if ($existingTx) {
+                    $balanceLocationId = $existingTx->location_id;
+                    $balanceType = $existingTx->balance_type;
+                } else {
+                    $balanceLocationId = $purchaseLocationId;
+                    $balanceType = in_array(strtolower($purchase->payment_method ?? ''), ['online', 'razorpay', 'bank_transfer', 'bank transfer'], true)
+                        ? LocationBalanceTransaction::BALANCE_TYPE_BANK
+                        : LocationBalanceTransaction::BALANCE_TYPE_CASH;
+                }
+                $balanceCol = $balanceType === LocationBalanceTransaction::BALANCE_TYPE_BANK ? 'bank_balance' : 'cash_balance';
+
+                $balance = LocationBalance::where('location_id', $balanceLocationId)->lockForUpdate()->first();
+                $oldBalance = $balance ? (float) $balance->{$balanceCol} : 0.0;
+                $newBalance = $oldBalance + $paidAmount;
+                if ($balance) {
+                    $balance->update([$balanceCol => $newBalance]);
+                }
+
+                $cleanInvoiceNo = preg_replace('/^DEL-\d+-/i', '', $purchase->invoice_no);
+                $note = 'Purchase #' . $cleanInvoiceNo;
+                LocationBalanceTransaction::whereIn('notes', [$note, 'Purchase #' . $purchase->invoice_no, 'Refund/Correction: ' . $note])->delete();
+
+                ActivityLogger::log(
+                    'Accounting',
+                    'delete',
+                    null,
+                    $balance ? [$balanceCol => $oldBalance] : null,
+                    $balance ? [$balanceCol => $newBalance] : null,
+                    'Balance refunded on return of Purchase #' . $cleanInvoiceNo . ' (' . format_price($paidAmount) . ')'
+                );
+
+                LocationBalanceTransaction::syncLocationBalance($balanceLocationId, $balanceType);
+            }
+
+            // 5. Remove direct purchase payments
+            PurchasePayment::where('purchase_id', $purchase->id)->delete();
+        });
+
+        ActivityLogger::log(
+            'Purchase',
+            'return',
+            $purchase,
+            null,
+            null,
+            'Purchase #' . $originalInvoiceNo . ' returned' . ($isCascade ? ' (cascade: sales & transfers reversed)' : ' (purchase only)')
+        );
+
+        return response()->json([
+            'status'  => 'success',
+            'message' => 'Purchase returned successfully.',
         ]);
     }
 

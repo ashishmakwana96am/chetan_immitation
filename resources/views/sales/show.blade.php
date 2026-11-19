@@ -228,7 +228,7 @@
                 @endcan
 
                 @can('return sales')
-                    @if((int)$order->status !== \App\Models\Order::STATUS_CANCELLED && can_modify_past_date_record($order->created_at))
+                    @if((int)$order->status !== \App\Models\Order::STATUS_CANCELLED && ($order->source ?? 'POS') !== 'ONLINE' && can_modify_past_date_record($order->created_at))
                     <button type="button" class="btn btn-label-warning return-sale-btn" data-url="{{ route('admin.sales.return', $order) }}" data-order-no="{{ $order->order_no }}">
                         <i class="ti ti-rotate-clockwise me-1"></i> Return
                     </button>
