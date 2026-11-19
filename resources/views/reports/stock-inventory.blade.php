@@ -58,6 +58,20 @@
         let table = null;
         const locationCount = {{ $locations->count() }};
         const locationIds = @json($locations->pluck('id'));
+        const attributeValues = {{ Illuminate\Support\Js::from($attributes->mapWithKeys(fn ($attribute) => [
+            $attribute->id => $attribute->values->sortBy('value', SORT_NATURAL | SORT_FLAG_CASE)
+                ->map->only(['id', 'value'])->values(),
+        ])) }};
+
+        $('#filterAttribute').on('change', function () {
+            const values = attributeValues[this.value] || [];
+            const valueSelect = $('#filterAttributeValue');
+            valueSelect.find('option:not([value=""])').remove();
+            values.forEach(function (value) {
+                valueSelect.append(new Option(value.value, value.id));
+            });
+            valueSelect.val('').prop('disabled', values.length === 0).trigger('change').trigger('change.select2');
+        });
 
         function currentFilters() {
             let minAge = $('#filterAge').val();
@@ -66,6 +80,8 @@
             }
             return {
                 category_id : $('#filterCategory').val() || '',
+                attribute_id : $('#filterAttribute').val() || '',
+                attribute_value_id : $('#filterAttributeValue').val() || '',
                 location_id : $('#filterLocation').val() || '',
                 stock       : $('#filterStock').val() || '',
                 min_age     : minAge || '',
@@ -75,8 +91,15 @@
             };
         }
 
-        function refreshTotals() {
-            $.get('{{ route('admin.reports.stock-inventory.totals') }}', currentFilters(), function (res) {
+        let appliedFilters = currentFilters();
+        let totalsRequest = 0;
+
+        function refreshTotals(search) {
+            const filters = appliedFilters;
+            const request = ++totalsRequest;
+            $.get('{{ route('admin.reports.stock-inventory.totals') }}', {...filters, search: {value: search}}, function (res) {
+                if (filters !== appliedFilters || request !== totalsRequest) return;
+
                 locationIds.forEach(function (locId) {
                     $('#stockTableFooterRow td[data-loc-total="' + locId + '"]').html(res.location_totals[locId] ?? '0');
                 });
@@ -111,6 +134,9 @@
                 if (res.soldout_count !== undefined) {
                     $('#statSoldoutProductCount').text(res.soldout_count);
                 }
+                const lowStockCount = res.low_stock_count ?? {{ $lowStockCount }};
+                $('#stockLowAlert').toggleClass('d-none', lowStockCount === 0);
+                $('#stockLowCount').text(lowStockCount);
                 if (res.location_chart_data && res.stacked_chart_data) {
                     updateCharts(res.location_chart_data, res.stacked_chart_data);
                 }
@@ -127,7 +153,7 @@
             variants.forEach(function (v) {
                 html += '<tr>';
                 html += '<td>' + v.index + '</td>';
-                html += '<td class="ps-4">' + v.name + '</td>';
+                html += '<td class="ps-4">' + $('<div>').text(v.name).html() + '</td>';
                 html += '<td>' + v.last_purchase_display + '</td>';
                 html += v.loc_badges;
                 html += '<td class="text-center">' + v.total_badge + '</td>';
@@ -155,7 +181,7 @@
                 ajax: {
                     url: '{{ route('admin.reports.stock-inventory.data') }}',
                     data: function (d) {
-                        Object.assign(d, currentFilters());
+                        Object.assign(d, appliedFilters);
                     }
                 },
                 columns: [
@@ -180,7 +206,7 @@
                     $row.attr('data-product-id', data.id);
                 },
                 drawCallback: function () {
-                    refreshTotals();
+                    refreshTotals(this.api().search());
                 }
             });
 
@@ -417,12 +443,13 @@
         updateFilterButtonsVisibility();
 
         function reloadStockTable() {
+            appliedFilters = currentFilters();
             if (window.showAjaxLoader) {
                 $('.loader-status').text('Filtering Stock Report...');
                 window.showAjaxLoader();
             }
             if (table) {
-                table.ajax.reload(null, false);
+                table.ajax.reload();
             }
         }
 
@@ -432,6 +459,7 @@
 
         $(document).on('click', '#clearFiltersBtn', function() {
             $('#filterCategory').val('').trigger('change');
+            $('#filterAttribute').val('').trigger('change');
             $('#filterLocation').val('').trigger('change');
             $('#filterStock').val('');
             $('#filterAge').val('');
@@ -441,21 +469,18 @@
             $('#filterForm .flatpickr').each(function () {
                 if (this._flatpickr) this._flatpickr.clear();
             });
+            updateFilterButtonsVisibility();
             reloadStockTable();
         });
 
         $(document).on('click', '#exportExcelBtn', function() {
-            let params = currentFilters();
+            const params = currentFilters();
+            const search = table?.search();
+            if (search) params.search = {value: search};
+
             let url = "{{ route('admin.reports.stock-inventory.export-excel') }}";
-            let queryArr = [];
-            for (let k in params) {
-                if (params[k]) {
-                    queryArr.push(k + '=' + encodeURIComponent(params[k]));
-                }
-            }
-            if (queryArr.length > 0) {
-                url += '?' + queryArr.join('&');
-            }
+            const query = $.param(Object.fromEntries(Object.entries(params).filter(([, value]) => value)));
+            if (query) url += '?' + query;
 
             if (window.showAjaxLoader) {
                 $('.loader-status').text('Exporting Excel');
@@ -465,6 +490,7 @@
             $.ajax({
                 url: url,
                 type: 'GET',
+                headers: { Accept: 'application/json' },
                 xhrFields: {
                     responseType: 'blob'
                 },
@@ -496,13 +522,15 @@
                         toastr.success('Excel report downloaded successfully!');
                     }
                 },
-                error: function () {
+                error: function (xhr) {
                     if (window.hideAjaxLoader) {
                         window.hideAjaxLoader();
                         $('.loader-status').text('Loading');
                     }
                     if (typeof toastr !== 'undefined') {
-                        toastr.error('Failed to export report. Please try again.');
+                        toastr.error(xhr.status === 422
+                            ? 'No data found for the selected filters. Nothing to export.'
+                            : 'Failed to export report. Please try again.');
                     }
                 }
             });

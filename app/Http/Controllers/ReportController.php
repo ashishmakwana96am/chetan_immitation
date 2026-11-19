@@ -2,6 +2,7 @@
 
 namespace App\Http\Controllers;
 
+use App\Models\Attribute;
 use App\Models\BranchBalanceTransfer;
 use App\Models\BulkPurchasePayment;
 use App\Models\Category;
@@ -334,10 +335,15 @@ class ReportController extends Controller
             ->count();
 
         $overallTotals = $this->computeStockTotals(Product::query(), $locations, $locationId);
+        $attributes = Attribute::where('status', Attribute::STATUS_ACTIVE)
+            ->with('values')
+            ->orderBy('name')
+            ->get();
 
         return view('reports.stock-inventory', [
             'locations' => $locations,
             'categories' => $categories,
+            'attributes' => $attributes,
             'activeProductCount' => $activeProductCount,
             'soldoutProductCount' => $soldoutProductCount,
             'lowStockCount' => $lowStockCount,
@@ -352,7 +358,7 @@ class ReportController extends Controller
         ]);
     }
 
-    private function stockInventoryFilteredQuery(Request $request, ?int $locationId = null)
+    private function stockInventoryFilteredQuery(Request $request, ?int $locationId = null, ?array &$variantMatches = null)
     {
         $user = auth()->user();
         $isRestricted = $user->location_id && !$user->hasRole('super-admin');
@@ -363,6 +369,9 @@ class ReportController extends Controller
 
         $categoryId = $request->input('category_id');
         $stockFilter = $request->input('stock');
+        $attributeId = $request->integer('attribute_id');
+        $attributeValueId = $request->integer('attribute_value_id');
+        $filterByAttribute = $attributeId || $attributeValueId;
         $minAge = $request->input('min_age');
         $fromDate = $request->input('from_date');
         $toDate = $request->input('to_date');
@@ -371,7 +380,7 @@ class ReportController extends Controller
 
         $query = Product::query()
             ->when($categoryId, fn($q) => $q->where('category_id', $categoryId))
-            ->when($search, function ($q) use ($search) {
+            ->when($search !== null && $search !== '', function ($q) use ($search) {
                 $q->where(function ($sub) use ($search) {
                     $sub
                         ->where('name', 'like', "%{$search}%")
@@ -379,15 +388,17 @@ class ReportController extends Controller
                 });
             });
 
-        if ($stockFilter === 'in' || $stockFilter === 'in_stock') {
-            $query->whereRaw("{$stockExprSql} > 0", $stockExprBindings);
-        } elseif ($stockFilter === 'low' || $stockFilter === 'low_stock') {
-            $query->whereRaw("{$stockExprSql} > 0 AND {$stockExprSql} <= 5", array_merge($stockExprBindings, $stockExprBindings));
-        } elseif ($stockFilter === 'out' || $stockFilter === 'out_of_stock') {
-            $query->whereRaw("{$stockExprSql} <= 0", $stockExprBindings);
+        if (!$filterByAttribute) {
+            if ($stockFilter === 'in' || $stockFilter === 'in_stock') {
+                $query->whereRaw("{$stockExprSql} > 0", $stockExprBindings);
+            } elseif ($stockFilter === 'low' || $stockFilter === 'low_stock') {
+                $query->whereRaw("{$stockExprSql} > 0 AND {$stockExprSql} <= 5", array_merge($stockExprBindings, $stockExprBindings));
+            } elseif ($stockFilter === 'out' || $stockFilter === 'out_of_stock') {
+                $query->whereRaw("{$stockExprSql} <= 0", $stockExprBindings);
+            }
         }
 
-        if ($hasDateFilter) {
+        if ($hasDateFilter && !$filterByAttribute) {
             $sql = 'exists (select 1 from purchase_items join purchases on purchases.id = purchase_items.purchase_id
                      where purchase_items.product_id = products.id and purchases.status = ?';
             $bindings = [Purchase::STATUS_APPROVE];
@@ -405,15 +416,125 @@ class ReportController extends Controller
             $query->whereRaw("{$stockExprSql} > 0", $stockExprBindings);
         }
 
-        if ($minAge !== null && $minAge !== '') {
-            $cutoff = now()->subDays((int) $minAge)->toDateTimeString();
+        $cutoff = $minAge !== null && $minAge !== '' ? now()->subDays((int) $minAge)->toDateTimeString() : null;
+        if ($cutoff && !$filterByAttribute) {
             $query->whereRaw(
                 "({$lastPurchaseExprSql} IS NULL OR {$lastPurchaseExprSql} <= ?)",
                 array_merge($lastPurchaseExprBindings, $lastPurchaseExprBindings, [$cutoff])
             );
         }
 
+        if ($filterByAttribute) {
+            $matches = $this->stockInventoryMatchingVariants($query, $attributeId, $attributeValueId, $effectiveLocationId, $request);
+            $variantMatches = array_filter($matches, function ($match) use ($stockFilter, $hasDateFilter, $cutoff) {
+                $quantity = $match['total'];
+                if (($hasDateFilter && (!$match['purchased_in_range'] || $quantity === 0))
+                    || ($cutoff && $match['last_purchase_at'] && $match['last_purchase_at'] > $cutoff)) {
+                    return false;
+                }
+
+                return match ($stockFilter) {
+                    'in', 'in_stock' => $quantity > 0,
+                    'low', 'low_stock' => $quantity > 0 && $quantity <= 5,
+                    'out', 'out_of_stock' => $quantity === 0,
+                    default => true,
+                };
+            });
+            $query->whereIntegerInRaw('products.id', array_keys($variantMatches));
+        }
+
         return $query;
+    }
+
+    private function stockInventoryMatchingVariants($productQuery, int $attributeId, int $valueId, ?int $locationId, Request $request): array
+    {
+        $matches = [];
+        $locationIds = $locationId ? [$locationId] : Location::where('status', 1)->pluck('id')->all();
+        $candidates = (clone $productQuery)->where('products.type', 'variable')
+            ->withWhereHas('variants', function ($variants) use ($attributeId, $valueId) {
+                $variants->with('attributeValue.attribute')->whereHas('attributeValue', function ($values) use ($attributeId, $valueId) {
+                    $values->when($attributeId, fn ($query) => $query->where('attribute_id', $attributeId))
+                        ->when($valueId, fn ($query) => $query->whereKey($valueId))
+                        ->whereHas('attribute', fn ($query) => $query->where('status', Attribute::STATUS_ACTIVE));
+                });
+            })->with('category');
+
+        $candidates->chunkById(250, function ($products) use (&$matches, $locationIds, $request) {
+            $variantIds = $products->flatMap(fn ($product) => $product->variants->modelKeys())->all();
+            $history = DB::table('purchase_items')
+                ->join('purchases', 'purchases.id', '=', 'purchase_items.purchase_id')
+                ->whereIntegerInRaw('purchase_items.product_variant_id', $variantIds)
+                ->whereNull('purchase_items.deleted_at')
+                ->whereNull('purchases.deleted_at')
+                ->where('purchases.status', Purchase::STATUS_APPROVE);
+            $lastPurchases = (clone $history)->groupBy('purchase_items.product_variant_id')
+                ->selectRaw('purchase_items.product_variant_id, MAX(purchases.created_at) as last_purchase_at')
+                ->pluck('last_purchase_at', 'product_variant_id');
+            $purchasedInRange = [];
+            if ($request->filled('from_date') || $request->filled('to_date')) {
+                $purchasedInRange = $history
+                    ->when($request->input('from_date'), fn ($query, $date) => $query->whereDate('purchases.created_at', '>=', $date))
+                    ->when($request->input('to_date'), fn ($query, $date) => $query->whereDate('purchases.created_at', '<=', $date))
+                    ->distinct()->pluck('purchase_items.product_variant_id')->flip()->all();
+            }
+
+            try {
+                Product::preloadVariantStock($products);
+
+                foreach ($products as $product) {
+                    $stock = $product->getVariantStock();
+                    $pairSize = $product->getPairPackSize();
+                    $mrpPrice = (float) (($product->mrp ?? 0) > 0 ? $product->mrp : $product->sale_price);
+                    if ($product->pair_product && $product->custom_sizes) {
+                        $largestSize = collect($product->custom_sizes)->sortBy(fn ($size) => (float) ($size['size'] ?? 0))->last();
+                        $mrpPrice = (float) (($largestSize['mrp'] ?? 0) > 0 ? $largestSize['mrp'] : $mrpPrice);
+                    }
+
+                    $match = [
+                        'product' => $product,
+                        'stock' => array_fill_keys($locationIds, 0),
+                        'total' => 0,
+                        'purchase_value' => 0.0,
+                        'mrp_value' => 0.0,
+                        'last_purchase_at' => null,
+                        'purchased_in_range' => false,
+                        'variants' => [],
+                    ];
+                    foreach ($product->variants as $variant) {
+                        $variantStock = [];
+                        foreach ($locationIds as $id) {
+                            $qty = max(0, (int) ($stock[$id]['variants'][$variant->id] ?? 0));
+                            $variantStock[$id] = $qty;
+                            $match['stock'][$id] += $qty;
+                        }
+
+                        $quantity = array_sum($variantStock);
+                        $purchaseValue = round($quantity / $pairSize * (float) ($variant->purchase_price ?? $product->purchase_price), 2);
+                        $mrpValue = round($quantity / $pairSize * (float) (($variant->mrp ?? 0) > 0 ? $variant->mrp : $mrpPrice), 2);
+                        $lastPurchase = $lastPurchases->get($variant->id);
+                        $match['total'] += $quantity;
+                        $match['purchase_value'] += $purchaseValue;
+                        $match['mrp_value'] += $mrpValue;
+                        $match['last_purchase_at'] = max($match['last_purchase_at'], $lastPurchase);
+                        $match['purchased_in_range'] = $match['purchased_in_range'] || isset($purchasedInRange[$variant->id]);
+                        $match['variants'][$variant->id] = [
+                            'name' => ($variant->attributeValue->attribute->name ?? '') . ': ' . ($variant->attributeValue->value ?? ''),
+                            'stock' => $variantStock,
+                            'total' => $quantity,
+                            'purchase_value' => $purchaseValue,
+                            'mrp_value' => $mrpValue,
+                            'last_purchase_at' => $lastPurchase,
+                            'status' => $variant->status,
+                        ];
+                    }
+                    $matches[$product->id] = $match;
+                }
+            } finally {
+                Product::clearPreloadedVariantStock();
+            }
+        });
+
+        return $matches;
     }
 
     private function stockTotalSubquery(?int $locationId): array
@@ -427,6 +548,61 @@ class ReportController extends Controller
         $sql .= ')';
 
         return [$sql, $bindings];
+    }
+
+    private function stockInventoryVariantData(Request $request, array $matches, $locations, int $recordsTotal)
+    {
+        $orderIndex = $request->input('order.0.column');
+        $column = $request->input("columns.{$orderIndex}.name");
+        $descending = strtolower($request->input('order.0.dir', 'asc')) === 'desc';
+        $sortBy = $request->input('sort_by');
+        $field = match ($column) {
+            'name', 'barcode', 'category', 'purchase_value', 'mrp_value' => $column,
+            'total_qty' => 'total',
+            default => 'last_purchase_at',
+        };
+        $nullsFirst = false;
+        if ($column === 'age') {
+            $descending = !$descending;
+        } elseif ($field === 'last_purchase_at' && $column !== 'last_purchase') {
+            $nullsFirst = $sortBy === 'age_desc';
+            $descending = $sortBy === 'age_asc' || (!$nullsFirst && !$request->filled('from_date') && !$request->filled('to_date'));
+        }
+
+        $sortValue = fn ($match) => match ($field) {
+            'name', 'barcode' => strtolower((string) $match['product']->{$field}),
+            'category' => strtolower((string) $match['product']->category?->name),
+            default => $match[$field],
+        };
+        $ordered = collect($matches)->sort(function ($left, $right) use ($sortValue, $descending, $nullsFirst) {
+            $a = $sortValue($left);
+            $b = $sortValue($right);
+            if (($a === null) !== ($b === null)) {
+                return ($a === null) === $nullsFirst ? -1 : 1;
+            }
+
+            return ($descending ? $b <=> $a : $a <=> $b) ?: ($left['product']->id <=> $right['product']->id);
+        });
+        $start = max(0, $request->integer('start'));
+        $length = $request->integer('length', 25);
+        $page = $ordered->slice($start, $length > 0 ? $length : 25);
+        (new \Illuminate\Database\Eloquent\Collection($page->pluck('product')->all()))->loadMissing('primaryImage');
+        $data = [];
+        foreach ($page as $match) {
+            $product = $match['product'];
+            $variants = [];
+            foreach ($match['variants'] as $variant) {
+                $variants[] = $this->stockInventoryVariantRow($product, $locations, $variant, count($variants) + 1);
+            }
+            $data[] = $this->stockInventoryProductRow($product, $locations, $match, $variants, ++$start);
+        }
+
+        return response()->json([
+            'draw' => $request->integer('draw', 1),
+            'recordsTotal' => $recordsTotal,
+            'recordsFiltered' => count($matches),
+            'data' => $data,
+        ]);
     }
 
     private function lastPurchaseSubquery(): array
@@ -476,7 +652,12 @@ class ReportController extends Controller
 
         $recordsTotal = Product::count();
 
-        $query = $this->stockInventoryFilteredQuery($request, $locationId);
+        $variantMatches = null;
+        $query = $this->stockInventoryFilteredQuery($request, $locationId, $variantMatches);
+        if ($variantMatches !== null) {
+            return $this->stockInventoryVariantData($request, $variantMatches, $locations, $recordsTotal);
+        }
+
         $recordsFiltered = (clone $query)->count();
 
         [$stockExprSql, $stockExprBindings] = $this->stockTotalSubquery($locationId);
@@ -651,7 +832,7 @@ class ReportController extends Controller
                     $parentMrpVal = $effectiveTotal * $mrpPrice;
                 }
 
-                foreach ($product->variants as $vIndex => $v) {
+                foreach ($product->variants as $v) {
                     $vLocStock = [];
                     foreach ($locations as $location) {
                         $vLocStock[$location->id] = max(0, (int) ($variantStock[$location->id]['variants'][$v->id] ?? 0));
@@ -671,24 +852,14 @@ class ReportController extends Controller
                     }
 
                     $variantKey = $product->id . ':' . $v->id;
-                    $ageInfo = $this->stockInventoryBuildAgeInfo($variantLastPurchase[$variantKey] ?? null);
-
-                    $locBadges = '';
-                    foreach ($locations as $location) {
-                        $qty = $vLocStock[$location->id] ?? 0;
-                        $locBadges .= '<td class="text-center"><span class="badge ' . ($qty > 5 ? 'bg-label-success' : ($qty > 0 ? 'bg-label-warning' : 'bg-label-secondary')) . '">' . $product->formatStockDisplay($qty) . '</span></td>';
-                    }
-
-                    $variantsData[] = [
-                        'index' => $vIndex + 1,
+                    $variantsData[] = $this->stockInventoryVariantRow($product, $locations, [
                         'name' => "{$attrName}: {$valName}",
-                        'last_purchase_display' => $ageInfo['last_purchase_display'],
-                        'loc_badges' => $locBadges,
-                        'total_badge' => '<span class="badge ' . ($vTotal > 5 ? 'bg-label-success' : ($vTotal > 0 ? 'bg-label-warning' : 'bg-label-danger')) . ' fw-bold">' . $product->formatStockDisplay($vTotal) . '</span>',
-                        'purchase_value' => format_price($vPurchVal),
-                        'mrp_value' => format_price($vMrpVal),
-                        'age_badge' => $this->stockInventoryAgeBadge($ageInfo),
-                    ];
+                        'stock' => $vLocStock,
+                        'total' => $vTotal,
+                        'purchase_value' => $vPurchVal,
+                        'mrp_value' => $vMrpVal,
+                        'last_purchase_at' => $variantLastPurchase[$variantKey] ?? null,
+                    ], count($variantsData) + 1);
                 }
 
                 $totalStock = $parentTotal;
@@ -837,37 +1008,13 @@ class ReportController extends Controller
                 $parentLocStock = $stock;
             }
 
-            $ageInfo = $this->stockInventoryBuildAgeInfo($productLastPurchase[$product->id] ?? null);
-            $hasVariants = count($variantsData) > 0;
-
-            $nameHtml = '<div class="d-flex align-items-center">';
-            $nameHtml .= $hasVariants
-                ? '<button type="button" class="btn btn-icon btn-sm variant-toggle me-2" data-product-id="' . $product->id . '" aria-expanded="false"><i class="ti ti-chevron-right"></i></button>'
-                : '<span class="me-2" style="width: 24px;"></span>';
-            $nameHtml .= '<img src="' . $product->primary_image_url . '" alt="' . e($product->name) . '" class="rounded me-2 product-thumbnail" style="width: 32px; height: 32px; object-fit: cover;">';
-            $nameHtml .= '<a href="' . route('admin.products.show', $product->id) . '" class="fw-semibold">' . e($product->name) . '</a></div>';
-
-            $locBadges = '';
-            foreach ($locations as $location) {
-                $qty = $parentLocStock[$location->id] ?? 0;
-                $locBadges .= '<td class="text-center"><span class="badge ' . ($qty > 5 ? 'bg-label-success' : ($qty > 0 ? 'bg-label-warning' : 'bg-label-secondary')) . '">' . $product->formatStockDisplay($qty) . '</span></td>';
-            }
-
-            $data[] = [
-                'index' => $index++,
-                'id' => $product->id,
-                'name' => $nameHtml,
-                'last_purchase_display' => $ageInfo['last_purchase_display'],
-                'barcode' => '<code>' . e($product->barcode) . '</code>',
-                'category' => '<span class="badge bg-label-primary">' . e($product->category->name ?? '-') . '</span>',
-                'loc_badges' => $locBadges,
-                'total_badge' => '<span class="badge ' . ($totalStock > 5 ? 'bg-label-success' : ($totalStock > 0 ? 'bg-label-warning' : 'bg-label-danger')) . ' fw-bold">' . $product->formatStockDisplay($totalStock) . '</span>',
-                'purchase_value' => format_price($purchaseValue),
-                'mrp_value' => format_price($mrpValue),
-                'age_badge' => $this->stockInventoryAgeBadge($ageInfo),
-                'variants' => $variantsData,
-                'has_variants' => $hasVariants,
-            ];
+            $data[] = $this->stockInventoryProductRow($product, $locations, [
+                'stock' => $parentLocStock,
+                'total' => $totalStock,
+                'purchase_value' => $purchaseValue,
+                'mrp_value' => $mrpValue,
+                'last_purchase_at' => $productLastPurchase[$product->id] ?? null,
+            ], $variantsData, $index++);
         }
 
         return response()->json([
@@ -892,6 +1039,46 @@ class ReportController extends Controller
         return '<span class="badge bg-label-success">' . $ageInfo['age_display'] . '</span>';
     }
 
+    private function stockInventoryProductRow(Product $product, $locations, array $stock, array $variants, int $index): array
+    {
+        $name = '<div class="d-flex align-items-center">';
+        $name .= $variants
+            ? '<button type="button" class="btn btn-icon btn-sm variant-toggle me-2" data-product-id="' . $product->id . '" aria-expanded="false"><i class="ti ti-chevron-right"></i></button>'
+            : '<span class="me-2" style="width: 24px;"></span>';
+        $name .= '<img src="' . $product->primary_image_url . '" alt="' . e($product->name) . '" class="rounded me-2 product-thumbnail" style="width: 32px; height: 32px; object-fit: cover;">';
+        $name .= '<a href="' . route('admin.products.show', $product->id) . '" class="fw-semibold">' . e($product->name) . '</a></div>';
+        $row = $this->stockInventoryVariantRow($product, $locations, ['name' => $name] + $stock, $index);
+        $row['id'] = $product->id;
+        $row['barcode'] = '<code>' . e($product->barcode) . '</code>';
+        $row['category'] = '<span class="badge bg-label-primary">' . e($product->category->name ?? '-') . '</span>';
+        $row['variants'] = $variants;
+        $row['has_variants'] = count($variants) > 0;
+
+        return $row;
+    }
+
+    private function stockInventoryVariantRow(Product $product, $locations, array $stock, int $index): array
+    {
+        $ageInfo = $this->stockInventoryBuildAgeInfo($stock['last_purchase_at']);
+        $locBadges = '';
+        foreach ($locations as $location) {
+            $qty = $stock['stock'][$location->id] ?? 0;
+            $locBadges .= '<td class="text-center"><span class="badge ' . ($qty > 5 ? 'bg-label-success' : ($qty > 0 ? 'bg-label-warning' : 'bg-label-secondary')) . '">' . $product->formatStockDisplay($qty) . '</span></td>';
+        }
+        $total = $stock['total'];
+
+        return [
+            'index' => $index,
+            'name' => $stock['name'],
+            'last_purchase_display' => $ageInfo['last_purchase_display'],
+            'loc_badges' => $locBadges,
+            'total_badge' => '<span class="badge ' . ($total > 5 ? 'bg-label-success' : ($total > 0 ? 'bg-label-warning' : 'bg-label-danger')) . ' fw-bold">' . $product->formatStockDisplay($total) . '</span>',
+            'purchase_value' => format_price($stock['purchase_value']),
+            'mrp_value' => format_price($stock['mrp_value']),
+            'age_badge' => $this->stockInventoryAgeBadge($ageInfo),
+        ];
+    }
+
     public function stockInventoryTotals(Request $request)
     {
         $this->authorize('view stock inventory reports');
@@ -904,11 +1091,43 @@ class ReportController extends Controller
             ? Location::where('id', $user->location_id)->get()
             : Location::where('status', 1)->orderBy('name')->get();
 
-        $filteredQuery = $this->stockInventoryFilteredQuery($request, $locationId);
+        $variantMatches = null;
+        $filteredQuery = $this->stockInventoryFilteredQuery($request, $locationId, $variantMatches);
+        if ($variantMatches !== null) {
+            $totals = $this->stockInventoryVariantTotals($variantMatches, $locations);
+            $movements = $this->stockInventoryVariantMovements($variantMatches, $locations, $locationId);
+            $byStock = collect($variantMatches)->sortByDesc('total');
+
+            return response()->json([
+                'location_totals' => $totals['location_totals'],
+                'qty_total' => $totals['qty_total'],
+                'purchase_total' => format_price($totals['purchase_total']),
+                'mrp_total' => format_price($totals['mrp_total']),
+                'product_count' => number_format(count($variantMatches)),
+                'soldout_count' => number_format($byStock->where('total', 0)->count()),
+                'low_stock_count' => $byStock->where('total', '>', 0)->where('total', '<=', 5)->count(),
+                'location_chart_data' => $locations->map(fn ($location) => [
+                    'name' => $location->name,
+                    'stock' => $totals['location_stock'][$location->id],
+                ])->all(),
+                'stacked_chart_data' => $byStock->take(10)->map(fn ($match) => [
+                    'name' => $match['product']->name,
+                ] + $match['stock'])->values()->all(),
+            ] + array_map('format_price', $movements));
+        }
+
         $totals = $this->computeStockTotals($filteredQuery, $locations, $locationId);
 
         $filteredIds = (clone $filteredQuery)->pluck('id');
         $productCount = $filteredIds->count();
+
+        $lowStockCount = Inventory::whereIn('product_id', $filteredIds)
+            ->when($locationId, fn($q) => $q->where('location_id', $locationId))
+            ->select('product_id', DB::raw('SUM(quantity) as total'))
+            ->groupBy('product_id')
+            ->havingRaw('SUM(quantity) > 0 AND SUM(quantity) <= 5')
+            ->get()
+            ->count();
 
         $soldoutCount = Product::whereIn('id', $filteredIds)
             ->whereDoesntHave('inventories', function ($q) use ($locationId) {
@@ -965,9 +1184,120 @@ class ReportController extends Controller
             'sales_cost_total' => format_price($totals['sales_cost_total'] ?? 0),
             'product_count' => number_format($productCount),
             'soldout_count' => number_format($soldoutCount),
+            'low_stock_count' => $lowStockCount,
             'location_chart_data' => $locationChartData,
             'stacked_chart_data' => $stackedChartData,
         ]);
+    }
+
+    private function stockInventoryVariantTotals(array $matches, $locations): array
+    {
+        $locationStock = array_fill_keys($locations->modelKeys(), 0);
+        $pairs = $loose = $locationStock + ['total' => 0];
+        $purchaseValue = $mrpValue = 0.0;
+        foreach ($matches as $match) {
+            $product = $match['product'];
+            $pairSize = $product->getPairPackSize();
+            $stock = array_intersect_key($match['stock'], $locationStock);
+            foreach ($stock as $id => $quantity) {
+                $locationStock[$id] += $quantity;
+            }
+            foreach ($stock + ['total' => $match['total']] as $id => $quantity) {
+                if ($product->pair_product) {
+                    $pairs[$id] += (int) floor($quantity / $pairSize);
+                    $loose[$id] += (int) ($quantity % $pairSize);
+                } else {
+                    $loose[$id] += $quantity;
+                }
+            }
+            $purchaseValue += $match['purchase_value'];
+            $mrpValue += $match['mrp_value'];
+        }
+
+        $locationTotals = [];
+        foreach ($locations as $location) {
+            $locationTotals[$location->id] = $this->formatStockReportQuantity($pairs[$location->id], $loose[$location->id]);
+        }
+
+        return [
+            'location_totals' => $locationTotals,
+            'qty_total' => $this->formatStockReportQuantity($pairs['total'], $loose['total']),
+            'purchase_total' => $purchaseValue,
+            'mrp_total' => $mrpValue,
+            'location_stock' => $locationStock,
+        ];
+    }
+
+    private function formatStockReportQuantity(int $pairs, int $pcs): string
+    {
+        $parts = [];
+        if ($pairs > 0) {
+            $parts[] = number_format($pairs) . ' Pair' . ($pairs > 1 ? 's' : '');
+        }
+        if ($pcs > 0 || count($parts) === 0) {
+            $parts[] = number_format($pcs) . ' Pcs';
+        }
+
+        return implode('<br>', $parts);
+    }
+
+    private function stockInventoryVariantMovements(array $matches, $locations, ?int $locationId): array
+    {
+        $variantIds = array_merge(...array_map(fn ($match) => array_keys($match['variants']), array_values($matches)));
+        $locationIds = $locationId ? [$locationId] : $locations->modelKeys();
+
+        $purchases = DB::table('purchase_items')
+            ->join('purchases', 'purchases.id', '=', 'purchase_items.purchase_id')
+            ->whereIntegerInRaw('purchase_items.product_variant_id', $variantIds)
+            ->whereNull('purchase_items.deleted_at')
+            ->whereNull('purchases.deleted_at')
+            ->where('purchases.status', Purchase::STATUS_APPROVE);
+        $direct = $locationId
+            ? $purchases->join('purchase_allocations', 'purchase_items.id', '=', 'purchase_allocations.purchase_item_id')
+                ->where('purchase_allocations.location_id', $locationId)
+                ->sum(DB::raw('purchase_allocations.quantity * purchase_items.purchase_price'))
+            : $purchases->sum(DB::raw('purchase_items.quantity * purchase_items.purchase_price'));
+
+        $transfers = DB::table('purchase_bill_items')
+            ->join('purchase_bills', 'purchase_bills.id', '=', 'purchase_bill_items.purchase_bill_id')
+            ->whereIntegerInRaw('purchase_bill_items.product_variant_id', $variantIds)
+            ->whereNull('purchase_bill_items.deleted_at')
+            ->whereNull('purchase_bills.deleted_at')
+            ->where('purchase_bills.status', PurchaseBill::STATUS_ACCEPTED)
+            ->where(function ($query) use ($locationIds) {
+                $query->whereIntegerInRaw('purchase_bills.to_location_id', $locationIds)
+                    ->orWhereIntegerInRaw('purchase_bills.from_location_id', $locationIds);
+            })
+            ->get(['purchase_bill_items.*', 'purchase_bills.to_location_id', 'purchase_bills.from_location_id']);
+        $transferIn = $transferOut = 0.0;
+        foreach ($transfers as $transfer) {
+            $product = $matches[$transfer->product_id]['product'] ?? null;
+            $value = (float) $transfer->quantity * $this->resolveItemPurchasePrice($product, $transfer);
+            if (in_array($transfer->to_location_id, $locationIds)) {
+                $transferIn += $value;
+            }
+            if (in_array($transfer->from_location_id, $locationIds)) {
+                $transferOut += $value;
+            }
+        }
+
+        $sales = DB::table('order_items')
+            ->join('orders', 'orders.id', '=', 'order_items.order_id')
+            ->whereIntegerInRaw('order_items.product_variant_id', $variantIds)
+            ->whereIntegerInRaw('orders.location_id', $locationIds)
+            ->whereNull('order_items.deleted_at')
+            ->whereNull('orders.deleted_at')
+            ->where('orders.order_type', 'sale')
+            ->whereIn('orders.status', [Order::STATUS_APPROVE, Order::STATUS_SHIPPED, Order::STATUS_OUT_FOR_DELIVERY, Order::STATUS_DELIVERED])
+            ->sum('order_items.purchase_price');
+
+        return [
+            'direct_purchase_total' => (float) $direct,
+            'transfer_in_total' => $transferIn,
+            'inward_total' => (float) $direct + $transferIn,
+            'return_total' => $transferOut,
+            'sales_cost_total' => (float) $sales,
+        ];
     }
 
     /**
@@ -1349,25 +1679,14 @@ class ReportController extends Controller
             $totalPurchaseValue = $allBranchSum;
         }
 
-        $formatPairsPcs = function ($pairs, $pcs) {
-            $parts = [];
-            if ($pairs > 0) {
-                $parts[] = number_format($pairs) . ' Pair' . ($pairs > 1 ? 's' : '');
-            }
-            if ($pcs > 0 || count($parts) === 0) {
-                $parts[] = number_format($pcs) . ' Pcs';
-            }
-            return implode('<br>', $parts);
-        };
-
         $locationTotals = [];
         foreach ($locations as $location) {
-            $locationTotals[$location->id] = $formatPairsPcs($locationPairTotals[$location->id], $locationLooseTotals[$location->id]);
+            $locationTotals[$location->id] = $this->formatStockReportQuantity($locationPairTotals[$location->id], $locationLooseTotals[$location->id]);
         }
 
         return [
             'location_totals'       => $locationTotals,
-            'qty_total'             => $formatPairsPcs($totalPairUnits, $totalLoosePcs),
+            'qty_total'             => $this->formatStockReportQuantity($totalPairUnits, $totalLoosePcs),
             'purchase_total'        => $totalPurchaseValue,
             'mrp_total'             => $totalMrpValue,
             'direct_purchase_total' => $totalDirectPurchaseVal,
@@ -3157,10 +3476,11 @@ class ReportController extends Controller
 
         $stockStatus = $request->input('stock');
 
-        $query = $this->stockInventoryFilteredQuery($request, $locationId);
-        $query->with(['category', 'subCategory', 'primaryImage', 'inventories.location', 'variants.attributeValue.attribute']);
-
-        $products = $query->get();
+        $variantMatches = null;
+        $query = $this->stockInventoryFilteredQuery($request, $locationId, $variantMatches);
+        $products = $variantMatches === null
+            ? $query->with(['category', 'subCategory', 'primaryImage', 'inventories.location', 'variants.attributeValue.attribute'])->get()
+            : collect();
         $productIds = $products->pluck('id');
 
         $transferPriceMap = DB::table('purchase_bill_items')
@@ -3327,16 +3647,36 @@ class ReportController extends Controller
             }
         }
 
-        if ($stockStatus === 'in') {
-            $productsList = $productsList->where('total', '>', 0);
-        } elseif ($stockStatus === 'low') {
-            $productsList = $productsList->where('total', '>', 0)->where('total', '<=', 5);
-        } elseif ($stockStatus === 'out') {
-            $productsList = $productsList->where('total', '<=', 0);
+        if ($variantMatches === null) {
+            if ($stockStatus === 'in') {
+                $productsList = $productsList->where('total', '>', 0);
+            } elseif ($stockStatus === 'low') {
+                $productsList = $productsList->where('total', '>', 0)->where('total', '<=', 5);
+            } elseif ($stockStatus === 'out') {
+                $productsList = $productsList->where('total', '<=', 0);
+            }
+        } else {
+            foreach ($variantMatches as $match) {
+                $product = $match['product'];
+                $details = [
+                    'product' => $product,
+                    'barcode' => $product->barcode,
+                    'category' => $product->category->name ?? '-',
+                ];
+                $productsList->push($details + ['name' => $product->name, 'status' => $product->status] + $match);
+                foreach ($match['variants'] as $variant) {
+                    $productsList->push($details + ['name' => $product->name . ' (' . $variant['name'] . ')'] + $variant);
+                }
+            }
         }
 
         if ($productsList->isEmpty()) {
-            return redirect()->back()->with('error', 'No data found for the selected filters. Nothing to export.');
+            $message = 'No data found for the selected filters. Nothing to export.';
+            if ($request->expectsJson()) {
+                return response()->json(['message' => $message], 422);
+            }
+
+            return redirect()->back()->with('error', $message);
         }
 
         $spreadsheet = new Spreadsheet();
@@ -3430,9 +3770,9 @@ class ReportController extends Controller
             $rowIndex++;
         }
 
-        // Totals Row via exact computeStockTotals helper
-        $calcQuery = clone $query;
-        $totals = $this->computeStockTotals($calcQuery, $locations, $user->location_id && !$user->hasRole('super-admin') ? $user->location_id : null);
+        $totals = $variantMatches === null
+            ? $this->computeStockTotals(clone $query, $locations, $locationId)
+            : $this->stockInventoryVariantTotals($variantMatches, $locations);
 
         $sheet->setCellValue('A' . $rowIndex, 'Total');
 
