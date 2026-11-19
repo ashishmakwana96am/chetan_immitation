@@ -113,12 +113,10 @@
 </div>
 
 <!-- Low Stock Alert -->
-@if($lowStockCount > 0)
-    <div class="alert alert-warning d-flex align-items-center mb-4 flex-wrap" role="alert">
-        <i class="ti ti-alert-triangle me-2 fs-5"></i>
-        <strong>{{ $lowStockCount }} product(s)</strong>&nbsp;have low stock (≤ 5 units).
-    </div>
-@endif
+<div @class(['alert alert-warning d-flex align-items-center mb-4 flex-wrap', 'd-none' => $lowStockCount === 0]) id="stockLowAlert" role="alert">
+    <i class="ti ti-alert-triangle me-2 fs-5"></i>
+    <strong><span id="stockLowCount">{{ $lowStockCount }}</span> product(s)</strong>&nbsp;have low stock (≤ 5 units).
+</div>
 
 <!-- Filters -->
 <div class="card mb-4" id="filterReportCard">
@@ -155,6 +153,21 @@
                 </select>
             </div>
             @endif
+            <div class="col-md-3">
+                <label for="filterAttribute" class="form-label">Filter by Attribute</label>
+                <select id="filterAttribute" class="form-select">
+                    <option value="">All Attributes</option>
+                    @foreach($attributes as $attribute)
+                        <option value="{{ $attribute->id }}">{{ $attribute->name }}</option>
+                    @endforeach
+                </select>
+            </div>
+            <div class="col-md-3">
+                <label for="filterAttributeValue" class="form-label">Attribute Value</label>
+                <select id="filterAttributeValue" class="form-select" disabled>
+                    <option value="">All Values</option>
+                </select>
+            </div>
             <div class="col-md-3">
                 <label class="form-label">Filter by Stock</label>
                 <select id="filterStock" class="form-select no-select2">
