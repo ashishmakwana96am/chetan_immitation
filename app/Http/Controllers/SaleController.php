@@ -13,11 +13,15 @@ use App\Models\OrderItem;
 use App\Models\OrderPayment;
 use App\Models\Product;
 use App\Models\ProductVariant;
+use App\Models\PurchaseBillItem;
+use App\Models\PurchaseItem;
+use App\Models\SalePayment;
 use App\Models\Setting;
 use App\Models\State;
 use App\Services\ActivityLogger;
 use App\Services\PurchaseBatchService;
 use Barryvdh\DomPDF\Facade\Pdf;
+use Carbon\Carbon;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Cache;
 use Illuminate\Support\Facades\DB;
@@ -48,9 +52,18 @@ class SaleController extends Controller
 
         $user = auth()->user();
         $isSuperAdmin = $user->hasRole('super-admin');
+        $canReturnSales = $user->can('return sales');
+
+        $tab = $request->input('tab', 'active');
+        $isReturnedTab = ($tab === 'returned' && $canReturnSales);
 
         $query = Order::query()
             ->where('order_type', 'sale')
+            ->when($isReturnedTab, function ($q) {
+                $q->where('status', Order::STATUS_CANCELLED);
+            }, function ($q) {
+                $q->where('status', '!=', Order::STATUS_CANCELLED);
+            })
             ->when($user->location_id && !$isSuperAdmin, fn($q) => $q->where('location_id', $user->location_id))
             ->when($request->location_id, function ($q) use ($request) {
                 $q->where('location_id', $request->location_id);
@@ -87,9 +100,15 @@ class SaleController extends Controller
             });
 
         $recordsTotal = Order::where('order_type', 'sale')
+            ->when($isReturnedTab, fn($q) => $q->where('status', Order::STATUS_CANCELLED), fn($q) => $q->where('status', '!=', Order::STATUS_CANCELLED))
             ->when($user->location_id && !$isSuperAdmin, fn($q) => $q->where('location_id', $user->location_id))
             ->count();
         $recordsFiltered = (clone $query)->count();
+
+        $returnedCount = $canReturnSales ? Order::where('order_type', 'sale')
+            ->where('status', Order::STATUS_CANCELLED)
+            ->when($user->location_id && !$isSuperAdmin, fn($q) => $q->where('location_id', $user->location_id))
+            ->count() : 0;
 
         $start = (int) $request->input('start', 0);
         $length = (int) $request->input('length', 25);
@@ -144,6 +163,7 @@ class SaleController extends Controller
             ->get();
 
         $canEdit = auth()->user()->can('edit sales');
+        $canReturnSales = auth()->user()->can('return sales');
         $canEditSalesStatus = auth()->user()->can('edit sales status');
         $canEditSalesPaymentStatus = auth()->user()->can('edit sales payment status');
         $canDownloadSales = auth()->user()->can('download sales');
@@ -183,7 +203,7 @@ class SaleController extends Controller
             3 => 'Partially Paid',
         ];
 
-        $data = $orders->map(function ($order, $index) use ($canEdit, $canEditSalesStatus, $canEditSalesPaymentStatus, $canDownloadSales, $canDelete, $statusColors, $statusLabels, $paymentColors, $paymentLabels, $inventoryByProduct, $start) {
+        $data = $orders->map(function ($order, $index) use ($canEdit, $canReturnSales, $canEditSalesStatus, $canEditSalesPaymentStatus, $canDownloadSales, $canDelete, $statusColors, $statusLabels, $paymentColors, $paymentLabels, $inventoryByProduct, $start, $isReturnedTab) {
             $cancellationRequested = false;
             $cancellationWarningHtml = '';
             if ($order->cancellationRequest && $order->cancellationRequest->status === 'pending') {
@@ -239,61 +259,68 @@ class SaleController extends Controller
             $actions .= '<button class="btn btn-sm btn-label-primary action-dropdown-btn dropdown-toggle" data-bs-toggle="dropdown" data-bs-boundary="viewport" aria-expanded="false"><span>Actions</span></button>';
             $actions .= '<div class="dropdown-menu dropdown-menu-end action-dropdown-menu m-0">';
             $actions .= '<a href="' . route('admin.sales.show', $order) . '" class="dropdown-item"><i class="ti ti-eye me-2"></i>View</a>';
-            if ($canDownloadSales) {
-                if (($order->source ?? 'POS') === 'ONLINE') {
-                    $actions .= '<a href="' . route('admin.sales.pdf', $order) . '" class="dropdown-item" target="_blank"><i class="ti ti-file-text me-2"></i>Invoice</a>';
-                    $actions .= '<a href="' . route('admin.sales.label', [$order, 'auto_print' => 1]) . '" class="dropdown-item" target="_blank"><i class="ti ti-printer me-2"></i>Print Label</a>';
-                } else {
-                    $actions .= '<a href="' . route('admin.sales.thermal', [$order, 'auto_print' => 1]) . '" class="dropdown-item" target="_blank"><i class="ti ti-printer me-2"></i>Invoice</a>';
-                    if ($order->is_gst) {
-                        $actions .= '<a href="' . route('admin.sales.tax-invoice', [$order, 'auto_print' => 1]) . '" class="dropdown-item" target="_blank"><i class="ti ti-file-text me-2"></i>Tax Invoice</a>';
-                    }
-                    if ($order->is_shipping || (float)$order->shipping_charge > 0 || $order->customer_address_id) {
+
+            if (!$isReturnedTab && (int) $order->status !== Order::STATUS_CANCELLED) {
+                if ($canDownloadSales) {
+                    if (($order->source ?? 'POS') === 'ONLINE') {
+                        $actions .= '<a href="' . route('admin.sales.pdf', $order) . '" class="dropdown-item" target="_blank"><i class="ti ti-file-text me-2"></i>Invoice</a>';
                         $actions .= '<a href="' . route('admin.sales.label', [$order, 'auto_print' => 1]) . '" class="dropdown-item" target="_blank"><i class="ti ti-printer me-2"></i>Print Label</a>';
+                    } else {
+                        $actions .= '<a href="' . route('admin.sales.thermal', [$order, 'auto_print' => 1]) . '" class="dropdown-item" target="_blank"><i class="ti ti-printer me-2"></i>Invoice</a>';
+                        if ($order->is_gst) {
+                            $actions .= '<a href="' . route('admin.sales.tax-invoice', [$order, 'auto_print' => 1]) . '" class="dropdown-item" target="_blank"><i class="ti ti-file-text me-2"></i>Tax Invoice</a>';
+                        }
+                        if ($order->is_shipping || (float)$order->shipping_charge > 0 || $order->customer_address_id) {
+                            $actions .= '<a href="' . route('admin.sales.label', [$order, 'auto_print' => 1]) . '" class="dropdown-item" target="_blank"><i class="ti ti-printer me-2"></i>Print Label</a>';
+                        }
                     }
                 }
-            }
-            $isEditable = ($order->source ?? 'POS') === 'POS' &&
-                in_array((int) $order->status, [Order::STATUS_PENDING, Order::STATUS_APPROVE], true) &&
-                !$cancellationRequested;
-            $canEditRecord = $canEdit && can_modify_past_date_record($order->created_at);
-            $canEditSalesStatusRecord = $canEditSalesStatus && can_modify_past_date_record($order->created_at);
-            $canEditSalesPaymentStatusRecord = $canEditSalesPaymentStatus;
-            $canDeleteRecord = $canDelete && can_modify_past_date_record($order->created_at);
+                $isEditable = ($order->source ?? 'POS') === 'POS' &&
+                    in_array((int) $order->status, [Order::STATUS_PENDING, Order::STATUS_APPROVE], true) &&
+                    !$cancellationRequested;
+                $canEditRecord = $canEdit && can_modify_past_date_record($order->created_at);
+                $canEditSalesStatusRecord = $canEditSalesStatus && can_modify_past_date_record($order->created_at);
+                $canEditSalesPaymentStatusRecord = $canEditSalesPaymentStatus;
+                $canDeleteRecord = $canDelete && can_modify_past_date_record($order->created_at);
 
-            if ($canEditRecord && $isEditable) {
-                $actions .= '<a href="' . route('admin.sales.edit', $order) . '" class="dropdown-item"><i class="ti ti-pencil me-2"></i>Edit</a>';
-            }
+                if ($canEditRecord && $isEditable) {
+                    $actions .= '<a href="' . route('admin.sales.edit', $order) . '" class="dropdown-item"><i class="ti ti-pencil me-2"></i>Edit</a>';
+                }
 
-            $showStatusOption = true;
-            $showPaymentOption = true;
-            $sourceVal = $order->source ?? 'POS';
+                if ($canReturnSales && can_modify_past_date_record($order->created_at)) {
+                    $actions .= '<a href="javascript:void(0);" class="dropdown-item text-warning return-sale-btn" data-url="' . route('admin.sales.return', $order) . '" data-order-no="' . e($order->order_no) . '"><i class="ti ti-rotate-clockwise me-2"></i>Return</a>';
+                }
 
-            if ($sourceVal === 'POS') {
-                if ($order->status == 2) {
-                    $showStatusOption = false;
-                }
-                if ($order->payment_status == 2) {
-                    $showPaymentOption = false;
-                }
-            } elseif ($sourceVal === 'ONLINE') {
-                if (in_array($order->status, [5, 6])) {
-                    $showStatusOption = false;
-                }
-                if ($order->payment_status == 2) {
-                    $showPaymentOption = false;
-                }
-            }
+                $showStatusOption = true;
+                $showPaymentOption = true;
+                $sourceVal = $order->source ?? 'POS';
 
-            if ($canEditSalesStatusRecord && $showStatusOption) {
-                $actions .= '<button class="dropdown-item change-sale-status-btn" data-url="' . route('admin.sales.status', $order) . '" data-current="' . $order->status . '" data-source="' . ($order->source ?? 'POS') . '" data-shipped-url="' . e($order->shipped_client_url ?? '') . '" data-tracking-id="' . e($order->tracking_id ?? '') . '" data-cancel-reason="' . e($order->cancellation_reason ?? '') . '"><i class="ti ti-adjustments-horizontal me-2"></i>Update Status</button>';
-            }
-            if ($canEditSalesPaymentStatusRecord && $showPaymentOption) {
-                $actions .= '<button class="dropdown-item change-payment-status-btn" data-url="' . route('admin.sales.status', $order) . '" data-history-url="' . route('admin.sales.payment-history', $order) . '" data-current="' . $order->payment_status . '" data-amount="' . $order->final_amount . '"><i class="ti ti-credit-card me-2"></i>Update Payment Status</button>';
-            }
-            if ($canDeleteRecord) {
-                $actions .= '<div class="dropdown-divider"></div>';
-                $actions .= '<a href="javascript:void(0);" class="dropdown-item text-danger" data-common-delete="' . route('admin.sales.destroy', $order) . '"><i class="ti ti-trash me-2"></i>Delete</a>';
+                if ($sourceVal === 'POS') {
+                    if ($order->status == 2) {
+                        $showStatusOption = false;
+                    }
+                    if ($order->payment_status == 2) {
+                        $showPaymentOption = false;
+                    }
+                } elseif ($sourceVal === 'ONLINE') {
+                    if (in_array($order->status, [5, 6])) {
+                        $showStatusOption = false;
+                    }
+                    if ($order->payment_status == 2) {
+                        $showPaymentOption = false;
+                    }
+                }
+
+                if ($canEditSalesStatusRecord && $showStatusOption) {
+                    $actions .= '<button class="dropdown-item change-sale-status-btn" data-url="' . route('admin.sales.status', $order) . '" data-current="' . $order->status . '" data-source="' . ($order->source ?? 'POS') . '" data-shipped-url="' . e($order->shipped_client_url ?? '') . '" data-tracking-id="' . e($order->tracking_id ?? '') . '" data-cancel-reason="' . e($order->cancellation_reason ?? '') . '"><i class="ti ti-adjustments-horizontal me-2"></i>Update Status</button>';
+                }
+                if ($canEditSalesPaymentStatusRecord && $showPaymentOption) {
+                    $actions .= '<button class="dropdown-item change-payment-status-btn" data-url="' . route('admin.sales.status', $order) . '" data-history-url="' . route('admin.sales.payment-history', $order) . '" data-current="' . $order->payment_status . '" data-amount="' . $order->final_amount . '"><i class="ti ti-credit-card me-2"></i>Update Payment Status</button>';
+                }
+                if ($canDeleteRecord) {
+                    $actions .= '<div class="dropdown-divider"></div>';
+                    $actions .= '<a href="javascript:void(0);" class="dropdown-item text-danger" data-common-delete="' . route('admin.sales.destroy', $order) . '"><i class="ti ti-trash me-2"></i>Delete</a>';
+                }
             }
             $actions .= '</div></div>';
             $sourceVal = $order->source ?? 'POS';
@@ -335,6 +362,7 @@ class SaleController extends Controller
             'draw' => (int) $request->input('draw', 1),
             'recordsTotal' => $recordsTotal,
             'recordsFiltered' => $recordsFiltered,
+            'returned_count' => $returnedCount,
             'data' => $data,
         ])
         ->header('Cache-Control', 'no-store, no-cache, must-revalidate, max-age=0')
@@ -404,7 +432,7 @@ class SaleController extends Controller
             'use_credit_balance' => ['nullable', 'boolean'],
             'is_shipping' => ['nullable', 'boolean'],
             'shipping_charge' => ['nullable', 'numeric', 'min:0'],
-            'status' => ['nullable', 'integer', 'in:1,2,6'],
+            'status' => ['nullable', 'integer', 'in:1,2'],
             'payment_status' => ['nullable', 'integer', 'in:1,2,3'],
             'source' => ['nullable', 'string', 'in:POS,ONLINE'],
             'coupon_id' => ['nullable', 'exists:coupons,id'],
@@ -540,9 +568,9 @@ class SaleController extends Controller
                 $purchaseItemId = !empty($itemData['purchase_item_id']) ? (int) $itemData['purchase_item_id'] : null;
                 $unitPurchasePrice = (isset($itemData['purchase_price']) && is_numeric($itemData['purchase_price']) && (float)$itemData['purchase_price'] > 0)
                     ? (float) $itemData['purchase_price']
-                    : ($purchaseItemId ? (float) (\App\Models\PurchaseItem::where('id', $purchaseItemId)->value('purchase_price') ?? \App\Models\PurchaseBillItem::where('id', $purchaseItemId)->value('purchase_price')) : null);
+                    : ($purchaseItemId ? (float) (PurchaseItem::where('id', $purchaseItemId)->value('purchase_price') ?? PurchaseBillItem::where('id', $purchaseItemId)->value('purchase_price')) : null);
 
-                $batchAlloc = \App\Services\PurchaseBatchService::calculateTotalCostPrice(
+                $batchAlloc = PurchaseBatchService::calculateTotalCostPrice(
                     (int) $itemData['product_id'],
                     !empty($itemData['product_variant_id']) ? (int) $itemData['product_variant_id'] : null,
                     (int) $request->location_id,
@@ -551,7 +579,7 @@ class SaleController extends Controller
                     $unitPurchasePrice
                 );
 
-                $productObj = \App\Models\Product::find($itemData['product_id']);
+                $productObj = Product::find($itemData['product_id']);
                 $purchasePrice = $batchAlloc['total_cost'];
                 if ($purchasePrice <= 0 && $unitPurchasePrice > 0) {
                     $purchasePrice = (float) $unitPurchasePrice;
@@ -615,7 +643,7 @@ class SaleController extends Controller
 
             if ($isGst) {
                 $orderPrefix = 'GS';
-                $gstRate = (float) \App\Models\Setting::getValue('purchase_gst_rate', 3);
+                $gstRate = (float) Setting::getValue('purchase_gst_rate', 3);
                 $halfRate = $gstRate / 2;
                 $cgst = round($finalAmount * ($halfRate / 100), 2);
                 $sgst = round($finalAmount * ($halfRate / 100), 2);
@@ -692,16 +720,16 @@ class SaleController extends Controller
             if ($request->filled('order_date') && (auth()->user()->hasRole('super-admin') || auth()->user()->can('edit past date records'))) {
                 $timeStr = now()->format('H:i:s');
                 try {
-                    $orderDate = \Carbon\Carbon::createFromFormat('d-m-Y H:i:s', trim($request->order_date) . ' ' . $timeStr);
+                    $orderDate = Carbon::createFromFormat('d-m-Y H:i:s', trim($request->order_date) . ' ' . $timeStr);
                 } catch (\Throwable $e) {
-                    $orderDate = \Carbon\Carbon::parse(trim($request->order_date) . ' ' . $timeStr);
+                    $orderDate = Carbon::parse(trim($request->order_date) . ' ' . $timeStr);
                 }
-                \Illuminate\Support\Facades\DB::table('orders')->where('id', $order->id)->update(['created_at' => $orderDate->toDateTimeString()]);
+                DB::table('orders')->where('id', $order->id)->update(['created_at' => $orderDate->toDateTimeString()]);
             }
 
             $storePaidTotal = $paidCash + $paidOnline;
             if ($storePaidTotal > 0 && $cappedStatus !== Order::PAYMENT_STATUS_PENDING) {
-                $sp = \App\Models\SalePayment::create([
+                $sp = SalePayment::create([
                     'order_id'       => $order->id,
                     'amount'         => $storePaidTotal,
                     'cash_amount'    => $paidCash,
@@ -710,7 +738,7 @@ class SaleController extends Controller
                     'created_by'     => auth()->id(),
                 ]);
                 if (isset($orderDate)) {
-                    \Illuminate\Support\Facades\DB::table('sale_payments')->where('id', $sp->id)->update(['created_at' => $orderDate->toDateTimeString()]);
+                    DB::table('sale_payments')->where('id', $sp->id)->update(['created_at' => $orderDate->toDateTimeString()]);
                 }
             }
 
@@ -736,7 +764,7 @@ class SaleController extends Controller
                     $stockDeduct = (int) round($item['quantity'] * $this->stockMultiplierFor((int) $item['product_id'], $item['pair_type'], $item['custom_size_value']));
                     $this->logInventoryChange((int) $item['product_id'], (int) $request->location_id, -$stockDeduct, 'Stock deducted for new sale #' . $order->order_no);
                     $unitPrice = $stockDeduct > 0 ? ((float)$item['purchase_price'] / $stockDeduct) : (float)$item['purchase_price'];
-                    \App\Services\PurchaseBatchService::deductBatchStock((int)$request->location_id, (int)$item['product_id'], !empty($item['product_variant_id']) ? (int)$item['product_variant_id'] : null, $unitPrice, (float)$stockDeduct);
+                    PurchaseBatchService::deductBatchStock((int)$request->location_id, (int)$item['product_id'], !empty($item['product_variant_id']) ? (int)$item['product_variant_id'] : null, $unitPrice, (float)$stockDeduct);
                 }
             }
 
@@ -1161,7 +1189,7 @@ class SaleController extends Controller
             'order_discount_value' => ['nullable', 'numeric', 'min:0'],
             'is_shipping' => ['nullable', 'boolean'],
             'shipping_charge' => ['nullable', 'numeric', 'min:0'],
-            'status' => ['nullable', 'integer', 'in:1,2,6'],
+            'status' => ['nullable', 'integer', 'in:1,2'],
             'payment_status' => ['nullable', 'integer', 'in:1,2,3'],
             'source' => ['nullable', 'string', 'in:POS,ONLINE'],
             'coupon_id' => ['nullable', 'exists:coupons,id'],
@@ -1330,9 +1358,9 @@ class SaleController extends Controller
                         $purchaseItemId = !empty($itemData['purchase_item_id']) ? (int) $itemData['purchase_item_id'] : null;
                         $unitPurchasePrice = (isset($itemData['purchase_price']) && is_numeric($itemData['purchase_price']) && (float)$itemData['purchase_price'] > 0)
                             ? (float) $itemData['purchase_price']
-                            : ($purchaseItemId ? (float) (\App\Models\PurchaseItem::where('id', $purchaseItemId)->value('purchase_price') ?? \App\Models\PurchaseBillItem::where('id', $purchaseItemId)->value('purchase_price')) : null);
+                            : ($purchaseItemId ? (float) (PurchaseItem::where('id', $purchaseItemId)->value('purchase_price') ?? PurchaseBillItem::where('id', $purchaseItemId)->value('purchase_price')) : null);
 
-                        $batchAlloc = \App\Services\PurchaseBatchService::calculateTotalCostPrice(
+                        $batchAlloc = PurchaseBatchService::calculateTotalCostPrice(
                             (int) $itemData['product_id'],
                             !empty($itemData['product_variant_id']) ? (int) $itemData['product_variant_id'] : null,
                             (int) $request->location_id,
@@ -1342,7 +1370,7 @@ class SaleController extends Controller
                             (int) $sale->id
                         );
 
-                        $productObj = \App\Models\Product::find($itemData['product_id']);
+                        $productObj = Product::find($itemData['product_id']);
                         $purchasePrice = $batchAlloc['total_cost'];
                         if ($purchasePrice <= 0 && $unitPurchasePrice > 0) {
                             $purchasePrice = (float) $unitPurchasePrice;
@@ -1423,7 +1451,7 @@ class SaleController extends Controller
                         $stockRestore = (int) round($old['quantity'] * $multiplier);
                         $this->logInventoryChange((int) $old['product_id'], $oldLocationId, $stockRestore, 'Stock restored for edited sale #' . $sale->order_no);
                         $oldUnitPrice = $stockRestore > 0 ? ((float)($old['purchase_price'] ?? 0) / $stockRestore) : (float)($old['purchase_price'] ?? 0);
-                        \App\Services\PurchaseBatchService::addBatchStock($oldLocationId, (int)$old['product_id'], !empty($old['product_variant_id']) ? (int)$old['product_variant_id'] : null, $old['purchase_item_id'] ?? null, $oldUnitPrice, (float)$stockRestore);
+                        PurchaseBatchService::addBatchStock($oldLocationId, (int)$old['product_id'], !empty($old['product_variant_id']) ? (int)$old['product_variant_id'] : null, $old['purchase_item_id'] ?? null, $oldUnitPrice, (float)$stockRestore);
                     }
                 }
 
@@ -1455,7 +1483,7 @@ class SaleController extends Controller
 
                 if ($isGst) {
                     $orderPrefix = 'GS';
-                    $gstRate = (float) \App\Models\Setting::getValue('purchase_gst_rate', 3);
+                    $gstRate = (float) Setting::getValue('purchase_gst_rate', 3);
                     $halfRate = $gstRate / 2;
                     $cgst = round($finalAmount * ($halfRate / 100), 2);
                     $sgst = round($finalAmount * ($halfRate / 100), 2);
@@ -1545,9 +1573,9 @@ class SaleController extends Controller
                 if ($request->filled('order_date') && (auth()->user()->hasRole('super-admin') || auth()->user()->can('edit past date records'))) {
                     $timeStr = $sale->created_at ? $sale->created_at->format('H:i:s') : now()->format('H:i:s');
                     try {
-                        $orderDate = \Carbon\Carbon::createFromFormat('d-m-Y H:i:s', trim($request->order_date) . ' ' . $timeStr);
+                        $orderDate = Carbon::createFromFormat('d-m-Y H:i:s', trim($request->order_date) . ' ' . $timeStr);
                     } catch (\Throwable $e) {
-                        $orderDate = \Carbon\Carbon::parse(trim($request->order_date) . ' ' . $timeStr);
+                        $orderDate = Carbon::parse(trim($request->order_date) . ' ' . $timeStr);
                     }
                     $updateData['created_at'] = $orderDate;
                 }
@@ -1557,7 +1585,7 @@ class SaleController extends Controller
                 Order::withoutActivityLogging(fn() => $sale->update($updateData));
 
                 if (isset($orderDate)) {
-                    \Illuminate\Support\Facades\DB::table('orders')->where('id', $sale->id)->update(['created_at' => $orderDate->toDateTimeString()]);
+                    DB::table('orders')->where('id', $sale->id)->update(['created_at' => $orderDate->toDateTimeString()]);
                 }
 
                 // Check if payment details changed
@@ -1569,14 +1597,14 @@ class SaleController extends Controller
 
                 if ($paymentChanged) {
                     if ($resolvedPaymentStatus === Order::PAYMENT_STATUS_PENDING) {
-                        \App\Models\SalePayment::where('order_id', $sale->id)->delete();
+                        SalePayment::where('order_id', $sale->id)->delete();
                         $sale->payments()->delete();
                     } else {
                         $editPaidTotal = $paidCash + $paidOnline;
                         if ($editPaidTotal > 0) {
-                            \App\Models\SalePayment::where('order_id', $sale->id)->delete();
+                            SalePayment::where('order_id', $sale->id)->delete();
                             $sale->payments()->delete();
-                            $sp = \App\Models\SalePayment::create([
+                            $sp = SalePayment::create([
                                 'order_id'       => $sale->id,
                                 'amount'         => $editPaidTotal,
                                 'cash_amount'    => $paidCash,
@@ -1585,7 +1613,7 @@ class SaleController extends Controller
                                 'created_by'     => auth()->id(),
                             ]);
                             if (isset($orderDate)) {
-                                \Illuminate\Support\Facades\DB::table('sale_payments')->where('id', $sp->id)->update(['created_at' => $orderDate->toDateTimeString()]);
+                                DB::table('sale_payments')->where('id', $sp->id)->update(['created_at' => $orderDate->toDateTimeString()]);
                             }
                         }
                     }
@@ -1616,7 +1644,7 @@ class SaleController extends Controller
                             $stockDeduct = (int) round($item['quantity'] * $this->stockMultiplierFor((int) $item['product_id'], $item['pair_type'], $item['custom_size_value']));
                             $this->logInventoryChange((int) $item['product_id'], (int) $request->location_id, -$stockDeduct, 'Stock deducted for updated sale #' . $sale->order_no);
                             $unitPrice = $stockDeduct > 0 ? ((float)$item['purchase_price'] / $stockDeduct) : (float)$item['purchase_price'];
-                            \App\Services\PurchaseBatchService::deductBatchStock((int)$request->location_id, (int)$item['product_id'], !empty($item['product_variant_id']) ? (int)$item['product_variant_id'] : null, $unitPrice, (float)$stockDeduct);
+                            PurchaseBatchService::deductBatchStock((int)$request->location_id, (int)$item['product_id'], !empty($item['product_variant_id']) ? (int)$item['product_variant_id'] : null, $unitPrice, (float)$stockDeduct);
                         }
                     }
                 } elseif (!$wasApproved && $isApprove) {
@@ -1624,7 +1652,7 @@ class SaleController extends Controller
                         $stockDeduct = (int) round($item->quantity * $this->stockMultiplierFor((int) $item->product_id, $item->pair_type, $item->custom_size_value));
                         $this->logInventoryChange((int) $item->product_id, (int) $request->location_id, -$stockDeduct, 'Stock deducted for updated sale #' . $sale->order_no);
                         $unitPrice = $stockDeduct > 0 ? ((float)$item->purchase_price / $stockDeduct) : (float)$item->purchase_price;
-                        \App\Services\PurchaseBatchService::deductBatchStock((int)$request->location_id, (int)$item->product_id, !empty($item->product_variant_id) ? (int)$item->product_variant_id : null, $unitPrice, (float)$stockDeduct);
+                        PurchaseBatchService::deductBatchStock((int)$request->location_id, (int)$item->product_id, !empty($item->product_variant_id) ? (int)$item->product_variant_id : null, $unitPrice, (float)$stockDeduct);
                     }
                 }
 
@@ -1714,12 +1742,12 @@ class SaleController extends Controller
                         if ($oldStatus == Order::STATUS_DELIVERED) {
                             throw new \Exception('Delivered orders cannot be modified.');
                         }
-                        if ($oldStatus == Order::STATUS_DECLINE) {
+                        if ($oldStatus == Order::STATUS_CANCELLED) {
                             throw new \Exception('Cancelled orders cannot be modified.');
                         }
 
                         // 2. Backward progression validation (Decline is always allowed from any non-terminal status)
-                        if ($newStatus !== Order::STATUS_DECLINE) {
+                        if ($newStatus !== Order::STATUS_CANCELLED) {
                             if ($oldStatus == Order::STATUS_APPROVE && $newStatus == Order::STATUS_PENDING) {
                                 throw new \Exception('Cannot change status back to Pending once approved.');
                             }
@@ -1732,7 +1760,7 @@ class SaleController extends Controller
                         }
 
                         // 3. Step-by-step transition validation
-                        if ($newStatus !== Order::STATUS_DECLINE) {
+                        if ($newStatus !== Order::STATUS_CANCELLED) {
                             // POS Order checks
                             if (($sale->source ?? 'POS') !== 'ONLINE') {
                                 if (!in_array($newStatus, [Order::STATUS_PENDING, Order::STATUS_APPROVE])) {
@@ -1759,7 +1787,7 @@ class SaleController extends Controller
                         }
 
                         // Require cancellation reason when cancelling
-                        if ($newStatus == Order::STATUS_DECLINE && empty($request->cancellation_reason)) {
+                        if ($newStatus == Order::STATUS_CANCELLED && empty($request->cancellation_reason)) {
                             throw new \Exception('Please provide a cancellation reason.');
                         }
 
@@ -1781,7 +1809,7 @@ class SaleController extends Controller
                                 $stockDeduct = (int) round($item->quantity * $this->stockMultiplierFor((int) $item->product_id, $item->pair_type, $item->custom_size_value));
                                 $this->logInventoryChange((int) $item->product_id, (int) $sale->location_id, -$stockDeduct, 'Stock deducted for sale #' . $sale->order_no . ' status change');
                                 $unitPrice = $stockDeduct > 0 ? ((float)$item->purchase_price / $stockDeduct) : (float)$item->purchase_price;
-                                \App\Services\PurchaseBatchService::deductBatchStock((int)$sale->location_id, (int)$item->product_id, !empty($item->product_variant_id) ? (int)$item->product_variant_id : null, $unitPrice, (float)$stockDeduct);
+                                PurchaseBatchService::deductBatchStock((int)$sale->location_id, (int)$item->product_id, !empty($item->product_variant_id) ? (int)$item->product_variant_id : null, $unitPrice, (float)$stockDeduct);
                             }
                         }
                         // Transition from Deducted to Restored group: restore stock
@@ -1791,12 +1819,12 @@ class SaleController extends Controller
                                 $stockRestore = (int) round($item->quantity * $this->stockMultiplierFor((int) $item->product_id, $item->pair_type, $item->custom_size_value));
                                 $this->logInventoryChange((int) $item->product_id, (int) $sale->location_id, $stockRestore, 'Stock restored for sale #' . $sale->order_no . ' status change');
                                 $unitPrice = $stockRestore > 0 ? ((float)$item->purchase_price / $stockRestore) : (float)$item->purchase_price;
-                                \App\Services\PurchaseBatchService::addBatchStock((int)$sale->location_id, (int)$item->product_id, !empty($item->product_variant_id) ? (int)$item->product_variant_id : null, $item->purchase_item_id, $unitPrice, (float)$stockRestore);
+                                PurchaseBatchService::addBatchStock((int)$sale->location_id, (int)$item->product_id, !empty($item->product_variant_id) ? (int)$item->product_variant_id : null, $item->purchase_item_id, $unitPrice, (float)$stockRestore);
                             }
                         }
 
                         $updateData = ['status' => $newStatus];
-                        if ($newStatus == Order::STATUS_DECLINE) {
+                        if ($newStatus == Order::STATUS_CANCELLED) {
                             $updateData['cancellation_reason'] = $request->cancellation_reason;
 
                             // Process Refund for Direct Admin Cancellation
@@ -1901,9 +1929,9 @@ class SaleController extends Controller
 
                         if ($sale->customer && $sale->customer->email) {
                             try {
-                                \Illuminate\Support\Facades\Mail::to($sale->customer->email)->send(new \App\Mail\OrderStatusMail($sale));
+                                Mail::to($sale->customer->email)->send(new OrderStatusMail($sale));
                             } catch (\Exception $mailEx) {
-                                \Illuminate\Support\Facades\Log::error('Failed to send status mail: ' . $mailEx->getMessage());
+                                Log::error('Failed to send status mail: ' . $mailEx->getMessage());
                             }
                         }
                     }
@@ -1943,7 +1971,7 @@ class SaleController extends Controller
                             $installmentOnline = round(max(0, $cappedOnlineTotal - $sale->paid_online_amount), 2);
                             $installmentCash = round($installmentAmount - $installmentOnline, 2);
                             $pmThis = ($installmentCash > 0 && $installmentOnline > 0) ? 'online_cash' : ($installmentOnline > 0 ? 'online' : 'cash');
-                            \App\Models\SalePayment::create([
+                            SalePayment::create([
                                 'order_id'       => $sale->id,
                                 'amount'         => $installmentAmount,
                                 'cash_amount'    => $installmentCash,
@@ -1979,7 +2007,7 @@ class SaleController extends Controller
 
                         if ($amountThisTime > 0) {
                             $pmThis = ($newCash > 0 && $newOnline > 0) ? 'online_cash' : ($newOnline > 0 ? 'online' : 'cash');
-                            \App\Models\SalePayment::create([
+                            SalePayment::create([
                                 'order_id'       => $sale->id,
                                 'amount'         => $amountThisTime,
                                 'cash_amount'    => $newCash,
@@ -2016,7 +2044,7 @@ class SaleController extends Controller
                             'paid_online_amount' => $paidOnline,
                         ]));
                     } else {
-                        \App\Models\SalePayment::where('order_id', $sale->id)->delete();
+                        SalePayment::where('order_id', $sale->id)->delete();
                         $sale->payments()->delete();
                         Order::withoutActivityLogging(fn() => $sale->update([
                             'payment_status'   => Order::PAYMENT_STATUS_PENDING,
@@ -2045,7 +2073,7 @@ class SaleController extends Controller
             ActivityLogger::log('Sales', 'update', $sale, $logOld, $logNew, 'Sale #' . $sale->order_no . ' status updated');
         }
 
-        $pendingCount = \App\Models\Order::where('status', 1)->count();
+        $pendingCount = Order::where('status', 1)->count();
 
         $statusMessage = 'Sale status updated successfully.';
         if ($request->filled('payment_status') && !$request->filled('status')) {
@@ -2528,7 +2556,7 @@ class SaleController extends Controller
 
             // Update order status
             Order::withoutActivityLogging(fn() => $sale->update([
-                'status' => Order::STATUS_DECLINE,
+                'status' => Order::STATUS_CANCELLED,
                 'payment_status' => Order::PAYMENT_STATUS_PENDING,
                 'cancellation_reason' => $cancellationRequest->cancellation_reason,
             ]));
@@ -2593,6 +2621,95 @@ class SaleController extends Controller
             return response()->json([
                 'status' => 'error',
                 'message' => 'Failed to reject cancellation: ' . $e->getMessage()
+            ], 500);
+        }
+    }
+
+    public function returnSale(Request $request, Order $sale)
+    {
+        $this->authorize('return sales');
+
+        if (!can_modify_past_date_record($sale->created_at)) {
+            return response()->json([
+                'status' => 'error',
+                'message' => 'You do not have permission to edit past date records.',
+            ], 403);
+        }
+
+        $authUser = auth()->user();
+        if ($authUser->location_id && !$authUser->hasRole('super-admin') && (int) $sale->location_id !== (int) $authUser->location_id) {
+            return response()->json([
+                'status' => 'error',
+                'message' => 'You can only process returns for your assigned location.',
+            ], 403);
+        }
+
+        if ((int) $sale->status === Order::STATUS_CANCELLED) {
+            return response()->json([
+                'status' => 'error',
+                'message' => 'This sale has already been returned / cancelled.',
+            ], 422);
+        }
+
+        try {
+            DB::transaction(function () use ($sale, $request) {
+                $sale->load('items');
+                $oldStatus = (int) $sale->status;
+                $oldPaymentStatus = (int) $sale->payment_status;
+
+                // 1. Restore Inventory Stock
+                $deductedGroup = [Order::STATUS_APPROVE, Order::STATUS_SHIPPED, Order::STATUS_OUT_FOR_DELIVERY, Order::STATUS_DELIVERED];
+                if (in_array($oldStatus, $deductedGroup, true)) {
+                    foreach ($sale->items as $item) {
+                        $stockRestore = (int) round($item->quantity * $this->stockMultiplierFor((int) $item->product_id, $item->pair_type, $item->custom_size_value));
+                        $this->logInventoryChange(
+                            (int) $item->product_id,
+                            (int) $sale->location_id,
+                            $stockRestore,
+                            'Stock restored for returned sale #' . $sale->order_no
+                        );
+                        $unitPrice = $stockRestore > 0 ? ((float) $item->purchase_price / $stockRestore) : (float) $item->purchase_price;
+                        PurchaseBatchService::addBatchStock(
+                            (int) $sale->location_id,
+                            (int) $item->product_id,
+                            !empty($item->product_variant_id) ? (int) $item->product_variant_id : null,
+                            $item->purchase_item_id,
+                            $unitPrice,
+                            (float) $stockRestore
+                        );
+                    }
+                }
+
+                // 2. Balance Reversal
+                $sale->update([
+                    'status' => Order::STATUS_CANCELLED,
+                    'cancellation_reason' => $request->input('reason', 'Sale Returned by Customer'),
+                ]);
+
+                ActivityLogger::log(
+                    'Sales',
+                    'return',
+                    $sale,
+                    ['status' => $oldStatus, 'payment_status' => $oldPaymentStatus],
+                    ['status' => Order::STATUS_CANCELLED, 'payment_status' => Order::PAYMENT_STATUS_PENDING],
+                    'Sale #' . $sale->order_no . ' returned. Inventory stock restored and balances reverted.'
+                );
+            });
+
+            Cache::forget('dashboard_super_admin_data');
+            if ($sale->location_id) {
+                Cache::forget("dashboard_location_data_{$sale->location_id}");
+            }
+
+            return response()->json([
+                'status' => 'success',
+                'message' => 'Sale #' . $sale->order_no . ' returned successfully. Stock and balances have been reverted.',
+            ]);
+        } catch (\Throwable $e) {
+            Log::error('Sale Return Failed: ' . $e->getMessage(), ['trace' => $e->getTraceAsString()]);
+            return response()->json([
+                'status' => 'error',
+                'message' => 'Something went wrong. Please try again.',
             ], 500);
         }
     }
@@ -2763,7 +2880,7 @@ class SaleController extends Controller
             return response()->json(['status' => 'error', 'batches' => []]);
         }
 
-        $batches = \App\Services\PurchaseBatchService::getAvailableBatches($productId, $variantId, $locationId, $excludeOrderId);
+        $batches = PurchaseBatchService::getAvailableBatches($productId, $variantId, $locationId, $excludeOrderId);
 
         return response()->json([
             'status' => 'success',

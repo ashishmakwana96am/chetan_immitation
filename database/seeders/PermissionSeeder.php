@@ -113,6 +113,7 @@ class PermissionSeeder extends Seeder
             'view sales' => 'Sales',
             'create sales' => 'Sales',
             'edit sales' => 'Sales',
+            'return sales' => 'Sales',
             'edit sales status' => 'Sales',
             'edit sales payment status' => 'Sales',
 

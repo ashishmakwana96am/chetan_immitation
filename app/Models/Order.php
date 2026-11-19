@@ -39,7 +39,7 @@ class Order extends Model
 
     const STATUS_DELIVERED = 5;
 
-    const STATUS_DECLINE = 6;
+    const STATUS_CANCELLED = 6;
 
     const PAYMENT_STATUS_PENDING = 1;
 

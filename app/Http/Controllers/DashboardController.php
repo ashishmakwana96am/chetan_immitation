@@ -271,7 +271,7 @@ class DashboardController extends Controller
                 'total_pending_payment' => $totalPending,
                 'pending' => Order::where('order_type', 'sale')->where('location_id', $locationId)->where('status', Order::STATUS_PENDING)->count(),
                 'approve' => Order::where('order_type', 'sale')->where('location_id', $locationId)->whereIn('status', [2, 3, 4, 5])->count(),
-                'decline' => Order::where('order_type', 'sale')->where('location_id', $locationId)->where('status', Order::STATUS_DECLINE)->count(),
+                'decline' => Order::where('order_type', 'sale')->where('location_id', $locationId)->where('status', Order::STATUS_CANCELLED)->count(),
             ];
 
             $customerOutstandingBalance = (float) CustomerBalance::whereHas('customer', fn($q) => $q->where('is_credit_customer', true)->where('location_id', $locationId))->sum('balance');

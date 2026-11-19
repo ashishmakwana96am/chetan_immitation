@@ -237,7 +237,6 @@
                                 <select name="status" class="form-select no-select2">
                                     <option value="1" {{ (int) $order->status === 1 ? 'selected' : '' }}>Pending</option>
                                     <option value="2" {{ (int) $order->status === 2 ? 'selected' : '' }}>Approve</option>
-                                    <option value="6" {{ (int) $order->status === 6 ? 'selected' : '' }}>Cancelled</option>
                                 </select>
                             </div>
                         </div>

@@ -139,96 +139,110 @@
         </div>
         <div class="d-flex gap-2 align-items-center flex-wrap">
 
-            @can('download sales')
-                @if($isOnline)
-                    <a href="{{ route('admin.sales.pdf', [$order, 'auto_print' => 1]) }}" class="btn btn-label-primary" target="_blank">
-                        <i class="ti ti-printer me-1"></i> Invoice
-                    </a>
-                    <a href="{{ route('admin.sales.label', [$order, 'auto_print' => 1]) }}" class="btn btn-label-success" target="_blank">
-                        <i class="ti ti-printer me-1"></i> Print Label
-                    </a>
-                @else
-                    <a href="{{ route('admin.sales.thermal', [$order, 'auto_print' => 1]) }}" class="btn btn-label-primary" target="_blank">
-                        <i class="ti ti-printer me-1"></i> Invoice
-                    </a>
-                    @if($order->is_gst)
-                        <a href="{{ route('admin.sales.tax-invoice', [$order, 'auto_print' => 1]) }}" class="btn btn-label-info" target="_blank">
-                            <i class="ti ti-file-text me-1"></i> Tax Invoice
+            @php
+                $isCancelled = (int) $order->status === \App\Models\Order::STATUS_CANCELLED;
+            @endphp
+
+            @if(!$isCancelled)
+                @can('download sales')
+                    @if($isOnline)
+                        <a href="{{ route('admin.sales.pdf', [$order, 'auto_print' => 1]) }}" class="btn btn-label-primary" target="_blank">
+                            <i class="ti ti-printer me-1"></i> Invoice
                         </a>
-                    @endif
-                    @if($order->is_shipping || (float)$order->shipping_charge > 0 || $order->customer_address_id)
                         <a href="{{ route('admin.sales.label', [$order, 'auto_print' => 1]) }}" class="btn btn-label-success" target="_blank">
                             <i class="ti ti-printer me-1"></i> Print Label
                         </a>
-                    @endif
-                @endif
-            @endcan
-
-            @can('edit sales')
-                @if(!$isOnline && in_array((int) $order->status, [1, 2], true) && !($order->cancellationRequest && $order->cancellationRequest->status === 'pending') && can_modify_past_date_record($order->created_at))
-                    <a href="{{ route('admin.sales.edit', $order) }}" class="btn btn-label-warning">
-                        <i class="ti ti-pencil me-1"></i> Edit
-                    </a>
-                @endif
-            @endcan
-
-            @can('edit sales payment status')
-                @if(($order->payment_status ?? 1) != \App\Models\Order::PAYMENT_STATUS_PAID)
-                    <button class="btn btn-success mark-as-paid-btn"
-                        data-url="{{ route('admin.sales.status', $order) }}"
-                        data-history-url="{{ route('admin.sales.payment-history', $order) }}"
-                        data-amount="{{ $order->final_amount }}"
-                        data-current="{{ $order->payment_status ?? 1 }}">
-                        <i class="ti ti-currency-rupee me-1"></i> Update Payment Status
-                    </button>
-                @endif
-            @endcan
-
-            @can('edit sales status')
-                @if(can_modify_past_date_record($order->created_at))
-                @php
-                    $cs  = (int)$order->status;
-                    $isOnline = ($order->source ?? 'POS') === 'ONLINE';
-                    
-                    if (!$isOnline) {
-                        // POS: Only Pending and Approve are possible, and if status is already Approve (2), disable dropdown
-                        $dis = ($cs >= 2) ? 'disabled' : '';
-                        $o1  = ($cs === 1) ? '' : 'disabled';
-                        $o2  = ($cs === 2) ? '' : (($cs === 1) ? '' : 'disabled');
-                    } else {
-                        // Online: Standard sequential flow
-                        $dis = in_array($cs, [5, 6]) ? 'disabled' : '';
-                        $o1  = ($cs === 1) ? '' : 'disabled';
-                        $o2  = ($cs === 2) ? '' : ((!in_array($cs, [1, 2])) ? 'disabled' : '');
-                        $o3  = ($cs === 3) ? '' : ((!in_array($cs, [2, 3])) ? 'disabled' : '');
-                        $o4  = ($cs === 4) ? '' : ((!in_array($cs, [3, 4])) ? 'disabled' : '');
-                        $o5  = ($cs === 5) ? '' : ((!in_array($cs, [4, 5])) ? 'disabled' : '');
-                        $o6  = ($cs === 6) ? '' : ((in_array($cs, [5, 6]))  ? 'disabled' : '');
-                    }
-                @endphp
-                <select id="change-sale-status" class="form-select no-select2" data-current="{{ $order->status }}" {{ $dis }} autocomplete="off" style="min-width:160px;width:auto;">
-                    @if(!$isOnline)
-                        <option value="1" {{ $order->status==1?'selected':'' }} {{ $o1 }}>Pending</option>
-                        <option value="2" {{ $order->status==2?'selected':'' }} {{ $o2 }}>Approve</option>
                     @else
-                        <option value="1" {{ $order->status==1?'selected':'' }} {{ $o1 }}>Pending</option>
-                        <option value="2" {{ $order->status==2?'selected':'' }} {{ $o2 }}>Approve</option>
-                        <option value="3" {{ $order->status==3?'selected':'' }} {{ $o3 }}>Shipped</option>
-                        <option value="4" {{ $order->status==4?'selected':'' }} {{ $o4 }}>Out for delivery</option>
-                        <option value="5" {{ $order->status==5?'selected':'' }} {{ $o5 }}>Delivered</option>
-                        <option value="6" {{ $order->status==6?'selected':'' }} {{ $o6 }}>Cancelled</option>
+                        <a href="{{ route('admin.sales.thermal', [$order, 'auto_print' => 1]) }}" class="btn btn-label-primary" target="_blank">
+                            <i class="ti ti-printer me-1"></i> Invoice
+                        </a>
+                        @if($order->is_gst)
+                            <a href="{{ route('admin.sales.tax-invoice', [$order, 'auto_print' => 1]) }}" class="btn btn-label-info" target="_blank">
+                                <i class="ti ti-file-text me-1"></i> Tax Invoice
+                            </a>
+                        @endif
+                        @if($order->is_shipping || (float)$order->shipping_charge > 0 || $order->customer_address_id)
+                            <a href="{{ route('admin.sales.label', [$order, 'auto_print' => 1]) }}" class="btn btn-label-success" target="_blank">
+                                <i class="ti ti-printer me-1"></i> Print Label
+                            </a>
+                        @endif
                     @endif
-                </select>
-                @endif
-            @endcan
+                @endcan
 
-            @can('delete sales')
-                @if(can_modify_past_date_record($order->created_at))
-                <a href="javascript:void(0);" class="btn btn-label-danger" data-common-delete="{{ route('admin.sales.destroy', $order) }}">
-                    <i class="ti ti-trash me-1"></i> Delete
-                </a>
-                @endif
-            @endcan
+                @can('edit sales')
+                    @if(!$isOnline && in_array((int) $order->status, [1, 2], true) && !($order->cancellationRequest && $order->cancellationRequest->status === 'pending') && can_modify_past_date_record($order->created_at))
+                        <a href="{{ route('admin.sales.edit', $order) }}" class="btn btn-label-warning">
+                            <i class="ti ti-pencil me-1"></i> Edit
+                        </a>
+                    @endif
+                @endcan
+
+                @can('edit sales payment status')
+                    @if(($order->payment_status ?? 1) != \App\Models\Order::PAYMENT_STATUS_PAID)
+                        <button class="btn btn-success mark-as-paid-btn"
+                            data-url="{{ route('admin.sales.status', $order) }}"
+                            data-history-url="{{ route('admin.sales.payment-history', $order) }}"
+                            data-amount="{{ $order->final_amount }}"
+                            data-current="{{ $order->payment_status ?? 1 }}">
+                            <i class="ti ti-currency-rupee me-1"></i> Update Payment Status
+                        </button>
+                    @endif
+                @endcan
+
+                @can('edit sales status')
+                    @if(can_modify_past_date_record($order->created_at))
+                    @php
+                        $cs  = (int)$order->status;
+                        $isOnline = ($order->source ?? 'POS') === 'ONLINE';
+                        
+                        if (!$isOnline) {
+                            // POS: Only Pending and Approve are possible, and if status is already Approve (2), disable dropdown
+                            $dis = ($cs >= 2) ? 'disabled' : '';
+                            $o1  = ($cs === 1) ? '' : 'disabled';
+                            $o2  = ($cs === 2) ? '' : (($cs === 1) ? '' : 'disabled');
+                        } else {
+                            // Online: Standard sequential flow
+                            $dis = in_array($cs, [5, 6]) ? 'disabled' : '';
+                            $o1  = ($cs === 1) ? '' : 'disabled';
+                            $o2  = ($cs === 2) ? '' : ((!in_array($cs, [1, 2])) ? 'disabled' : '');
+                            $o3  = ($cs === 3) ? '' : ((!in_array($cs, [2, 3])) ? 'disabled' : '');
+                            $o4  = ($cs === 4) ? '' : ((!in_array($cs, [3, 4])) ? 'disabled' : '');
+                            $o5  = ($cs === 5) ? '' : ((!in_array($cs, [4, 5])) ? 'disabled' : '');
+                            $o6  = ($cs === 6) ? '' : ((in_array($cs, [5, 6]))  ? 'disabled' : '');
+                        }
+                    @endphp
+                    <select id="change-sale-status" class="form-select no-select2" data-current="{{ $order->status }}" {{ $dis }} autocomplete="off" style="min-width:160px;width:auto;">
+                        @if(!$isOnline)
+                            <option value="1" {{ $order->status==1?'selected':'' }} {{ $o1 }}>Pending</option>
+                            <option value="2" {{ $order->status==2?'selected':'' }} {{ $o2 }}>Approve</option>
+                        @else
+                            <option value="1" {{ $order->status==1?'selected':'' }} {{ $o1 }}>Pending</option>
+                            <option value="2" {{ $order->status==2?'selected':'' }} {{ $o2 }}>Approve</option>
+                            <option value="3" {{ $order->status==3?'selected':'' }} {{ $o3 }}>Shipped</option>
+                            <option value="4" {{ $order->status==4?'selected':'' }} {{ $o4 }}>Out for delivery</option>
+                            <option value="5" {{ $order->status==5?'selected':'' }} {{ $o5 }}>Delivered</option>
+                            <option value="6" {{ $order->status==6?'selected':'' }} {{ $o6 }}>Cancelled</option>
+                        @endif
+                    </select>
+                    @endif
+                @endcan
+
+                @can('return sales')
+                    @if((int)$order->status !== \App\Models\Order::STATUS_CANCELLED && can_modify_past_date_record($order->created_at))
+                    <button type="button" class="btn btn-label-warning return-sale-btn" data-url="{{ route('admin.sales.return', $order) }}" data-order-no="{{ $order->order_no }}">
+                        <i class="ti ti-rotate-clockwise me-1"></i> Return
+                    </button>
+                    @endif
+                @endcan
+
+                @can('delete sales')
+                    @if(can_modify_past_date_record($order->created_at))
+                    <a href="javascript:void(0);" class="btn btn-label-danger" data-common-delete="{{ route('admin.sales.destroy', $order) }}">
+                        <i class="ti ti-trash me-1"></i> Delete
+                    </a>
+                    @endif
+                @endcan
+            @endif
 
             <a href="{{ route('admin.sales.index') }}" class="btn btn-label-secondary">
                 <i class="ti ti-arrow-left me-1"></i> Back
@@ -799,6 +813,51 @@ $(document).ready(function () {
         $('#change-sale-status').val($('#change-sale-status').data('current'));
         $('#cancel-reason-input').val('');
         $('#cancel-reason-wrap').hide();
+    });
+
+    $(document).on('click', '.return-sale-btn', function (e) {
+        e.preventDefault();
+        const url = $(this).data('url');
+        const orderNo = $(this).data('order-no');
+
+        Swal.fire({
+            title: 'Return Sale?',
+            text: `Are you sure you want to return Sale #${orderNo}? Inventory stock will be added back and payment balances will be reversed.`,
+            icon: 'warning',
+            showCancelButton: true,
+            confirmButtonText: 'Yes, Return Sale',
+            cancelButtonText: 'Cancel',
+            customClass: {
+                confirmButton: 'btn btn-primary me-3',
+                cancelButton: 'btn btn-label-secondary'
+            },
+            buttonsStyling: false
+        }).then((result) => {
+            if (result.isConfirmed) {
+                window.showAjaxLoader();
+                $.ajax({
+                    url: url,
+                    type: 'POST',
+                    data: {
+                        _token: '{{ csrf_token() }}'
+                    },
+                    success: function (res) {
+                        window.hideAjaxLoader();
+                        if (res.status === 'success') {
+                            toastr.success(res.message);
+                            setTimeout(() => location.reload(), 800);
+                        } else {
+                            toastr.error(res.message || 'Failed to process return.');
+                        }
+                    },
+                    error: function (xhr) {
+                        window.hideAjaxLoader();
+                        const msg = xhr.responseJSON?.message || 'Something went wrong.';
+                        toastr.error(typeof msg === 'string' ? msg : Object.values(msg)[0][0]);
+                    }
+                });
+            }
+        });
     });
 });
 </script>

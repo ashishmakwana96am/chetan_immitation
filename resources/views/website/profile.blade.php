@@ -543,7 +543,7 @@ const orders = [
           $statusStr = 'Out for delivery';
       } elseif ($o->status == \App\Models\Order::STATUS_DELIVERED) {
           $statusStr = 'Delivered';
-      } elseif ($o->status == \App\Models\Order::STATUS_DECLINE) {
+      } elseif ($o->status == \App\Models\Order::STATUS_CANCELLED) {
           $statusStr = 'Cancelled';
       }
     @endphp

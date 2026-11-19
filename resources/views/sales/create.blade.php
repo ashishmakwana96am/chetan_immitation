@@ -227,7 +227,6 @@
                                 <select name="status" class="form-select no-select2">
                                     <option value="1">Pending</option>
                                     <option value="2" selected>Approve</option>
-                                    <option value="6">Cancelled</option>
                                 </select>
                                 <div class="invalid-feedback"></div>
                             </div>

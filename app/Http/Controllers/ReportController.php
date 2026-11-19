@@ -2111,7 +2111,7 @@ class ReportController extends Controller
         // Calculate pending amount across all non-declined orders matching filter
         $pendingQuery = Order::query()
             ->where('orders.order_type', 'sale')
-            ->where('orders.status', '!=', Order::STATUS_DECLINE)
+            ->where('orders.status', '!=', Order::STATUS_CANCELLED)
             ->when($user->location_id && !$user->hasRole('super-admin'), fn($q) => $q->where('orders.location_id', $user->location_id));
 
         if ($startDate) {
@@ -4767,7 +4767,7 @@ class ReportController extends Controller
                 $fromNumber = (int) preg_replace('/\D/', '', (string) $fromOrd);
                 $toNumber = (int) preg_replace('/\D/', '', (string) $toOrd);
                 $totnum = $toNumber - $fromNumber;
-                $cancel = $sortedGroup->where('status', Order::STATUS_DECLINE)->count();
+                $cancel = $sortedGroup->where('status', Order::STATUS_CANCELLED)->count();
                 if ($fromNumber === $toNumber) {
                     $totnum = 1;
                 } else {
@@ -4913,7 +4913,7 @@ class ReportController extends Controller
 
         $refundQuery = Order::with(['customer', 'payment', 'cancellationRequest'])
             ->where('order_type', 'sale')
-            ->where('status', Order::STATUS_DECLINE)
+            ->where('status', Order::STATUS_CANCELLED)
             ->whereHas('cancellationRequest', function ($q) {
                 $q
                     ->where('status', \App\Models\OrderCancellationRequest::STATUS_APPROVED)
@@ -5086,7 +5086,7 @@ class ReportController extends Controller
 
         $refundQuery = Order::with(['customer', 'payment', 'cancellationRequest'])
             ->where('orders.order_type', 'sale')
-            ->where('orders.status', Order::STATUS_DECLINE)
+            ->where('orders.status', Order::STATUS_CANCELLED)
             ->whereHas('cancellationRequest', function ($q) {
                 $q->where('status', \App\Models\OrderCancellationRequest::STATUS_APPROVED)
                   ->where('refund_amount', '>', 0);
@@ -5427,7 +5427,7 @@ class ReportController extends Controller
 
         $refundQuery = Order::with(['customer', 'payment', 'cancellationRequest'])
             ->where('order_type', 'sale')
-            ->where('status', Order::STATUS_DECLINE)
+            ->where('status', Order::STATUS_CANCELLED)
             ->whereHas('cancellationRequest', function ($q) {
                 $q->where('status', \App\Models\OrderCancellationRequest::STATUS_APPROVED)
                     ->where('refund_amount', '>', 0);
@@ -5499,7 +5499,7 @@ class ReportController extends Controller
         $sumTotalAmount = 0;
 
         foreach ($allOrders as $idx => $order) {
-            $isRefund = $order->status === Order::STATUS_DECLINE;
+            $isRefund = $order->status === Order::STATUS_CANCELLED;
             $orderNo = $isRefund ? ($order->cancellationRequest->request_no ?? $order->order_no) : $order->order_no;
             $customerName = $order->customer->name ?? 'Walk-in';
             $sourceLabel = ucfirst($order->source ?? 'pos');
@@ -6371,7 +6371,7 @@ class ReportController extends Controller
         $totalSalesCount = (int) $salesByLocation->sum('cnt');
 
         $pendingSalesOrders = Order::where('order_type', 'sale')
-            ->where('status', '!=', Order::STATUS_DECLINE)
+            ->where('status', '!=', Order::STATUS_CANCELLED)
             ->whereDate('created_at', $date)
             ->whereIn('location_id', $locationIds)
             ->get();

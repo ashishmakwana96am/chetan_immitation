@@ -268,7 +268,7 @@
                                     \App\Models\Order::STATUS_SHIPPED => ['Shipped', 'bg-label-info'],
                                     \App\Models\Order::STATUS_OUT_FOR_DELIVERY => ['Out For Delivery', 'bg-label-info'],
                                     \App\Models\Order::STATUS_DELIVERED => ['Delivered', 'bg-label-success'],
-                                    \App\Models\Order::STATUS_DECLINE => ['Decline', 'bg-label-danger'],
+                                    \App\Models\Order::STATUS_CANCELLED => ['Cancelled', 'bg-label-danger'],
                                 ];
                                 $paymentStatusLabels = [
                                     \App\Models\Order::PAYMENT_STATUS_PENDING => ['Pending', 'bg-label-warning'],

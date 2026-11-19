@@ -413,6 +413,23 @@
     </div>
 
     <div class="card">
+        @can('return sales')
+        <div class="card-header border-bottom p-0">
+            <ul class="nav nav-tabs card-header-tabs m-0" id="salesTabs" role="tablist">
+                <li class="nav-item" role="presentation">
+                    <button class="nav-link active px-4 py-3" id="tab-active-sales" data-bs-toggle="tab" data-tab-type="active" type="button" role="tab">
+                        <i class="ti ti-receipt me-1"></i> Sales & Orders
+                    </button>
+                </li>
+                <li class="nav-item" role="presentation">
+                    <button class="nav-link px-4 py-3" id="tab-returned-sales" data-bs-toggle="tab" data-tab-type="returned" type="button" role="tab">
+                        <i class="ti ti-rotate-clockwise me-1"></i> Returned Sales
+                        <span class="badge rounded-pill bg-label-primary ms-1" id="returnedSalesCount">0</span>
+                    </button>
+                </li>
+            </ul>
+        </div>
+        @endcan
         <div class="card-datatable table-responsive">
             <table class="table border-top" id="ordersTable">
                 <thead>
@@ -583,6 +600,7 @@
             });
 
             const dateSortColIndex = isSuperAdmin ? 11 : 10;
+            let activeSalesTab = 'active';
 
             const table = $('#ordersTable').DataTable({
                 processing: true,
@@ -591,9 +609,15 @@
                 order: [[dateSortColIndex, 'desc']],
                 ajax: {
                     url: '{{ route('admin.sales.data') }}',
-                    dataSrc: 'data',
+                    dataSrc: function (json) {
+                        if (json.returned_count !== undefined) {
+                            $('#returnedSalesCount').text(json.returned_count);
+                        }
+                        return json.data;
+                    },
                     cache: false,
                     data: function (d) {
+                        d.tab            = activeSalesTab;
                         d.status         = $('#filter-status').val();
                         d.payment_status = $('#filter-payment-status').val();
                         d.source         = $('#filter-source').val();
@@ -1060,6 +1084,56 @@
                 endPicker.set('minDate', null);
                 window.refreshTable();
                 closeSaleFilterSidepanel();
+            });
+
+            $('#salesTabs button[data-bs-toggle="tab"]').on('shown.bs.tab', function () {
+                activeSalesTab = $(this).data('tab-type');
+                window.refreshTable();
+            });
+
+            $(document).on('click', '.return-sale-btn', function (e) {
+                e.preventDefault();
+                const url = $(this).data('url');
+                const orderNo = $(this).data('order-no');
+
+                Swal.fire({
+                    title: 'Return Sale?',
+                    text: `Are you sure you want to return Sale #${orderNo}? Inventory stock will be added back and payment balances will be reversed.`,
+                    icon: 'warning',
+                    showCancelButton: true,
+                    confirmButtonText: 'Yes, Return Sale',
+                    cancelButtonText: 'Cancel',
+                    customClass: {
+                        confirmButton: 'btn btn-primary me-3',
+                        cancelButton: 'btn btn-label-secondary'
+                    },
+                    buttonsStyling: false
+                }).then((result) => {
+                    if (result.isConfirmed) {
+                        window.showAjaxLoader();
+                        $.ajax({
+                            url: url,
+                            type: 'POST',
+                            data: {
+                                _token: $('meta[name="csrf-token"]').attr('content')
+                            },
+                            success: function (res) {
+                                window.hideAjaxLoader();
+                                if (res.status === 'success') {
+                                    toastr.success(res.message);
+                                    window.refreshTable();
+                                } else {
+                                    toastr.error(res.message || 'Failed to process return.');
+                                }
+                            },
+                            error: function (xhr) {
+                                window.hideAjaxLoader();
+                                const msg = xhr.responseJSON?.message || 'Something went wrong.';
+                                toastr.error(typeof msg === 'string' ? msg : Object.values(msg)[0][0]);
+                            }
+                        });
+                    }
+                });
             });
         });
     </script>
