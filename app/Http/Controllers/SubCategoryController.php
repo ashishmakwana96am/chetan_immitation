@@ -45,7 +45,7 @@ class SubCategoryController extends Controller
                 $actions .= '<button class="btn btn-sm btn-label-primary action-dropdown-btn dropdown-toggle" data-bs-toggle="dropdown" data-bs-boundary="viewport" aria-expanded="false"><span>Actions</span></button>';
                 $actions .= '<div class="dropdown-menu dropdown-menu-end action-dropdown-menu m-0">';
                 if ($canEdit) {
-                    $actions .= '<button class="dropdown-item" data-common-modal="' . route('admin.sub-categories.edit', $subCategory) . '"><i class="ti ti-pencil me-2"></i>Edit</button>';
+                    $actions .= '<button class="dropdown-item" data-common-modal="' . route('admin.sub-categories.edit', $subCategory) . '" data-size="half"><i class="ti ti-pencil me-2"></i>Edit</button>';
                 }
                 if ($canDelete) {
                     if ($canEdit) {
@@ -82,9 +82,23 @@ class SubCategoryController extends Controller
     {
         $this->authorize('create sub categories');
 
-        $validator = Validator::make($request->all(), [
-            'category_id' => ['required', 'exists:categories,id'],
-            'name'        => ['required', 'string', 'max:100', Rule::unique('sub_categories', 'name')->whereNull('deleted_at')],
+        $data = $request->all();
+        if (isset($data['description']) && trim(strip_tags($data['description'])) === '') {
+            $data['description'] = null;
+        }
+        if (isset($data['additional_information']) && trim(strip_tags($data['additional_information'])) === '') {
+            $data['additional_information'] = null;
+        }
+        if (isset($data['product_highlights']) && trim(strip_tags($data['product_highlights'])) === '') {
+            $data['product_highlights'] = null;
+        }
+
+        $validator = Validator::make($data, [
+            'category_id'            => ['required', 'exists:categories,id'],
+            'name'                   => ['required', 'string', 'max:100', Rule::unique('sub_categories', 'name')->whereNull('deleted_at')],
+            'description'            => ['required', 'string'],
+            'additional_information' => ['required', 'string'],
+            'product_highlights'     => ['required', 'string'],
         ]);
 
         if ($validator->fails()) {
@@ -95,12 +109,15 @@ class SubCategoryController extends Controller
         }
 
         SubCategory::create([
-            'category_id' => $request->category_id,
-            'name'        => $request->name,
-            'slug'        => generate_slug(SubCategory::class, $request->name),
-            'status'      => $request->has('status') ? 1 : 2,
-            'created_by'  => auth()->id(),
-            'sort_order'  => ((int) SubCategory::max('sort_order')) + 1,
+            'category_id'            => $request->category_id,
+            'name'                   => $request->name,
+            'description'            => $request->description,
+            'additional_information' => $request->additional_information,
+            'product_highlights'     => $request->product_highlights,
+            'slug'                   => generate_slug(SubCategory::class, $request->name),
+            'status'                 => $request->has('status') ? 1 : 2,
+            'created_by'             => auth()->id(),
+            'sort_order'             => ((int) SubCategory::max('sort_order')) + 1,
         ]);
 
         return response()->json([
@@ -120,9 +137,23 @@ class SubCategoryController extends Controller
     {
         $this->authorize('edit sub categories');
 
-        $validator = Validator::make($request->all(), [
-            'category_id' => ['required', 'exists:categories,id'],
-            'name'        => ['required', 'string', 'max:100', Rule::unique('sub_categories', 'name')->ignore($subCategory->id)->whereNull('deleted_at')],
+        $data = $request->all();
+        if (isset($data['description']) && trim(strip_tags($data['description'])) === '') {
+            $data['description'] = null;
+        }
+        if (isset($data['additional_information']) && trim(strip_tags($data['additional_information'])) === '') {
+            $data['additional_information'] = null;
+        }
+        if (isset($data['product_highlights']) && trim(strip_tags($data['product_highlights'])) === '') {
+            $data['product_highlights'] = null;
+        }
+
+        $validator = Validator::make($data, [
+            'category_id'            => ['required', 'exists:categories,id'],
+            'name'                   => ['required', 'string', 'max:100', Rule::unique('sub_categories', 'name')->ignore($subCategory->id)->whereNull('deleted_at')],
+            'description'            => ['required', 'string'],
+            'additional_information' => ['required', 'string'],
+            'product_highlights'     => ['required', 'string'],
         ]);
 
         if ($validator->fails()) {
@@ -133,10 +164,13 @@ class SubCategoryController extends Controller
         }
 
         $subCategory->update([
-            'category_id' => $request->category_id,
-            'name'        => $request->name,
-            'slug'        => generate_slug(SubCategory::class, $request->name, $subCategory->id),
-            'status'      => $request->has('status') ? 1 : 2,
+            'category_id'            => $request->category_id,
+            'name'                   => $request->name,
+            'description'            => $request->description,
+            'additional_information' => $request->additional_information,
+            'product_highlights'     => $request->product_highlights,
+            'slug'                   => generate_slug(SubCategory::class, $request->name, $subCategory->id),
+            'status'                 => $request->has('status') ? 1 : 2,
         ]);
 
         return response()->json([

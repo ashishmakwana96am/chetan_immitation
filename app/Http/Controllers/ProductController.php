@@ -1567,7 +1567,7 @@ class ProductController extends Controller
         $subCategories = SubCategory::where('category_id', $categoryId)
             ->where('status', 1)
             ->orderBy('name')
-            ->get(['id', 'name']);
+            ->get(['id', 'name', 'description', 'additional_information', 'product_highlights']);
 
         return response()->json($subCategories);
     }

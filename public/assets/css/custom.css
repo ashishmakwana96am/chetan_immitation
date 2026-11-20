@@ -436,12 +436,29 @@ table .action-dropdown-menu .dropdown-item.text-danger.active {
 /*
 * Global validation feedback styling for Quill Editors
 ******************************************************************************/
-div:has(textarea.is-invalid) .ql-container,
-div:has(textarea.is-invalid) .ql-toolbar {
+.ql-toolbar.ql-snow {
+  border-top-left-radius: 0.375rem !important;
+  border-top-right-radius: 0.375rem !important;
+  border-bottom-left-radius: 0 !important;
+  border-bottom-right-radius: 0 !important;
+}
+
+.ql-container.ql-snow {
+  border-bottom-left-radius: 0.375rem !important;
+  border-bottom-right-radius: 0.375rem !important;
+  border-top-left-radius: 0 !important;
+  border-top-right-radius: 0 !important;
+}
+
+.quill-editor-wrapper:has(textarea.is-invalid) .ql-container,
+.quill-editor-wrapper:has(textarea.is-invalid) .ql-toolbar,
+.col-12:has(> textarea.is-invalid) .ql-container,
+.col-12:has(> textarea.is-invalid) .ql-toolbar {
   border-color: var(--bs-form-invalid-border-color, #ea5455) !important;
 }
 
-div:has(textarea.is-invalid) .invalid-feedback {
+.quill-editor-wrapper:has(textarea.is-invalid) .invalid-feedback,
+.col-12:has(> textarea.is-invalid) .invalid-feedback {
   display: block !important;
 }
 

@@ -54,7 +54,13 @@
                                     <option value="">Select Sub Category</option>
                                     @if(isset($clonedProduct) && $subCategories->count() > 0)
                                         @foreach($subCategories as $subCategory)
-                                            <option value="{{ $subCategory->id }}" {{ $clonedProduct->sub_category_id == $subCategory->id ? 'selected' : '' }}>{{ $subCategory->name }}</option>
+                                            <option value="{{ $subCategory->id }}"
+                                                data-description="{{ $subCategory->description }}"
+                                                data-info="{{ $subCategory->additional_information }}"
+                                                data-highlights="{{ $subCategory->product_highlights }}"
+                                                {{ $clonedProduct->sub_category_id == $subCategory->id ? 'selected' : '' }}>
+                                                {{ $subCategory->name }}
+                                            </option>
                                         @endforeach
                                     @endif
                                 </select>
@@ -412,7 +418,13 @@
                     success: function (res) {
                         if (res && res.length > 0) {
                             $.each(res, function (i, subCat) {
-                                subCategorySelect.append('<option value="' + subCat.id + '">' + subCat.name + '</option>');
+                                const $opt = $('<option></option>')
+                                    .val(subCat.id)
+                                    .text(subCat.name)
+                                    .attr('data-description', subCat.description || '')
+                                    .attr('data-info', subCat.additional_information || '')
+                                    .attr('data-highlights', subCat.product_highlights || '');
+                                subCategorySelect.append($opt);
                             });
                             subCategorySelect.prop('disabled', false);
                         } else {
@@ -424,6 +436,38 @@
                         subCategorySelect.prop('disabled', true);
                     }
                 });
+            });
+
+            const defaultDescription = {!! json_encode($defaultDescription) !!};
+            const defaultInfo = {!! json_encode($defaultInfo) !!};
+            const defaultHighlights = {!! json_encode($defaultHighlights) !!};
+
+            $('#productSubCategory').on('change', function () {
+                const subCatId = $(this).val();
+                if (subCatId) {
+                    const selected = $(this).find('option:selected');
+                    const desc = selected.attr('data-description');
+                    const info = selected.attr('data-info');
+                    const hl = selected.attr('data-highlights');
+
+                    descriptionQuill.root.innerHTML = (desc !== undefined && desc !== '') ? desc : defaultDescription;
+                    $('#description-textarea').val(descriptionQuill.root.innerHTML).trigger('input');
+
+                    infoQuill.root.innerHTML = (info !== undefined && info !== '') ? info : defaultInfo;
+                    $('#information-textarea').val(infoQuill.root.innerHTML).trigger('input');
+
+                    highlightsQuill.root.innerHTML = (hl !== undefined && hl !== '') ? hl : defaultHighlights;
+                    $('#highlights-textarea').val(highlightsQuill.root.innerHTML).trigger('input');
+                } else {
+                    descriptionQuill.root.innerHTML = defaultDescription;
+                    $('#description-textarea').val(defaultDescription).trigger('input');
+
+                    infoQuill.root.innerHTML = defaultInfo;
+                    $('#information-textarea').val(defaultInfo).trigger('input');
+
+                    highlightsQuill.root.innerHTML = defaultHighlights;
+                    $('#highlights-textarea').val(defaultHighlights).trigger('input');
+                }
             });
 
             // Image cropping state variables

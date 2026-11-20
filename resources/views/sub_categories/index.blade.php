@@ -5,6 +5,8 @@
 @section('page-css')
     <link rel="stylesheet" href="{{ asset('assets/vendor/libs/datatables-bs5/datatables.bootstrap5.css') }}" />
     <link rel="stylesheet" href="{{ asset('assets/vendor/libs/datatables-responsive-bs5/responsive.bootstrap5.css') }}" />
+    <link rel="stylesheet" href="{{ asset('assets/vendor/libs/quill/typography.css') }}" />
+    <link rel="stylesheet" href="{{ asset('assets/vendor/libs/quill/editor.css') }}" />
     <style>
         /* Desktop: Standard Dropdown Menu */
         #filterDropdownContainer {
@@ -198,7 +200,7 @@
                 </div>
             </div>
             @can('create sub categories')
-                <button class="btn btn-primary" data-common-modal="{{ route('admin.sub-categories.create') }}">
+                <button class="btn btn-primary" data-common-modal="{{ route('admin.sub-categories.create') }}" data-size="half">
                     <i class="ti ti-plus me-1"></i> Add Sub Category
                 </button>
             @endcan
@@ -227,6 +229,7 @@
 
 @section('page-js')
     <script src="{{ asset('assets/vendor/libs/datatables-bs5/datatables-bootstrap5.js') }}"></script>
+    <script src="{{ asset('assets/vendor/libs/quill/quill.js') }}"></script>
     <script>
         $(document).ready(function () {
             const columns = [];

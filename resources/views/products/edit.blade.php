@@ -63,7 +63,11 @@
                                       <option value="">Select Sub Category</option>
                                       @if(!empty($subCategories))
                                           @foreach($subCategories as $subCategory)
-                                              <option value="{{ $subCategory->id }}" {{ $product->sub_category_id === $subCategory->id ? 'selected' : '' }}>
+                                              <option value="{{ $subCategory->id }}"
+                                                  data-description="{{ $subCategory->description }}"
+                                                  data-info="{{ $subCategory->additional_information }}"
+                                                  data-highlights="{{ $subCategory->product_highlights }}"
+                                                  {{ $product->sub_category_id === $subCategory->id ? 'selected' : '' }}>
                                                   {{ $subCategory->name }}
                                               </option>
                                           @endforeach
@@ -513,7 +517,13 @@
                     success: function (res) {
                         if (res && res.length > 0) {
                             $.each(res, function (i, subCat) {
-                                subCategorySelect.append('<option value="' + subCat.id + '">' + subCat.name + '</option>');
+                                const $opt = $('<option></option>')
+                                    .val(subCat.id)
+                                    .text(subCat.name)
+                                    .attr('data-description', subCat.description || '')
+                                    .attr('data-info', subCat.additional_information || '')
+                                    .attr('data-highlights', subCat.product_highlights || '');
+                                subCategorySelect.append($opt);
                             });
                             subCategorySelect.prop('disabled', false);
                         } else {
@@ -525,6 +535,42 @@
                         subCategorySelect.prop('disabled', true);
                     }
                 });
+            });
+
+            const defaultDescription = `<p>Classic Silver Tone Adjustable Tennis Bracelet crafted with premium brass and sparkling American Diamonds. Lightweight, skin-friendly and perfect for everyday wear as well as weddings, parties and festive occasions. Elegant finish with an adjustable chain ensures a comfortable fit for every wrist.</p>`;
+            const defaultInfo = `<ul><li>Premium Quality Brass</li><li>Silver Tone Finish</li><li>Studded with American Diamonds</li><li>Adjustable Chain</li><li>Lightweight Design</li><li>Comfortable for Daily Wear</li><li>Tarnish Resistant Finish</li><li>Elegant Party Wear Bracelet</li></ul>`;
+            const defaultHighlights = `<p>✓ Premium Finish</p><p>✓ Adjustable Size</p><p>✓ Lightweight</p><p>✓ Skin Friendly</p><p>✓ Anti Tarnish</p><p>✓ Sparkling American Diamonds</p><p>✓ Luxury Look</p><p>✓ Perfect Gift</p>`;
+
+            $('#productSubCategory').on('change', function () {
+                const subCatId = $(this).val();
+                if (subCatId) {
+                    const selected = $(this).find('option:selected');
+                    const desc = selected.attr('data-description');
+                    const info = selected.attr('data-info');
+                    const hl = selected.attr('data-highlights');
+
+                    if (desc !== undefined && desc !== '') {
+                        descriptionQuill.root.innerHTML = desc;
+                        $('#description-textarea').val(desc).trigger('input');
+                    }
+                    if (info !== undefined && info !== '') {
+                        infoQuill.root.innerHTML = info;
+                        $('#information-textarea').val(info).trigger('input');
+                    }
+                    if (hl !== undefined && hl !== '') {
+                        highlightsQuill.root.innerHTML = hl;
+                        $('#highlights-textarea').val(hl).trigger('input');
+                    }
+                } else {
+                    descriptionQuill.root.innerHTML = defaultDescription;
+                    $('#description-textarea').val(defaultDescription).trigger('input');
+
+                    infoQuill.root.innerHTML = defaultInfo;
+                    $('#information-textarea').val(defaultInfo).trigger('input');
+
+                    highlightsQuill.root.innerHTML = defaultHighlights;
+                    $('#highlights-textarea').val(defaultHighlights).trigger('input');
+                }
             });
 
             // Image cropping state variables
