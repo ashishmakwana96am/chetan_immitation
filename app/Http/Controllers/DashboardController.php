@@ -396,13 +396,13 @@ class DashboardController extends Controller
         return [$totalAmount, $totalMrp];
     }
 
-    private function stockMultiplierFor(Product $product, ?string $pairType, $customSizeValue = null): float
+    private function stockMultiplierFor(?Product $product, ?string $pairType, $customSizeValue = null): float
     {
         if ($customSizeValue !== null && $customSizeValue !== '' && (float) $customSizeValue > 0) {
             return (float) $customSizeValue;
         }
 
-        if (!$product->pair_product) {
+        if (!$product || !$product->pair_product) {
             return 1.0;
         }
 

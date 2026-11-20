@@ -408,6 +408,9 @@
             window.isExplicitFilterReload = false;
 
             $(document).on('preXhr.dt', function(e, settings, data) {
+                if (settings && (settings.sTableId === 'catalogProductsTable' || (settings.nTable && $(settings.nTable).closest('.offcanvas').length > 0))) {
+                    return;
+                }
                 var isFirstLoad = !data || !data.draw || data.draw === 1;
                 var isFilterReload = window.isExplicitFilterReload === true;
 

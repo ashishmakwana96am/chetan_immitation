@@ -414,15 +414,15 @@
 
     <div class="card">
         @can('return sales')
-        <div class="card-header border-bottom p-0">
-            <ul class="nav nav-tabs card-header-tabs m-0" id="salesTabs" role="tablist">
+        <div class="border-bottom card-tabs-header">
+            <ul class="nav nav-tabs card-header-tabs" id="salesTabs" role="tablist">
                 <li class="nav-item" role="presentation">
-                    <button class="nav-link active px-4 py-3" id="tab-active-sales" data-bs-toggle="tab" data-tab-type="active" type="button" role="tab">
+                    <button class="nav-link active" id="tab-active-sales" data-bs-toggle="tab" data-tab-type="active" type="button" role="tab">
                         <i class="ti ti-receipt me-1"></i> Sales & Orders
                     </button>
                 </li>
                 <li class="nav-item" role="presentation">
-                    <button class="nav-link px-4 py-3" id="tab-returned-sales" data-bs-toggle="tab" data-tab-type="returned" type="button" role="tab">
+                    <button class="nav-link" id="tab-returned-sales" data-bs-toggle="tab" data-tab-type="returned" type="button" role="tab">
                         <i class="ti ti-rotate-clockwise me-1"></i> Returned Sales
                         <span class="badge rounded-pill bg-label-primary ms-1" id="returnedSalesCount">0</span>
                     </button>

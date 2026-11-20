@@ -2097,6 +2097,7 @@ class AccountingController extends Controller
                         'purchase_bill_id'           => $pBill->id,
                         'branch_balance_transfer_id' => $transfer->id,
                         'amount'                     => $payAmt,
+                        'notes'                      => 'Branch Balance Transfer (' . $transfer->transfer_no . ')',
                         'created_by'                 => auth()->id(),
                     ]);
 

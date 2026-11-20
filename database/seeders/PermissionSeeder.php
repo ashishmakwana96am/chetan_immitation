@@ -65,6 +65,7 @@ class PermissionSeeder extends Seeder
             'delete products' => 'Products',
             'clone products' => 'Products',
             'bulk upload product images' => 'Products',
+            'export product catalog' => 'Products',
 
             // Reports
             'view product reports' => 'Reports',

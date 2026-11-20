@@ -1985,4 +1985,230 @@ class ProductController extends Controller
         Cache::forget('all_mapped_products_purchases');
         Cache::forget('all_mapped_products_bills');
     }
+
+    public function catalogData(Request $request)
+    {
+        $this->authorize('export product catalog');
+
+        $search = trim($request->input('search.value', $request->input('search_value', '')));
+
+        $query = Product::with(['category', 'subCategory', 'primaryImage', 'images'])
+            ->whereHas('images', function ($q) {
+                $q->whereNotNull('image_path')->where('image_path', '!=', '');
+            })
+            ->when(!empty($search), function($q) use ($search) {
+                $q->where(function($sub) use ($search) {
+                    $sub->where('name', 'like', "%{$search}%")
+                        ->orWhere('barcode', 'like', "%{$search}%");
+                });
+            });
+
+        $totalRecords = Product::whereHas('images', function ($q) {
+            $q->whereNotNull('image_path')->where('image_path', '!=', '');
+        })->count();
+        $filteredRecords = $query->count();
+
+        $start = (int) $request->input('start', 0);
+        $length = (int) $request->input('length', 10);
+
+        $products = $query->orderBy('name', 'asc')
+            ->skip($start)
+            ->take($length)
+            ->get();
+
+        $data = $products->map(function ($p) {
+            return [
+                'id'                => $p->id,
+                'image_url'         => $p->primary_image_url,
+                'name'              => $p->name,
+                'barcode'           => $p->barcode ?? '-',
+                'category_name'     => $p->category?->name ?? '-',
+                'sub_category_name' => $p->subCategory?->name ?? '-',
+                'mrp'               => format_price($p->mrp),
+                'sale_price'        => format_price($p->sale_price),
+                'raw_mrp'           => (float) ($p->mrp ?? 0),
+                'raw_sale'          => (float) ($p->sale_price ?? 0),
+            ];
+        });
+
+        return response()->json([
+            'draw'            => (int) $request->input('draw', 1),
+            'recordsTotal'    => $totalRecords,
+            'recordsFiltered' => $filteredRecords,
+            'data'            => $data,
+        ]);
+    }
+
+    public function catalogAllIds(Request $request)
+    {
+        $this->authorize('export product catalog');
+
+        $search = trim($request->input('search.value', $request->input('search_value', '')));
+
+        $ids = Product::query()
+            ->whereHas('images', function ($q) {
+                $q->whereNotNull('image_path')->where('image_path', '!=', '');
+            })
+            ->when(!empty($search), function($q) use ($search) {
+                $q->where(function($sub) use ($search) {
+                    $sub->where('name', 'like', "%{$search}%")
+                        ->orWhere('barcode', 'like', "%{$search}%");
+                });
+            })
+            ->pluck('id')
+            ->toArray();
+
+        return response()->json(['ids' => $ids]);
+    }
+
+    public function exportCatalogPdf(Request $request)
+    {
+        $this->authorize('export product catalog');
+
+        $request->validate([
+            'product_ids'   => 'required|array|min:1',
+            'product_ids.*' => 'integer|exists:products,id',
+            'price_display' => 'required|in:both,mrp,sale,none',
+        ]);
+
+        $productIds = $request->input('product_ids', []);
+        $priceDisplay = $request->input('price_display', 'both');
+
+        $products = Product::with(['category', 'subCategory', 'primaryImage', 'images'])
+            ->whereHas('images', function ($q) {
+                $q->whereNotNull('image_path')->where('image_path', '!=', '');
+            })
+            ->whereIn('id', $productIds)
+            ->orderBy('name', 'asc')
+            ->get();
+
+        $items = [];
+        foreach ($products as $product) {
+            $imagesBase64 = $this->resolveAllProductImagesBase64($product);
+
+            if (empty($imagesBase64)) {
+                $items[] = [
+                    'id'           => $product->id,
+                    'name'         => $product->name,
+                    'barcode'      => $product->barcode ?? '-',
+                    'image_base64' => '',
+                    'category'     => $product->category?->name ?? '',
+                    'sub_category' => $product->subCategory?->name ?? '',
+                    'is_first'     => true,
+                    'mrp'          => format_price($product->mrp),
+                    'sale_price'   => format_price($product->sale_price),
+                    'raw_mrp'      => (float) ($product->mrp ?? 0),
+                    'raw_sale'     => (float) ($product->sale_price ?? 0),
+                ];
+                continue;
+            }
+
+            foreach ($imagesBase64 as $idx => $imageBase64) {
+                $items[] = [
+                    'id'           => $product->id,
+                    'name'         => $product->name,
+                    'barcode'      => $product->barcode ?? '-',
+                    'image_base64' => $imageBase64,
+                    'category'     => $product->category?->name ?? '',
+                    'sub_category' => $product->subCategory?->name ?? '',
+                    'is_first'     => ($idx === 0),
+                    'mrp'          => format_price($product->mrp),
+                    'sale_price'   => format_price($product->sale_price),
+                    'raw_mrp'      => (float) ($product->mrp ?? 0),
+                    'raw_sale'     => (float) ($product->sale_price ?? 0),
+                ];
+            }
+        }
+
+        $priceLabel = match ($priceDisplay) {
+            'both' => 'Both MRP & Sale Price',
+            'mrp'  => 'MRP Only',
+            'sale' => 'Sale Price Only',
+            'none' => 'No Price',
+        };
+
+        ActivityLogger::log(
+            'Products',
+            'export',
+            null,
+            null,
+            ['count' => count($products), 'price_display' => $priceDisplay],
+            'Product catalog PDF exported (' . count($products) . ' products, Price: ' . $priceLabel . ')'
+        );
+
+        $pdf = \Barryvdh\DomPDF\Facade\Pdf::loadView('products.catalog_pdf', [
+            'items'        => $items,
+            'priceDisplay' => $priceDisplay,
+            'generatedAt'  => now()->format('d M Y, h:i A'),
+            'totalCount'   => count($items),
+        ])
+        ->setPaper('a4', 'portrait')
+        ->setOption('isRemoteEnabled', true)
+        ->setOption('isHtml5ParserEnabled', true);
+
+        return $pdf->download('product-catalog-' . date('Ymd-His') . '.pdf');
+    }
+
+    private function resolveProductImageBase64FromPath(string $imagePath): string
+    {
+        if (empty($imagePath)) {
+            return '';
+        }
+
+        $fullPath = public_path('uploads/' . $imagePath);
+        if (!file_exists($fullPath) || !is_file($fullPath)) {
+            return '';
+        }
+
+        $ext = strtolower(pathinfo($fullPath, PATHINFO_EXTENSION));
+
+        if ($ext === 'webp' && function_exists('imagecreatefromwebp')) {
+            $im = @imagecreatefromwebp($fullPath);
+            if ($im) {
+                ob_start();
+                imagepng($im);
+                $imData = ob_get_clean();
+                imagedestroy($im);
+                if ($imData) {
+                    return 'data:image/png;base64,' . base64_encode($imData);
+                }
+            }
+        }
+
+        $mime = ($ext === 'png') ? 'image/png' : (($ext === 'gif') ? 'image/gif' : 'image/jpeg');
+        $content = @file_get_contents($fullPath);
+        if ($content) {
+            return 'data:' . $mime . ';base64,' . base64_encode($content);
+        }
+
+        return '';
+    }
+
+    private function resolveAllProductImagesBase64(Product $product): array
+    {
+        $images = [];
+
+        if ($product->relationLoaded('images') && $product->images->isNotEmpty()) {
+            foreach ($product->images as $img) {
+                if (!empty($img->image_path)) {
+                    $b64 = $this->resolveProductImageBase64FromPath($img->image_path);
+                    if (!empty($b64)) {
+                        $images[] = $b64;
+                    }
+                }
+            }
+        }
+
+        if (empty($images)) {
+            $primary = $product->primaryImage ?? null;
+            if ($primary && !empty($primary->image_path)) {
+                $b64 = $this->resolveProductImageBase64FromPath($primary->image_path);
+                if (!empty($b64)) {
+                    $images[] = $b64;
+                }
+            }
+        }
+
+        return $images;
+    }
 }

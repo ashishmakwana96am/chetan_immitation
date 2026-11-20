@@ -371,7 +371,8 @@ $(document).ready(function () {
         }
 
         let rows = historyData.payments.map(function (p) {
-            return `<tr><td class="text-nowrap">${p.date}</td><td class="text-end">${p.amount}</td></tr>`;
+            let noteBadge = p.note ? `<span class="badge bg-label-info ms-1">${p.note}</span>` : '<span class="text-muted">-</span>';
+            return `<tr><td class="text-nowrap">${p.date}</td><td>${noteBadge}</td><td class="text-end fw-semibold">${p.amount}</td></tr>`;
         }).join('');
 
         return `
@@ -382,9 +383,9 @@ $(document).ready(function () {
                     <span>Balance: <strong class="text-danger">${historyData.balance_due}</strong></span>
                 </div>
                 <label class="form-label fw-semibold mb-1" style="font-size: 0.8rem;">Payment History</label>
-                <div class="table-responsive border rounded" style="max-height:150px; overflow-y:auto;">
+                <div class="table-responsive border rounded" style="max-height:160px; overflow-y:auto;">
                     <table class="table table-sm mb-0" style="font-size: 0.75rem;">
-                        <thead class="table-light"><tr><th>Date</th><th class="text-end">Amount</th></tr></thead>
+                        <thead class="table-light"><tr><th>Date</th><th>Type / Note</th><th class="text-end">Amount</th></tr></thead>
                         <tbody>${rows}</tbody>
                     </table>
                 </div>

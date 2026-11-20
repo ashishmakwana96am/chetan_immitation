@@ -419,17 +419,17 @@
 
     <div class="card">
         @can('return purchases')
-            <div class="card-header border-bottom p-0">
-                <ul class="nav nav-tabs card-header-tabs m-0 px-3 pt-2" id="purchaseTabs" role="tablist">
-                    <li class="nav-item">
-                        <button type="button" class="nav-link active" data-bs-toggle="tab" data-tab="active">
+            <div class="border-bottom card-tabs-header">
+                <ul class="nav nav-tabs card-header-tabs" id="purchaseTabs" role="tablist">
+                    <li class="nav-item" role="presentation">
+                        <button type="button" class="nav-link active" data-bs-toggle="tab" data-tab="active" role="tab">
                             <i class="ti ti-file-text me-1"></i> Purchases
                         </button>
                     </li>
-                    <li class="nav-item">
-                        <button type="button" class="nav-link" data-bs-toggle="tab" data-tab="returned">
+                    <li class="nav-item" role="presentation">
+                        <button type="button" class="nav-link" data-bs-toggle="tab" data-tab="returned" role="tab">
                             <i class="ti ti-rotate me-1"></i> Returned Purchases
-                            <span class="badge bg-label-primary ms-1" id="returnedPurchasesCount">{{ $returnedPurchasesCount ?? 0 }}</span>
+                            <span class="badge rounded-pill bg-label-primary ms-1" id="returnedPurchasesCount">{{ $returnedPurchasesCount ?? 0 }}</span>
                         </button>
                     </li>
                 </ul>

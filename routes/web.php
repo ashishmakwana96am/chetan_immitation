@@ -160,6 +160,9 @@ Route::prefix('admin')->name('admin.')->group(function () {
         Route::get('products/print-barcodes', [ProductController::class, 'printBarcodes'])->name('products.print-barcodes');
         Route::post('products/print-barcodes/prepare', [ProductController::class, 'prepareBarcodePrint'])->name('products.print-barcodes.prepare');
         Route::post('products/bulk-toggle-website', [ProductController::class, 'bulkToggleWebsite'])->name('products.bulk-toggle-website');
+        Route::get('products/catalog/data', [ProductController::class, 'catalogData'])->name('products.catalog.data');
+        Route::get('products/catalog/ids', [ProductController::class, 'catalogAllIds'])->name('products.catalog.ids');
+        Route::post('products/catalog/pdf', [ProductController::class, 'exportCatalogPdf'])->name('products.catalog.pdf');
         Route::resource('products', ProductController::class)->except('show');
         Route::get('products/{product}', [ProductController::class, 'show'])->name('products.show');
         Route::get('products/{product}/purchase-history', [ProductController::class, 'purchaseHistoryData'])->name('products.purchase-history');

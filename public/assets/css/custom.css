@@ -696,6 +696,126 @@ body.modal-open {
   }
 }
 
+/*
+* Standard Module Card Header Tabs (Matches Reports & other modules)
+******************************************************************************/
+.card-tabs-header,
+.report-tabs-header,
+.card-header:has(.card-header-tabs),
+.card-header:has(#salesTabs),
+.card-header:has(#purchaseTabs) {
+  padding: 0 1.25rem !important;
+  background-color: #fff !important;
+  border-bottom: 1px solid rgba(75, 70, 92, 0.08) !important;
+  overflow: visible !important;
+}
+
+.card-tabs-header .nav-tabs,
+.card-tabs-header .nav-tabs.card-header-tabs,
+.report-tabs-header .nav-tabs,
+.report-tabs-header .nav-tabs.card-header-tabs,
+#salesTabs.card-header-tabs,
+#purchaseTabs.card-header-tabs {
+  border-bottom: none !important;
+  margin: 0 !important;
+  padding: 0 !important;
+  display: flex !important;
+  flex-wrap: nowrap !important;
+  overflow: visible !important;
+  overflow-x: visible !important;
+  overflow-y: hidden !important;
+  scrollbar-width: none !important;
+  -ms-overflow-style: none !important;
+}
+
+.card-tabs-header .nav-tabs::-webkit-scrollbar,
+.card-tabs-header .nav-tabs.card-header-tabs::-webkit-scrollbar,
+.report-tabs-header .nav-tabs::-webkit-scrollbar,
+.report-tabs-header .nav-tabs.card-header-tabs::-webkit-scrollbar,
+#salesTabs.card-header-tabs::-webkit-scrollbar,
+#purchaseTabs.card-header-tabs::-webkit-scrollbar {
+  display: none !important;
+  width: 0 !important;
+  height: 0 !important;
+}
+
+@media (max-width: 575.98px) {
+  .card-tabs-header .nav-tabs,
+  .card-tabs-header .nav-tabs.card-header-tabs,
+  .report-tabs-header .nav-tabs,
+  .report-tabs-header .nav-tabs.card-header-tabs,
+  #salesTabs.card-header-tabs,
+  #purchaseTabs.card-header-tabs {
+    overflow-x: auto !important;
+    overflow-y: hidden !important;
+    -webkit-overflow-scrolling: touch;
+  }
+}
+
+.card-tabs-header .nav-tabs .nav-link,
+.card-tabs-header .nav-tabs.card-header-tabs .nav-link,
+.report-tabs-header .nav-tabs .nav-link,
+.report-tabs-header .nav-tabs.card-header-tabs .nav-link,
+#salesTabs.card-header-tabs .nav-link,
+#purchaseTabs.card-header-tabs .nav-link {
+  padding: 0.65rem 1rem !important;
+  margin-top: 0 !important;
+  margin-bottom: -1px !important;
+  font-size: 0.875rem !important;
+  font-weight: 500 !important;
+  color: #6f6b7d !important;
+  border: none !important;
+  border-bottom: 2px solid transparent !important;
+  border-radius: 0 !important;
+  background: transparent !important;
+  transition: color 0.15s, border-color 0.15s;
+  white-space: nowrap !important;
+  display: inline-flex !important;
+  align-items: center !important;
+  box-shadow: none !important;
+}
+
+.card-tabs-header .nav-tabs .nav-link:hover,
+.card-tabs-header .nav-tabs.card-header-tabs .nav-link:hover,
+.report-tabs-header .nav-tabs .nav-link:hover,
+.report-tabs-header .nav-tabs.card-header-tabs .nav-link:hover,
+#salesTabs.card-header-tabs .nav-link:hover,
+#purchaseTabs.card-header-tabs .nav-link:hover {
+  color: #B4771E !important;
+  border-bottom-color: rgba(180, 119, 30, 0.4) !important;
+  background: transparent !important;
+}
+
+.card-tabs-header .nav-tabs .nav-link.active,
+.card-tabs-header .nav-tabs.card-header-tabs .nav-link.active,
+.report-tabs-header .nav-tabs .nav-link.active,
+.report-tabs-header .nav-tabs.card-header-tabs .nav-link.active,
+#salesTabs.card-header-tabs .nav-link.active,
+#purchaseTabs.card-header-tabs .nav-link.active {
+  font-weight: 600 !important;
+  color: #B4771E !important;
+  border-bottom: 2px solid #B4771E !important;
+  background: transparent !important;
+  box-shadow: none !important;
+}
+
+.card-tabs-header .nav-tabs .nav-link i,
+.report-tabs-header .nav-tabs .nav-link i,
+#salesTabs.card-header-tabs .nav-link i,
+#purchaseTabs.card-header-tabs .nav-link i {
+  font-size: 1.05rem !important;
+  vertical-align: text-bottom !important;
+}
+
+.card-tabs-header .nav-tabs .nav-link .badge,
+.report-tabs-header .nav-tabs .nav-link .badge,
+#salesTabs.card-header-tabs .nav-link .badge,
+#purchaseTabs.card-header-tabs .nav-link .badge {
+  font-size: 0.72rem !important;
+  padding: 0.2rem 0.5rem !important;
+}
+
+
 
 
 

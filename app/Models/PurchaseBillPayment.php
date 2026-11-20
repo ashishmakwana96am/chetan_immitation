@@ -11,7 +11,9 @@ class PurchaseBillPayment extends Model
     protected $fillable = [
         'purchase_bill_id',
         'branch_balance_transfer_id',
+        'stock_return_bill_id',
         'amount',
+        'notes',
         'created_by',
     ];
 
@@ -25,6 +27,11 @@ class PurchaseBillPayment extends Model
     public function purchaseBill()
     {
         return $this->belongsTo(PurchaseBill::class, 'purchase_bill_id');
+    }
+
+    public function stockReturnBill()
+    {
+        return $this->belongsTo(PurchaseBill::class, 'stock_return_bill_id');
     }
 
     public function createdBy()

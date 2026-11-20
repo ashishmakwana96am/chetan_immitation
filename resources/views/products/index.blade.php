@@ -24,6 +24,49 @@
         #bulkActionsDropdownBtn.no-caret::after {
             display: none !important;
         }
+        .catalog-price-pill {
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+            padding: 0.45rem 1.15rem;
+            font-size: 0.8125rem;
+            font-weight: 500;
+            color: #566a7f;
+            background-color: #f8f9fa;
+            border: 1px solid #dbdade;
+            border-radius: 50rem;
+            cursor: pointer;
+            transition: all 0.2s ease-in-out;
+            user-select: none;
+            line-height: 1.2;
+            white-space: nowrap;
+        }
+        .catalog-price-pill:hover {
+            border-color: #B4771E;
+            color: #B4771E;
+            background-color: #ffffff;
+        }
+        .btn-check:checked + .catalog-price-pill,
+        .catalog-price-pill.active {
+            background-color: #B4771E !important;
+            border-color: #B4771E !important;
+            color: #ffffff !important;
+            font-weight: 600;
+            box-shadow: 0 2px 4px rgba(180, 119, 30, 0.25);
+        }
+        #btnOpenProductCatalog:focus {
+            background-color: transparent !important;
+            color: #B4771E !important;
+            box-shadow: none !important;
+        }
+        #catalogProductsTable_wrapper .dataTables_filter label {
+            font-weight: 500;
+            color: #566a7f;
+            display: inline-flex;
+            align-items: center;
+            gap: 6px;
+            margin-bottom: 0;
+        }
 
         /* Desktop: Standard Dropdown Menu */
         #filterDropdownContainer {
@@ -367,6 +410,12 @@
                 </div>
             </div>
 
+            @can('export product catalog')
+                <button type="button" class="btn btn-outline-primary" id="btnOpenProductCatalog">
+                    <i class="ti ti-book-2 me-1"></i> Catalog
+                </button>
+            @endcan
+
             @can('bulk upload product images')
                 <button type="button" class="btn btn-outline-primary" id="bulkImageUploadBtn">
                     <i class="ti ti-file-zip me-1"></i> Bulk Image Upload
@@ -405,6 +454,62 @@
             </table>
         </div>
     </div>
+
+    @can('export product catalog')
+        <div class="offcanvas offcanvas-end" id="productCatalogOffcanvas" aria-hidden="true" data-bs-backdrop="static" data-bs-keyboard="false" tabindex="-1" style="width: 50vw; min-width: 480px; max-width: 100vw;">
+            <div class="offcanvas-header border-bottom">
+                <h5 class="offcanvas-title">Product Catalog Export</h5>
+                <button type="button" class="btn-close text-reset" data-bs-dismiss="offcanvas" aria-label="Close"></button>
+            </div>
+            <div class="offcanvas-body p-3 d-flex flex-column" style="overflow-y: auto;">
+                <div class="card border shadow-none mb-3">
+                    <div class="card-body p-3">
+                        <label class="form-label fw-bold text-dark mb-2 d-flex align-items-center">
+                            <i class="ti ti-currency-rupee me-1 text-primary"></i> Price Display Option
+                        </label>
+                        <div class="d-flex flex-wrap gap-2">
+                            <input type="radio" class="btn-check" name="catalog_price_option" id="priceOptBoth" value="both" checked autocomplete="off" />
+                            <label class="catalog-price-pill active" for="priceOptBoth">Both MRP &amp; Sale (₹)</label>
+
+                            <input type="radio" class="btn-check" name="catalog_price_option" id="priceOptSale" value="sale" autocomplete="off" />
+                            <label class="catalog-price-pill" for="priceOptSale">Sale Price Only (₹)</label>
+
+                            <input type="radio" class="btn-check" name="catalog_price_option" id="priceOptMrp" value="mrp" autocomplete="off" />
+                            <label class="catalog-price-pill" for="priceOptMrp">MRP Only (₹)</label>
+
+                            <input type="radio" class="btn-check" name="catalog_price_option" id="priceOptNone" value="none" autocomplete="off" />
+                            <label class="catalog-price-pill" for="priceOptNone">No Price (Hide)</label>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="d-flex align-items-center justify-content-end mb-2 px-1">
+                    <span class="badge bg-label-primary rounded-pill px-3 py-2 fw-semibold" id="catalogSelectedBadge" style="font-size: 0.8rem;">
+                        0 selected
+                    </span>
+                </div>
+
+                <div class="card-datatable table-responsive flex-grow-1">
+                    <table class="table border-top w-100" id="catalogProductsTable">
+                        <thead>
+                            <tr>
+                                <th style="width: 30px;"><input type="checkbox" class="form-check-input" id="catalogMasterCheck"></th>
+                                <th style="width: 45px;">Image</th>
+                                <th>Product</th>
+                                <th>Sub Category</th>
+                                <th class="text-end">Price</th>
+                            </tr>
+                        </thead>
+                    </table>
+                </div>
+            </div>
+
+            <div class="d-flex gap-2 p-3 border-top mt-auto bg-white">
+                <button type="button" class="btn btn-primary w-50" id="btnTriggerCatalogPdf">Export PDF Catalog</button>
+                <button type="button" class="btn btn-label-secondary w-50" data-bs-dismiss="offcanvas">Cancel</button>
+            </div>
+        </div>
+    @endcan
 
     @can('bulk upload product images')
         <div class="offcanvas offcanvas-end" id="bulkImageOffcanvas" aria-hidden="true" data-bs-backdrop="static" data-bs-keyboard="false" tabindex="-1" style="width: 600px; max-width: 100vw;">
@@ -1157,6 +1262,239 @@
             $(document).on('click', '#productImportBtn', function () {
                 const offcanvasEl = document.getElementById('productImportOffcanvas');
                 bootstrap.Offcanvas.getOrCreateInstance(offcanvasEl).show();
+            });
+
+            $(document).on('click', '#btnOpenProductCatalog', function () {
+                const offcanvasEl = document.getElementById('productCatalogOffcanvas');
+                bootstrap.Offcanvas.getOrCreateInstance(offcanvasEl).show();
+                $(this).blur();
+            });
+
+            let catalogDataTableInstance = null;
+            let catalogSelectedIds = new Set();
+
+            function initCatalogDataTable() {
+                if ($.fn.DataTable.isDataTable('#catalogProductsTable')) {
+                    $('#catalogProductsTable').DataTable().destroy();
+                }
+
+                $('#catalogProductsTable').off('preXhr.dt').on('preXhr.dt', function (e) {
+                    e.stopPropagation();
+                });
+
+                catalogDataTableInstance = $('#catalogProductsTable').DataTable({
+                    processing: true,
+                    serverSide: true,
+                    ordering: false,
+                    pageLength: 10,
+                    lengthMenu: [10, 25, 50, 100],
+                    ajax: {
+                        url: '{{ route('admin.products.catalog.data') }}'
+                    },
+                    columns: [
+                        {
+                            data: 'id',
+                            orderable: false,
+                            searchable: false,
+                            render: function (data, type, row) {
+                                const isChecked = catalogSelectedIds.has(parseInt(row.id)) ? 'checked' : '';
+                                return `<input type="checkbox" class="form-check-input catalog-row-check" value="${row.id}" ${isChecked}>`;
+                            }
+                        },
+                        {
+                            data: 'image_url',
+                            orderable: false,
+                            searchable: false,
+                            render: function (data, type, row) {
+                                return `<img src="${row.image_url}" class="rounded border" style="width: 36px; height: 36px; object-fit: cover;">`;
+                            }
+                        },
+                        {
+                            data: 'name',
+                            render: function (data, type, row) {
+                                return `<div>
+                                    <div class="fw-semibold text-dark text-truncate" style="max-width: 200px;" title="${row.name}">${row.name}</div>
+                                    <div class="text-muted" style="font-size: 0.72rem;">${row.barcode || '-'}</div>
+                                </div>`;
+                            }
+                        },
+                        {
+                            data: 'sub_category_name',
+                            render: function (data, type, row) {
+                                return `<span class="badge bg-label-secondary" style="font-size: 0.72rem;">${row.sub_category_name || '-'}</span>`;
+                            }
+                        },
+                        {
+                            data: 'sale_price',
+                            className: 'text-end',
+                            render: function (data, type, row) {
+                                const hasHigherMrp = (parseFloat(row.raw_mrp) || 0) > (parseFloat(row.raw_sale) || 0);
+                                if (hasHigherMrp) {
+                                    return `<div>
+                                        <div class="fw-semibold text-primary">${row.sale_price}</div>
+                                        <div class="text-muted text-decoration-line-through" style="font-size: 0.72rem;">${row.mrp}</div>
+                                    </div>`;
+                                }
+                                return `<div>
+                                    <div class="fw-semibold text-primary">${row.sale_price}</div>
+                                </div>`;
+                            }
+                        }
+                    ],
+                    language: {
+                        search: "Search:",
+                        searchPlaceholder: "Search name / barcode...",
+                        processing: '<div class="text-center py-4"><div class="spinner-border text-primary" role="status" style="width: 2rem; height: 2rem;"><span class="visually-hidden">Loading...</span></div></div>'
+                    },
+                    drawCallback: function () {
+                        updateCatalogMasterCheckState();
+                    }
+                });
+            }
+
+            function updateCatalogMasterCheckState() {
+                const totalRows = $('.catalog-row-check').length;
+                const checkedRows = $('.catalog-row-check:checked').length;
+                $('#catalogMasterCheck').prop('checked', totalRows > 0 && totalRows === checkedRows);
+            }
+
+            function updateCatalogBadge() {
+                const count = catalogSelectedIds.size;
+                $('#catalogSelectedBadge').text(`${count} selected`);
+            }
+
+            $(document).on('change', '.catalog-row-check', function () {
+                const id = parseInt($(this).val());
+                if ($(this).is(':checked')) {
+                    catalogSelectedIds.add(id);
+                } else {
+                    catalogSelectedIds.delete(id);
+                }
+                updateCatalogBadge();
+                updateCatalogMasterCheckState();
+            });
+
+            $(document).on('change', '#catalogMasterCheck', function () {
+                const isChecked = $(this).is(':checked');
+                if (isChecked) {
+                    const searchValue = catalogDataTableInstance ? catalogDataTableInstance.search() : '';
+                    $.ajax({
+                        url: '{{ route('admin.products.catalog.ids') }}',
+                        type: 'GET',
+                        data: {
+                            search_value: searchValue,
+                        },
+                        success: function (res) {
+                            const ids = res.ids || [];
+                            ids.forEach(id => catalogSelectedIds.add(parseInt(id)));
+                            $('.catalog-row-check').prop('checked', true);
+                            updateCatalogBadge();
+                        }
+                    });
+                } else {
+                    catalogSelectedIds.clear();
+                    $('.catalog-row-check').prop('checked', false);
+                    updateCatalogBadge();
+                }
+            });
+
+            function resetCatalogOffcanvas() {
+                catalogSelectedIds.clear();
+                $('#catalogMasterCheck').prop('checked', false);
+                $('.catalog-row-check').prop('checked', false);
+                $('#priceOptBoth').prop('checked', true);
+                $('.catalog-price-pill').removeClass('active');
+                $('label[for="priceOptBoth"]').addClass('active');
+                updateCatalogBadge();
+
+                if ($.fn.DataTable.isDataTable('#catalogProductsTable')) {
+                    $('#catalogProductsTable').DataTable().destroy();
+                    catalogDataTableInstance = null;
+                    $('#catalogProductsTable tbody').empty();
+                }
+            }
+
+            $(document).on('change', 'input[name="catalog_price_option"]', function () {
+                $('.catalog-price-pill').removeClass('active');
+                $('label[for="' + $(this).attr('id') + '"]').addClass('active');
+            });
+
+            $('#productCatalogOffcanvas').on('show.bs.offcanvas', function () {
+                resetCatalogOffcanvas();
+            });
+
+            $('#productCatalogOffcanvas').on('hide.bs.offcanvas hidden.bs.offcanvas', function () {
+                resetCatalogOffcanvas();
+                $('#btnOpenProductCatalog').blur();
+                if (document.activeElement && document.activeElement.tagName !== 'BODY') {
+                    document.activeElement.blur();
+                }
+            });
+
+            document.getElementById('productCatalogOffcanvas')?.addEventListener('shown.bs.offcanvas', function () {
+                if ($.fn.DataTable.isDataTable('#catalogProductsTable')) {
+                    $('#catalogProductsTable').DataTable().destroy();
+                    catalogDataTableInstance = null;
+                    $('#catalogProductsTable tbody').empty();
+                }
+                initCatalogDataTable();
+            });
+
+            $(document).on('click', '#btnTriggerCatalogPdf', function () {
+                if (catalogSelectedIds.size === 0) {
+                    if (window.toastr) {
+                        toastr.warning('Please select at least one product to export catalog.');
+                    }
+                    return;
+                }
+
+                const priceDisplay = $('input[name="catalog_price_option"]:checked').val() || 'both';
+                const idsArray = Array.from(catalogSelectedIds);
+
+                const $btn = $(this);
+                const originalText = $btn.text();
+                $btn.prop('disabled', true).text('Generating PDF...');
+
+                const form = document.createElement('form');
+                form.method = 'POST';
+                form.action = '{{ route('admin.products.catalog.pdf') }}';
+
+                const csrfInput = document.createElement('input');
+                csrfInput.type = 'hidden';
+                csrfInput.name = '_token';
+                csrfInput.value = '{{ csrf_token() }}';
+                form.appendChild(csrfInput);
+
+                const priceInput = document.createElement('input');
+                priceInput.type = 'hidden';
+                priceInput.name = 'price_display';
+                priceInput.value = priceDisplay;
+                form.appendChild(priceInput);
+
+                idsArray.forEach(function (id) {
+                    const idInput = document.createElement('input');
+                    idInput.type = 'hidden';
+                    idInput.name = 'product_ids[]';
+                    idInput.value = id;
+                    form.appendChild(idInput);
+                });
+
+                document.body.appendChild(form);
+                form.submit();
+                document.body.removeChild(form);
+
+                $btn.prop('disabled', false).text(originalText);
+
+                const offcanvasEl = document.getElementById('productCatalogOffcanvas');
+                if (offcanvasEl && typeof bootstrap !== 'undefined' && bootstrap.Offcanvas) {
+                    bootstrap.Offcanvas.getOrCreateInstance(offcanvasEl).hide();
+                }
+
+                resetCatalogOffcanvas();
+
+                if (window.toastr) {
+                    toastr.success('Product catalog exported successfully.');
+                }
             });
         });
     </script>

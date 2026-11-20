@@ -991,6 +991,10 @@ class PurchaseStockService
         $transfer->load(['items.product', 'items.variant']);
         $totalAmount = 0.0;
         foreach ($transfer->items as $item) {
+            if ($item->deleted_at !== null) {
+                continue;
+            }
+            unset($unitPrice);
             $product = $item->product;
             $basePrice = (float) (($item->purchase_price > 0) ? $item->purchase_price : ($item->variant->purchase_price ?? $product?->purchase_price ?? 0));
 
@@ -1027,6 +1031,11 @@ class PurchaseStockService
 
     public static function adjustPurchaseBillLocationBalance(PurchaseBill $purchaseBill, float $amountToReverse): void
     {
+        $stockReturnOffset = (float) $purchaseBill->payments()->whereNotNull('stock_return_bill_id')->sum('amount');
+        if ($stockReturnOffset > 0) {
+            $amountToReverse = max(0.0, round($amountToReverse - $stockReturnOffset, 2));
+        }
+
         if ($amountToReverse <= 0) {
             return;
         }

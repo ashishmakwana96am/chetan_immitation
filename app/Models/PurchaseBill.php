@@ -66,6 +66,11 @@ class PurchaseBill extends Model
         return $this->hasMany(PurchaseBillPayment::class, 'purchase_bill_id');
     }
 
+    public function returnAdjustments()
+    {
+        return $this->hasMany(PurchaseBillPayment::class, 'stock_return_bill_id');
+    }
+
     public function fromLocation()
     {
         return $this->belongsTo(Location::class, 'from_location_id');
