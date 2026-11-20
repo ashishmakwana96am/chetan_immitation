@@ -1452,12 +1452,16 @@ class PurchaseBillController extends Controller
                     'paid_amount'    => min($newPaidAmount, $totalAmount),
                 ]));
             } else {
-                $purchaseBill->payments()->delete();
-                $this->applyLocationBalanceTransfer($purchaseBill, $currentPaidAmount, true);
+                $manualPaid = (float) $purchaseBill->payments()->whereNull('stock_return_bill_id')->sum('amount');
+                $purchaseBill->payments()->whereNull('stock_return_bill_id')->delete();
+                if ($manualPaid > 0) {
+                    $this->applyLocationBalanceTransfer($purchaseBill, $manualPaid, true);
+                }
 
+                $remainingOffset = (float) $purchaseBill->payments()->whereNotNull('stock_return_bill_id')->sum('amount');
                 PurchaseBill::withoutActivityLogging(fn () => $purchaseBill->update([
-                    'payment_status' => PurchaseBill::PAYMENT_STATUS_PENDING,
-                    'paid_amount'    => 0,
+                    'payment_status' => $remainingOffset > 0 ? PurchaseBill::PAYMENT_STATUS_PARTIAL : PurchaseBill::PAYMENT_STATUS_PENDING,
+                    'paid_amount'    => $remainingOffset,
                 ]));
             }
         });
@@ -1665,9 +1669,12 @@ class PurchaseBillController extends Controller
 
     private function applyLocationBalanceTransfer(PurchaseBill $purchaseBill, float $totalAmount, bool $reverse = false): void
     {
-        $stockReturnOffset = (float) $purchaseBill->payments()->whereNotNull('stock_return_bill_id')->sum('amount');
-        if ($stockReturnOffset > 0) {
-            $totalAmount = max(0.0, round($totalAmount - $stockReturnOffset, 2));
+        [$billTotal] = $this->purchaseBillTotals($purchaseBill);
+        if (round($totalAmount, 2) >= round($billTotal, 2)) {
+            $stockReturnOffset = (float) $purchaseBill->payments()->whereNotNull('stock_return_bill_id')->sum('amount');
+            if ($stockReturnOffset > 0) {
+                $totalAmount = max(0.0, round($totalAmount - $stockReturnOffset, 2));
+            }
         }
 
         if ($totalAmount <= 0) {

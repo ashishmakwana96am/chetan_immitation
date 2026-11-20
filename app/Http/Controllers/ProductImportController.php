@@ -149,4 +149,179 @@ class ProductImportController extends Controller
 
         return response()->stream($callback, 200, $headers);
     }
+
+    public function export(Request $request)
+    {
+        $this->authorize('export products');
+
+        $productIds = $request->input('product_ids', []);
+        if (is_string($productIds)) {
+            $productIds = explode(',', $productIds);
+        }
+        $productIds = array_filter(array_map('intval', (array) $productIds));
+
+        if (empty($productIds)) {
+            return redirect()->back()->with('error', 'Please select at least one product to export.');
+        }
+
+        $products = \App\Models\Product::with([
+            'category',
+            'subCategory',
+            'collections',
+            'collection',
+            'variants.attributeValue.attribute',
+        ])
+        ->whereIn('id', $productIds)
+        ->orderBy('id', 'asc')
+        ->get();
+
+        $columns = [
+            'Category', 'Sub Category', 'Collection Name', 'Product Name', 'Barcode', 'Product Code',
+            'Purchase Price', 'Sale Price', 'MRP', 'Pair Product', 'Pair Sizes',
+            'Product Type', 'Product Variant', 'Product Variant Value',
+        ];
+
+        $rows = [];
+        foreach ($products as $product) {
+            $categoryName = $product->category->name ?? '';
+            $subCategoryName = $product->subCategory->name ?? '';
+            $collectionName = $product->collections->isNotEmpty()
+                ? $product->collections->pluck('short_name')->filter()->implode(', ')
+                : ($product->collection->short_name ?? '');
+            $productName = $product->name ?? '';
+            $barcode = (string) ($product->barcode ?? '');
+            $productCode = (string) ($product->product_code ?? '');
+            $purchasePrice = $product->purchase_price !== null ? (string) $product->purchase_price : '';
+            $salePrice = $product->sale_price !== null ? (string) $product->sale_price : '';
+            $mrp = $product->mrp !== null ? (string) $product->mrp : '';
+            $pairProduct = $product->pair_product ? 'T' : 'F';
+
+            $pairSizes = '';
+            if (!empty($product->custom_sizes) && is_array($product->custom_sizes)) {
+                $pairSizes = collect($product->custom_sizes)
+                    ->pluck('size')
+                    ->filter(fn($s) => $s !== null && $s !== '')
+                    ->implode(',');
+            }
+
+            $productType = ($product->type === 'variable') ? 'V' : 'N';
+            $productVariant = '';
+            $productVariantValue = '';
+
+            if ($productType === 'V') {
+                $attributesMap = [];
+                foreach ($product->variants as $variant) {
+                    if ($variant->attributeValue && $variant->attributeValue->attribute) {
+                        $attrName = trim($variant->attributeValue->attribute->name);
+                        $attrVal = trim($variant->attributeValue->value);
+                        if ($attrName !== '' && $attrVal !== '') {
+                            if (!isset($attributesMap[$attrName])) {
+                                $attributesMap[$attrName] = [];
+                            }
+                            if (!in_array($attrVal, $attributesMap[$attrName], true)) {
+                                $attributesMap[$attrName][] = $attrVal;
+                            }
+                        }
+                    }
+                }
+                $productVariant = implode(',', array_keys($attributesMap));
+                $productVariantValue = implode('|', array_map(fn($vals) => implode(',', $vals), array_values($attributesMap)));
+            }
+
+            $rows[] = [
+                $categoryName,
+                $subCategoryName,
+                $collectionName,
+                $productName,
+                $barcode,
+                $productCode,
+                $purchasePrice,
+                $salePrice,
+                $mrp,
+                $pairProduct,
+                $pairSizes,
+                $productType,
+                $productVariant,
+                $productVariantValue,
+            ];
+        }
+
+        $spreadsheet = new Spreadsheet();
+
+        $sheet = $spreadsheet->getActiveSheet();
+        $sheet->setTitle('Products');
+
+        $sheet->fromArray($columns, null, 'A1');
+        if (!empty($rows)) {
+            $sheet->fromArray($rows, null, 'A2');
+        }
+
+        $colCount = count($columns);
+        $lastColumn = Coordinate::stringFromColumnIndex($colCount);
+        $dataEndRow = max(2, 1 + count($rows));
+
+        $sheet->getStyle('A1:' . $lastColumn . '1')->getFont()->setBold(true);
+        $sheet->getStyle('A1:' . $lastColumn . '1')->getAlignment()->setHorizontal(Alignment::HORIZONTAL_CENTER);
+
+        for ($i = 1; $i <= $colCount; $i++) {
+            $col = Coordinate::stringFromColumnIndex($i);
+            $sheet->getColumnDimension($col)->setAutoSize(true);
+        }
+
+        foreach ($rows as $rowIndex => $row) {
+            $rowNum = $rowIndex + 2;
+            $sheet->setCellValueExplicit('E' . $rowNum, (string) $row[4], \PhpOffice\PhpSpreadsheet\Cell\DataType::TYPE_STRING);
+            $sheet->setCellValueExplicit('F' . $rowNum, (string) $row[5], \PhpOffice\PhpSpreadsheet\Cell\DataType::TYPE_STRING);
+        }
+
+        $sheet->getStyle('A1:' . $lastColumn . $dataEndRow)
+            ->getBorders()->getAllBorders()->setBorderStyle(Border::BORDER_THIN);
+
+        $notes = $spreadsheet->createSheet();
+        $notes->setTitle('Instructions');
+
+        $instructions = [
+            ['Column', 'Required?', 'Description'],
+            ['Category', 'Yes', 'Category name. Leave blank to inherit from the row above (for merged cells).'],
+            ['Sub Category', 'No', 'Sub-category name.'],
+            ['Collection Name', 'No', 'Collection short name (e.g. NK-S). If found, it will be assigned; if not, a new collection with blank name will be created.'],
+            ['Product Name', 'Yes', 'Full product name. A new product group starts on each row that has a name.'],
+            ['Barcode', 'Yes', 'Unique barcode/SKU.'],
+            ['Product Code', 'Yes', 'Numeric base code used to calculate prices (e.g. 100).'],
+            ['Purchase Price', 'No', 'Optional direct purchase price.'],
+            ['Sale Price', 'No', 'Optional direct sale price.'],
+            ['MRP', 'No', 'Optional direct MRP.'],
+            ['Pair Product', 'No', 'T / TRUE / 1 / YES = pair product. Anything else = normal.'],
+            ['Pair Sizes', 'No', 'Comma-separated sizes for pair products (e.g. 2,4). Prices auto-calculated — leave blank for non-pair products.'],
+            ['Product Type', 'No', 'N = Normal, V = Variable.'],
+            ['Product Variant', 'No', 'Comma-separated attribute names (e.g. Color,Size).'],
+            ['Product Variant Value', 'No', 'Pipe-separated value groups matching each attribute (e.g. Gold,Rose Gold|2.2,2.4).'],
+        ];
+
+        $notes->fromArray($instructions, null, 'A1');
+        $notes->getStyle('A1:C1')->getFont()->setBold(true);
+        $notes->getStyle('A1:C1')->getAlignment()->setHorizontal(Alignment::HORIZONTAL_CENTER);
+
+        foreach (['A', 'B', 'C'] as $col) {
+            $notes->getColumnDimension($col)->setAutoSize(true);
+        }
+        $notes->getStyle('A1:C' . count($instructions))
+            ->getBorders()->getAllBorders()->setBorderStyle(Border::BORDER_THIN);
+        $notes->getStyle('C1:C' . count($instructions))->getAlignment()->setWrapText(true);
+
+        $spreadsheet->setActiveSheetIndex(0);
+
+        $filename = 'products_export_' . date('Y_m_d_His') . '.xlsx';
+        $headers = [
+            'Content-Type' => 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
+            'Content-Disposition' => 'attachment; filename="' . $filename . '"',
+        ];
+
+        $callback = function () use ($spreadsheet) {
+            $writer = new Xlsx($spreadsheet);
+            $writer->save('php://output');
+        };
+
+        return response()->stream($callback, 200, $headers);
+    }
 }

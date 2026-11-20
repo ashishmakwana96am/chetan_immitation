@@ -24,6 +24,12 @@
         #bulkActionsDropdownBtn.no-caret::after {
             display: none !important;
         }
+        #bulkActionsDropdownContainer .dropdown-item:hover,
+        #bulkActionsDropdownContainer .dropdown-item:focus,
+        #bulkActionsDropdownContainer .dropdown-item:active {
+            background-color: rgba(67, 89, 113, 0.06) !important;
+            color: #566a7f !important;
+        }
         .catalog-price-pill {
             display: inline-flex;
             align-items: center;
@@ -254,6 +260,13 @@
                             <i class="ti ti-printer me-2 fs-5 text-primary"></i> <span>Bulk Print Barcodes</span>
                         </a>
                     </li>
+                    @can('export products')
+                    <li>
+                        <a class="dropdown-item d-flex align-items-center py-2" href="javascript:void(0);" id="bulkActionExportProducts">
+                            <i class="ti ti-file-spreadsheet me-2 fs-5 text-success"></i> <span>Export Products</span>
+                        </a>
+                    </li>
+                    @endcan
                     <li>
                         <a class="dropdown-item d-flex align-items-center py-2" href="javascript:void(0);" id="bulkActionHideWebsite">
                             <i class="ti ti-eye-off me-2 fs-5 text-danger"></i> <span>Hide from Website</span>
@@ -758,6 +771,7 @@
                 $subSelect.val(validSelected).trigger('change');
             });
 
+            const selectedProductsMap = new Map();
             const columns = [];
             columns.push(
                 { 
@@ -766,6 +780,7 @@
                     searchable: false,
                     width: '3%',
                     render: function (data, type, row) {
+                        const isChecked = selectedProductsMap.has(String(row.id)) ? 'checked' : '';
                         const variationsEscaped = (row.variations ?? '').replace(/"/g, '&quot;');
                         const categoryEscaped = (row.category ?? '').replace(/"/g, '&quot;');
                         const salePriceEscaped = (row.sale_price ?? '').replace(/"/g, '&quot;');
@@ -773,6 +788,7 @@
                         const variantsListEscaped = (row.variants_list && row.variants_list.length ? JSON.stringify(row.variants_list) : '').replace(/"/g, '&quot;');
                         return `<input type="checkbox" class="form-check-input product-select-checkbox"
                             value="${row.id}"
+                            ${isChecked}
                             data-barcode="${row.raw_barcode}"
                             data-name="${(row.name ?? '').replace(/"/g, '&quot;')}"
                             data-category="${categoryEscaped}"
@@ -1024,30 +1040,64 @@
                 });
             };
 
-            // Checkbox selection behavior
             $(document).on('change', '#selectAllProducts', function() {
-                const checked = this.checked;
+                const isChecked = this.checked;
                 $('.product-select-checkbox').each(function() {
-                    this.checked = checked;
+                    this.checked = isChecked;
+                    const id = String($(this).val());
+                    if (isChecked) {
+                        selectedProductsMap.set(id, {
+                            id: id,
+                            barcode: $(this).data('barcode'),
+                            name: $(this).data('name'),
+                            category: $(this).data('category'),
+                            variations: $(this).data('variations'),
+                            salePrice: $(this).data('sale-price'),
+                            pairProduct: parseInt($(this).data('pair-product')) || 0,
+                            pairMode: $(this).data('pair-mode') || '',
+                            customSizes: $(this).data('custom-sizes'),
+                            variantsList: $(this).data('variants-list')
+                        });
+                    } else {
+                        selectedProductsMap.delete(id);
+                    }
                 });
                 toggleBulkActionsDropdown();
             });
 
             $(document).on('change', '.product-select-checkbox', function() {
-                const totalCheckboxes = $('.product-select-checkbox').length;
-                const checkedCheckboxes = $('.product-select-checkbox:checked').length;
-                $('#selectAllProducts').prop('checked', totalCheckboxes === checkedCheckboxes && totalCheckboxes > 0);
+                const id = String($(this).val());
+                if (this.checked) {
+                    selectedProductsMap.set(id, {
+                        id: id,
+                        barcode: $(this).data('barcode'),
+                        name: $(this).data('name'),
+                        category: $(this).data('category'),
+                        variations: $(this).data('variations'),
+                        salePrice: $(this).data('sale-price'),
+                        pairProduct: parseInt($(this).data('pair-product')) || 0,
+                        pairMode: $(this).data('pair-mode') || '',
+                        customSizes: $(this).data('custom-sizes'),
+                        variantsList: $(this).data('variants-list')
+                    });
+                } else {
+                    selectedProductsMap.delete(id);
+                }
+                const currentCheckboxes = $('.product-select-checkbox');
+                const checkedOnPage = currentCheckboxes.filter(':checked');
+                $('#selectAllProducts').prop('checked', currentCheckboxes.length > 0 && currentCheckboxes.length === checkedOnPage.length);
                 toggleBulkActionsDropdown();
             });
 
-            // When Datatable redraws (e.g. pagination, sorting), reset Select All & checkboxes
             table.on('draw', function() {
-                $('#selectAllProducts').prop('checked', false);
+                const currentCheckboxes = $('.product-select-checkbox');
+                const checkedOnPage = currentCheckboxes.filter(':checked');
+                $('#selectAllProducts').prop('checked', currentCheckboxes.length > 0 && currentCheckboxes.length === checkedOnPage.length);
                 toggleBulkActionsDropdown();
             });
 
             function toggleBulkActionsDropdown() {
-                const checkedCount = $('.product-select-checkbox:checked').length;
+                const checkedCount = selectedProductsMap.size;
                 if (checkedCount > 0) {
                     $('#bulkActionsDropdownContainer').removeClass('d-none');
                     $('#bulkActionsBtnText').text(`Bulk Actions (${checkedCount})`);
@@ -1056,19 +1106,72 @@
                 }
             }
 
-            // 1. Bulk Action: Print Barcodes
             $(document).on('click', '#bulkActionPrintBarcodes', function() {
                 openBulkBarcodeModal();
             });
 
-            // 2 & 3. Bulk Action: Hide from Website / Show on Website
+            $(document).on('click', '#bulkActionExportProducts', function() {
+                const checkedIds = Array.from(selectedProductsMap.keys());
+                if (checkedIds.length === 0) {
+                    toastr.warning('Please select at least one product.');
+                    return;
+                }
+
+                const $btn = $(this);
+                $btn.blur();
+
+                const formData = new FormData();
+                formData.append('_token', '{{ csrf_token() }}');
+                checkedIds.forEach(function(id) {
+                    formData.append('product_ids[]', id);
+                });
+
+                fetch('{{ route('admin.products.export') }}', {
+                    method: 'POST',
+                    body: formData
+                })
+                .then(function(response) {
+                    if (!response.ok) {
+                        throw new Error('Export failed');
+                    }
+                    const disposition = response.headers.get('Content-Disposition');
+                    let filename = 'products_export.xlsx';
+                    if (disposition && disposition.indexOf('filename=') !== -1) {
+                        const match = disposition.match(/filename[^;=\n]*=((['"]).*?\2|[^;\n]*)/);
+                        if (match != null && match[1]) {
+                            filename = match[1].replace(/['"]/g, '');
+                        }
+                    }
+                    return response.blob().then(function(blob) {
+                        return { blob: blob, filename: filename };
+                    });
+                })
+                .then(function(res) {
+                    const url = window.URL.createObjectURL(res.blob);
+                    const a = document.createElement('a');
+                    a.href = url;
+                    a.download = res.filename;
+                    document.body.appendChild(a);
+                    a.click();
+                    a.remove();
+                    window.URL.revokeObjectURL(url);
+
+                    toastr.success('Products exported successfully.');
+                    selectedProductsMap.clear();
+                    $('#selectAllProducts').prop('checked', false);
+                    $('.product-select-checkbox').prop('checked', false);
+                    toggleBulkActionsDropdown();
+                    table.draw(false);
+                })
+                .catch(function() {
+                    toastr.error('Failed to export products.');
+                });
+            });
+
             $(document).on('click', '#bulkActionHideWebsite, #bulkActionShowWebsite', function() {
                 const isHide = $(this).attr('id') === 'bulkActionHideWebsite';
                 const actionLabel = isHide ? 'Hide from Website' : 'Show on Website';
-                const checkedIds = [];
-                $('.product-select-checkbox:checked').each(function() {
-                    checkedIds.push($(this).val());
-                });
+                const checkedIds = Array.from(selectedProductsMap.keys());
 
                 if (checkedIds.length === 0) {
                     toastr.warning('Please select at least one product.');
@@ -1099,6 +1202,7 @@
                             },
                             success: function(response) {
                                 toastr.success(response.message);
+                                selectedProductsMap.clear();
                                 table.draw(false);
                             },
                             error: function(xhr) {
@@ -1110,28 +1214,27 @@
                 });
             });
 
-            // Function to open Bulk Print Barcode modal
             function openBulkBarcodeModal() {
                 $('#bulkBarcodeModal').remove();
                 
                 let listHtml = '';
-                $('.product-select-checkbox:checked').each(function() {
-                    const id = $(this).val();
-                    const barcode = $(this).data('barcode');
-                    const name = $(this).data('name');
-                    const category = $(this).data('category');
-                    const variations = $(this).data('variations');
-                    const salePrice = $(this).data('sale-price');
-                    const pairProduct = parseInt($(this).data('pair-product')) || 0;
-                    const pairMode = $(this).data('pair-mode') || '';
-                    const rawCustomSizes = $(this).data('custom-sizes');
+                selectedProductsMap.forEach(function(item) {
+                    const id = item.id;
+                    const barcode = item.barcode;
+                    const name = item.name;
+                    const category = item.category;
+                    const variations = item.variations;
+                    const salePrice = item.salePrice;
+                    const pairProduct = parseInt(item.pairProduct) || 0;
+                    const pairMode = item.pairMode || '';
+                    const rawCustomSizes = item.customSizes;
                     let customSizes = [];
                     if (rawCustomSizes) {
                         try {
                             customSizes = typeof rawCustomSizes === 'string' ? JSON.parse(rawCustomSizes) : rawCustomSizes;
                         } catch(e){}
                     }
-                    const rawVariantsList = $(this).data('variants-list');
+                    const rawVariantsList = item.variantsList;
                     let variantsList = [];
                     if (rawVariantsList) {
                         try {
