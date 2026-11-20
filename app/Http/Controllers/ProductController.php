@@ -151,8 +151,8 @@ class ProductController extends Controller
             4 => 'barcode',
             5 => 'category',
             6 => 'stock',
-            7 => 'purchase_price',
-            8 => 'sale_price',
+            7 => 'sale_price',
+            8 => 'discount',
             9 => 'mrp',
             10 => 'status',
         ];
@@ -174,7 +174,9 @@ class ProductController extends Controller
                       ->leftJoin('categories as subcat', 'products.sub_category_id', '=', 'subcat.id')
                       ->select('products.*')
                       ->orderByRaw("COALESCE(subcat.name, cat.name) {$sortDir}");
-        } elseif (in_array($sortKey, ['id', 'name', 'barcode', 'purchase_price', 'sale_price', 'mrp', 'status'], true)) {
+        } elseif ($sortKey === 'discount') {
+            $baseQuery->orderByRaw("CASE WHEN products.mrp > 0 AND products.sale_price < products.mrp THEN ((products.mrp - products.sale_price) / products.mrp) ELSE 0 END {$sortDir}");
+        } elseif (in_array($sortKey, ['id', 'name', 'barcode', 'sale_price', 'mrp', 'status'], true)) {
             $baseQuery->orderBy("products.{$sortKey}", $sortDir);
         }
 
@@ -315,8 +317,10 @@ class ProductController extends Controller
                 'category'       => !empty($product->subCategory->name) ? $product->subCategory->name : ($product->category->name ?? '-'),
                 'variations'     => $variationsStr,
                 'stock'          => $stock,
-                'purchase_price' => format_price($product->purchase_price),
                 'sale_price'     => format_price($product->display_sale_price),
+                'discount'       => (($mrpVal = (float)$product->display_mrp) > 0 && ($saleVal = (float)$product->display_sale_price) < $mrpVal)
+                    ? '<span class="badge bg-label-success">' . round((($mrpVal - $saleVal) / $mrpVal) * 100, 2) . '%</span>'
+                    : '<span class="badge bg-label-secondary">0%</span>',
                 'mrp'            => format_price($product->display_mrp),
                 'status'         => $status,
                 'actions'        => $actions,

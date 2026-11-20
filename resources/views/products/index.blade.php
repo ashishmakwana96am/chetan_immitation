@@ -457,8 +457,8 @@
                         <th>Barcode</th>
                         <th>Category</th>
                         <th>Stock</th>
-                        <th>Purchase Price</th>
                         <th>Sale Price</th>
+                        <th>Discount (%)</th>
                         <th>MRP</th>
                         <th>Status</th>
                         <th>Actions</th>
@@ -806,8 +806,8 @@
                 { data: 'barcode'},
                 { data: 'category' },
                 { data: 'stock' },
-                { data: 'purchase_price' },
                 { data: 'sale_price' },
+                { data: 'discount' },
                 { data: 'mrp' },
                 { data: 'status',         orderable: false },
                 { data: 'actions',        orderable: false },

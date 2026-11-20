@@ -371,21 +371,21 @@ $(document).ready(function () {
         }
 
         let rows = historyData.payments.map(function (p) {
-            let noteBadge = p.note ? `<span class="badge bg-label-info ms-1">${p.note}</span>` : '<span class="text-muted">-</span>';
-            return `<tr><td class="text-nowrap">${p.date}</td><td>${noteBadge}</td><td class="text-end fw-semibold">${p.amount}</td></tr>`;
+            let noteBadge = p.note ? `<span class="badge bg-label-info text-wrap text-start">${p.note}</span>` : '<span class="text-muted">-</span>';
+            return `<tr><td class="text-nowrap">${p.date}</td><td>${noteBadge}</td><td class="text-end fw-semibold text-nowrap">${p.amount}</td></tr>`;
         }).join('');
 
         return `
-            <div class="mb-3 text-start" style="font-size: 0.8rem;">
-                <div class="d-flex justify-content-between text-muted mb-2">
-                    <span>Total: <strong>${historyData.total_amount}</strong></span>
+            <div class="mb-3 text-start" style="font-size: 0.85rem;">
+                <div class="d-flex justify-content-between text-muted mb-2 p-2 bg-light rounded">
+                    <span>Total: <strong class="text-dark">${historyData.total_amount}</strong></span>
                     <span>Paid: <strong class="text-success">${historyData.paid_amount}</strong></span>
                     <span>Balance: <strong class="text-danger">${historyData.balance_due}</strong></span>
                 </div>
-                <label class="form-label fw-semibold mb-1" style="font-size: 0.8rem;">Payment History</label>
-                <div class="table-responsive border rounded" style="max-height:160px; overflow-y:auto;">
-                    <table class="table table-sm mb-0" style="font-size: 0.75rem;">
-                        <thead class="table-light"><tr><th>Date</th><th>Type / Note</th><th class="text-end">Amount</th></tr></thead>
+                <label class="form-label fw-semibold mb-1" style="font-size: 0.85rem;">Payment History</label>
+                <div class="table-responsive border rounded" style="max-height:180px; overflow-y:auto;">
+                    <table class="table table-sm table-hover mb-0 align-middle" style="font-size: 0.8rem;">
+                        <thead class="table-light"><tr><th class="text-nowrap" style="width: 28%;">Date</th><th style="width: 47%;">Type / Note</th><th class="text-end text-nowrap" style="width: 25%;">Amount</th></tr></thead>
                         <tbody>${rows}</tbody>
                     </table>
                 </div>
@@ -415,6 +415,7 @@ $(document).ready(function () {
     function openPurchaseBillPaymentStatusModal(url, currentPaymentStatus, historyData) {
         Swal.fire({
             title: 'Update Payment Status',
+            width: '680px',
             html: `
                 ${buildPurchaseBillPaymentHistoryHtml(historyData)}
                 <div class="mb-3 text-start">

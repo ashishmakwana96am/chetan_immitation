@@ -197,13 +197,12 @@ class ProductCreationService
         }
 
         $customSizes = null;
-        if ($isPair && !empty($group['pair_sizes'])) {
-            $customSizes = $this->buildCustomSizes($group['pair_sizes'], $code, $saleMultiplier, $mrpMultiplier);
-
-            if (!empty($customSizes) && (!isset($group['sale_price']) || !is_numeric($group['sale_price']))) {
-                $salePrice = $customSizes[0]['sale_price'];
-                $mrp = $customSizes[0]['mrp'];
+        if ($isPair) {
+            $pairSizesStr = trim($group['pair_sizes'] ?? '');
+            if ($pairSizesStr === '') {
+                $pairSizesStr = '2';
             }
+            $customSizes = $this->buildCustomSizes($pairSizesStr, $salePrice, $mrp);
         }
 
         $defaultDescription = '<p>Classic Silver Tone Adjustable Tennis Bracelet crafted with premium brass and sparkling American Diamonds. Lightweight, skin-friendly and perfect for everyday wear as well as weddings, parties and festive occasions. Elegant finish with an adjustable chain ensures a comfortable fit for every wrist.</p>';
@@ -340,12 +339,15 @@ class ProductCreationService
         }
 
         $customSizes = null;
-        if ($isPair && !empty($group['pair_sizes'] ?? '')) {
-            $customSizes = $this->buildCustomSizes($group['pair_sizes'], $code, $saleMultiplier, $mrpMultiplier);
-            if (!empty($customSizes) && (!isset($group['sale_price']) || !is_numeric($group['sale_price']))) {
-                $salePrice = $customSizes[0]['sale_price'];
-                $mrp = $customSizes[0]['mrp'];
+        if ($isPair) {
+            $pairSizesStr = trim($group['pair_sizes'] ?? '');
+            if ($pairSizesStr === '' && !empty($product->custom_sizes) && is_array($product->custom_sizes)) {
+                $pairSizesStr = collect($product->custom_sizes)->pluck('size')->filter()->implode(',');
             }
+            if ($pairSizesStr === '') {
+                $pairSizesStr = '2';
+            }
+            $customSizes = $this->buildCustomSizes($pairSizesStr, $salePrice, $mrp);
         }
 
         $oldType = $product->type;
@@ -377,8 +379,16 @@ class ProductCreationService
             $product->variants()->delete();
         }
 
-        if ($newType === 'variable' && !empty($group['dimensions'] ?? [])) {
-            $this->createVariants($group, $product, $purchasePrice, $salePrice, $customSizes);
+        if ($newType === 'variable') {
+            if (!empty($group['dimensions'] ?? [])) {
+                $this->createVariants($group, $product, $purchasePrice, $salePrice, $customSizes);
+            } else {
+                $product->variants()->update([
+                    'purchase_price' => $purchasePrice,
+                    'sale_price'     => $salePrice,
+                    'custom_sizes'   => $customSizes ?: null,
+                ]);
+            }
         }
     }
 
@@ -512,14 +522,7 @@ class ProductCreationService
         }
     }
 
-    /**
-     * Parse pair_sizes string (e.g. "2,4") and auto-calculate sale_price/mrp
-     * for each size. Largest size = full rate (code × multiplier),
-     * smaller sizes are proportionally scaled.
-     *
-     * @return array  [{size, sale_price, mrp}, ...] sorted ascending by size
-     */
-    private function buildCustomSizes(string $pairSizesRaw, float $code, float $saleMultiplier, float $mrpMultiplier): array
+    private function buildCustomSizes(string $pairSizesRaw, float $salePrice, float $mrp): array
     {
         $sizes = array_values(array_filter(
             array_map(fn ($s) => (int) trim($s), explode(',', $pairSizesRaw)),
@@ -527,7 +530,7 @@ class ProductCreationService
         ));
 
         if (empty($sizes)) {
-            return [];
+            $sizes = [2];
         }
 
         sort($sizes);
@@ -535,10 +538,11 @@ class ProductCreationService
 
         $result = [];
         foreach ($sizes as $size) {
+            $ratio = $maxSize > 0 ? ((float) $size / (float) $maxSize) : 1.0;
             $result[] = [
                 'size'       => $size,
-                'sale_price' => $this->roundToNearest5($code * $saleMultiplier * ($size / $maxSize)),
-                'mrp'        => $this->roundToNearest5($code * $mrpMultiplier * ($size / $maxSize)),
+                'sale_price' => ($size === $maxSize) ? (float) $salePrice : $this->roundToNearest5($salePrice * $ratio),
+                'mrp'        => ($size === $maxSize) ? (float) $mrp : $this->roundToNearest5($mrp * $ratio),
             ];
         }
 
@@ -547,6 +551,6 @@ class ProductCreationService
 
     private function roundToNearest5($val): float
     {
-        return ceil(floatval($val) / 5) * 5;
+        return ceil(round(floatval($val), 2) / 5) * 5;
     }
 }
