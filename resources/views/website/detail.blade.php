@@ -298,11 +298,11 @@
                     @endforeach
                 @endif
 
-                <div class="flex gap-3 mt-6">
+                <div class="flex flex-wrap sm:flex-nowrap gap-3 mt-6">
                     @php $detailStock = $product->totalAvailableStock(); @endphp
                     @if($detailStock < 1)
                     <button id="addToCartBtn"
-                        class="common-btn h-[50px] w-full max-w-[300px] opacity-50 cursor-not-allowed pointer-events-none"
+                        class="common-btn h-[50px] w-full max-w-[300px] flex-1 opacity-50 cursor-not-allowed pointer-events-none"
                         data-product-id="{{ $product->id }}"
                         data-login-url="{{ route('login') }}?intended={{ urlencode(route('cart')) }}"
                         disabled>
@@ -310,18 +310,27 @@
                     </button>
                     @else
                     <button id="addToCartBtn"
-                        class="common-btn h-[50px] w-full max-w-[300px]"
+                        class="common-btn h-[50px] w-full max-w-[300px] flex-1"
                         data-product-id="{{ $product->id }}"
                         data-login-url="{{ route('login') }}?intended={{ urlencode(route('cart')) }}">
                         Add To Cart
                     </button>
                     @endif
                     <button id="buyNowBtn"
-                        class="border border-[#131615] common-btn bg-transparent text-[#131615] hover:text-[#fff] hover:bg-[#B4771E] hover:border-[#B4771E] h-[50px] w-full max-w-[300px] {{ $detailStock < 1 ? 'opacity-50 cursor-not-allowed pointer-events-none' : '' }}"
+                        class="border border-[#131615] common-btn bg-transparent text-[#131615] hover:text-[#fff] hover:bg-[#B4771E] hover:border-[#B4771E] h-[50px] w-full max-w-[300px] flex-1 {{ $detailStock < 1 ? 'opacity-50 cursor-not-allowed pointer-events-none' : '' }}"
                         data-product-id="{{ $product->id }}"
                         data-login-url="{{ route('login') }}?intended={{ urlencode(url()->current()) }}"
                         {{ $detailStock < 1 ? 'disabled' : '' }}>
                         Buy Now
+                    </button>
+                    <button id="buyWhatsAppBtn"
+                        class="border border-[#25D366] common-btn bg-[#25D366] text-white hover:bg-[#1ebe57] hover:border-[#1ebe57] hover:text-white h-[50px] w-full max-w-[300px] flex-1 flex items-center justify-center gap-2 {{ $detailStock < 1 ? 'opacity-50 cursor-not-allowed pointer-events-none' : '' }}"
+                        data-product-id="{{ $product->id }}"
+                        {{ $detailStock < 1 ? 'disabled' : '' }}>
+                        <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" fill="currentColor" viewBox="0 0 16 16" class="w-5 h-5 fill-current shrink-0">
+                            <path d="M13.601 2.326A7.85 7.85 0 0 0 7.994 0C3.627 0 .068 3.558.064 7.926c0 1.399.366 2.76 1.057 3.965L0 16l4.204-1.102a7.9 7.9 0 0 0 3.79.965h.004c4.368 0 7.926-3.558 7.93-7.93A7.9 7.9 0 0 0 13.6 2.326zM7.994 14.521a6.6 6.6 0 0 1-3.356-.92l-.24-.144-2.494.654.666-2.433-.156-.251a6.56 6.56 0 0 1-1.007-3.505c0-3.626 2.957-6.584 6.591-6.584a6.56 6.56 0 0 1 4.66 1.931 6.56 6.56 0 0 1 1.928 4.66c-.004 3.639-2.961 6.592-6.592 6.592m3.615-4.934c-.197-.099-1.17-.578-1.353-.646-.182-.065-.315-.099-.445.099-.133.197-.513.646-.627.775-.114.133-.232.148-.43.05-.197-.1-.836-.308-1.592-.985-.59-.525-.985-1.175-1.103-1.372-.114-.198-.011-.304.088-.403.087-.088.197-.232.296-.346.1-.114.133-.198.198-.33.065-.134.034-.248-.016-.347-.05-.099-.445-1.076-.612-1.47-.16-.389-.323-.335-.445-.34-.114-.007-.247-.007-.38-.007a.73.73 0 0 0-.529.247c-.182.198-.691.677-.691 1.654s.707 1.916.806 2.05c.1.134 1.392 2.123 3.377 2.982.47.205.84.326 1.129.418.475.152.904.129 1.246.08.38-.058 1.171-.48 1.338-.943.164-.464.164-.86.114-.943-.049-.084-.182-.133-.38-.232"/>
+                        </svg>
+                        <span>Buy via WhatsApp</span>
                     </button>
                 </div>
 
@@ -693,6 +702,7 @@ function getMaxAllowedStock() {
 function updateSoldOutState() {
     const addToCartBtn = document.getElementById('addToCartBtn');
     const buyNowBtn = document.getElementById('buyNowBtn');
+    const buyWhatsAppBtn = document.getElementById('buyWhatsAppBtn');
     if (!addToCartBtn || !buyNowBtn) return;
 
     const maxStock = getMaxAllowedStock();
@@ -704,6 +714,11 @@ function updateSoldOutState() {
 
         buyNowBtn.disabled = true;
         buyNowBtn.classList.add('opacity-50', 'cursor-not-allowed', 'pointer-events-none');
+
+        if (buyWhatsAppBtn) {
+            buyWhatsAppBtn.disabled = true;
+            buyWhatsAppBtn.classList.add('opacity-50', 'cursor-not-allowed', 'pointer-events-none');
+        }
     } else {
         addToCartBtn.disabled = false;
         addToCartBtn.classList.remove('opacity-50', 'cursor-not-allowed', 'pointer-events-none');
@@ -711,6 +726,11 @@ function updateSoldOutState() {
 
         buyNowBtn.disabled = false;
         buyNowBtn.classList.remove('opacity-50', 'cursor-not-allowed', 'pointer-events-none');
+
+        if (buyWhatsAppBtn) {
+            buyWhatsAppBtn.disabled = false;
+            buyWhatsAppBtn.classList.remove('opacity-50', 'cursor-not-allowed', 'pointer-events-none');
+        }
     }
 }
 
@@ -1807,6 +1827,38 @@ Order Amount
                 return;
             }
             openBuyNowAddressModal();
+        });
+    }
+
+    var buyWhatsAppBtn = document.getElementById('buyWhatsAppBtn');
+    if (buyWhatsAppBtn) {
+        buyWhatsAppBtn.addEventListener('click', function () {
+            var hasVariants = document.querySelectorAll('.variant-selector').length > 0;
+            if (hasVariants && !getActiveVariantId()) {
+                if (window.showWishlistToast) window.showWishlistToast('Please select attribute first', false);
+                return;
+            }
+
+            var productName = @json($product->name);
+            var barcode = @json($product->barcode ?? $product->product_code ?? '');
+            var qty = parseInt(document.getElementById('qty')?.innerText || 1) || 1;
+            var price = getBuyNowUnitPrice();
+            var total = price * qty;
+            var productUrl = window.location.href;
+
+            var msg = "Hello Chetan Imitation,\nI would like to order this product:\n\n" +
+                "🛍️ Product: " + productName + "\n";
+
+            if (barcode) {
+                msg += "🔖 Code: " + barcode + "\n";
+            }
+            msg += "💰 Price: ₹" + price.toFixed(2) + "\n" +
+                "🔢 Quantity: " + qty + "\n" +
+                "💵 Total: ₹" + total.toFixed(2) + "\n\n" +
+                "🔗 Product Link: " + productUrl;
+
+            var whatsappUrl = "https://wa.me/917725978871?text=" + encodeURIComponent(msg);
+            window.open(whatsappUrl, '_blank');
         });
     }
 
