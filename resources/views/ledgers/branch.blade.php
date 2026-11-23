@@ -48,6 +48,11 @@
                 <i class="ti ti-arrows-exchange me-1"></i> Transfer Balance
             </button>
             @endcan
+            @can('convert balance')
+            <button class="btn btn-outline-primary" data-common-modal="{{ route('admin.accounting.convert-balance') }}">
+                <i class="ti ti-arrows-right-left me-1"></i> Convert Balance
+            </button>
+            @endcan
             <button type="button" id="exportExcelBtn" class="btn btn-success report-export-btn">
                 <i class="ti ti-file-spreadsheet me-1"></i> Export to Excel
             </button>

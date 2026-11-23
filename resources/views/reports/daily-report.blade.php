@@ -5,7 +5,46 @@
 @section('page-css')
     <link rel="stylesheet" href="{{ asset('assets/vendor/libs/datatables-bs5/datatables.bootstrap5.css') }}" />
     <link rel="stylesheet" href="{{ asset('assets/vendor/libs/datatables-responsive-bs5/responsive.bootstrap5.css') }}" />
+    <link rel="stylesheet" href="{{ asset('assets/vendor/libs/datatables-rowgroup-bs5/rowgroup.bootstrap5.css') }}" />
     <link rel="stylesheet" href="{{ asset('assets/vendor/libs/apex-charts/apex-charts.css') }}" />
+    <style>
+        #dailySalesTable td code,
+        #dailyCollectionsTable td code,
+        #dailyCollectionsTable td a code,
+        table.dataTable td code,
+        table td code {
+            color: #e83e8c !important;
+        }
+        #dailyCollectionsTable tbody tr.group-header td {
+            background-color: #f0f2f5;
+            font-weight: 600;
+            font-size: 0.85rem;
+            color: #566a7f;
+            padding: 8px 14px;
+            letter-spacing: 0.3px;
+            text-align: center;
+            vertical-align: middle;
+        }
+        #dailyCollectionsTable tbody tr.group-header td .group-header-inner {
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+            gap: 6px;
+            line-height: 1;
+        }
+        #dailyCollectionsTable tbody tr.group-header td .group-header-inner i {
+            font-size: 1rem;
+            line-height: 1;
+            display: flex;
+            align-items: center;
+        }
+        #dailyCollectionsTable tbody tr.group-header td .group-header-inner span {
+            line-height: 1;
+            display: flex;
+            align-items: center;
+            margin-top: 2px;
+        }
+    </style>
 @endsection
 
 @section('content')
@@ -28,6 +67,7 @@
         $(document).ready(function () {
             const dailyTableIds = [
                 '#dailySalesTable',
+                '#dailyCollectionsTable',
                 '#dailyPurchasesTable',
                 '#dailyBulkPaymentsTable',
                 '#dailyBalanceTransfersTable',
@@ -50,6 +90,34 @@
                         { targets: 5, type: 'num' }
                     ],
                 });
+
+                if ($('#dailyCollectionsTable').length) {
+                    if ($.fn.DataTable.isDataTable('#dailyCollectionsTable')) {
+                        $('#dailyCollectionsTable').DataTable().destroy();
+                    }
+                    $('#dailyCollectionsTable').DataTable({
+                        responsive: false,
+                        deferRender: true,
+                        pageLength: 25,
+                        order: [[2, 'desc']],
+                        rowGroup: {
+                            dataSrc: 2,
+                            startRender: function (rows, group) {
+                                const groupTitle = (typeof group === 'object' && group !== null)
+                                    ? (group.display || group['@data-order'] || '')
+                                    : group;
+                                return $('<tr class="group-header"/>')
+                                    .append('<td colspan="8"><div class="group-header-inner"><i class="ti ti-calendar-event"></i><span>' + groupTitle + '</span><span class="badge bg-label-primary ms-2">' + rows.count() + ' collection' + (rows.count() > 1 ? 's' : '') + '</span></div></td>');
+                            }
+                        },
+                        columnDefs: [
+                            { targets: 0, orderable: false, searchable: false },
+                            { targets: 2, visible: false },
+                            { targets: 6, type: 'num' },
+                            { targets: 8, orderable: false, searchable: false }
+                        ],
+                    });
+                }
 
                 if ($.fn.DataTable.isDataTable('#dailyPurchasesTable')) {
                     $('#dailyPurchasesTable').DataTable().destroy();
@@ -138,9 +206,10 @@
                     dailyOverviewChart = null;
                 }
 
-                const categories = ['Sales', 'Purchases', 'Expenses', 'Balance Transfer', 'Payments Out'];
+                const categories = ['Sales', 'Collections', 'Purchases', 'Expenses', 'Balance Transfer', 'Payments Out'];
                 const values = [
                     parseFloat(el.getAttribute('data-total-sales') || 0),
+                    parseFloat(el.getAttribute('data-total-dues-collected') || 0),
                     parseFloat(el.getAttribute('data-total-purchases') || 0),
                     parseFloat(el.getAttribute('data-total-expenses') || 0),
                     parseFloat(el.getAttribute('data-total-transfers') || 0),
@@ -151,7 +220,7 @@
                     chart: { type: 'bar', height: 320, toolbar: { show: false } },
                     series: [{ name: 'Amount', data: values }],
                     xaxis: { categories: categories },
-                    colors: ['#28c76f', '#00cfe8', '#ea5455', '#7367f0', '#ff9f43'],
+                    colors: ['#28c76f', '#10b981', '#00cfe8', '#ea5455', '#7367f0', '#ff9f43'],
                     plotOptions: { bar: { borderRadius: 4, columnWidth: '45%', distributed: true } },
                     legend: { show: false },
                     dataLabels: {
@@ -317,6 +386,58 @@
                         if (typeof toastr !== 'undefined') {
                             toastr.error('Failed to export report. Please try again.');
                         }
+                    }
+                });
+            });
+
+            window.refreshTable = function () {
+                submitFilters();
+            };
+
+            $(document).on('click', '.delete-collection-btn', function (e) {
+                e.preventDefault();
+                const btn = $(this);
+                const id = btn.data('id');
+                const saleNo = btn.data('sale-no');
+                const amount = btn.data('amount');
+
+                Swal.fire({
+                    title: 'Delete Collection Entry?',
+                    text: `Are you sure you want to delete payment collection of ${amount} for Sale #${saleNo}? This will reverse the payment from the sale.`,
+                    icon: 'warning',
+                    showCancelButton: true,
+                    confirmButtonText: 'Yes, delete it!',
+                    cancelButtonText: 'Cancel',
+                    customClass: {
+                        confirmButton: 'btn btn-danger me-3',
+                        cancelButton: 'btn btn-label-secondary'
+                    },
+                    buttonsStyling: false
+                }).then((result) => {
+                    if (result.isConfirmed) {
+                        if (window.showAjaxLoader) {
+                            $('.loader-status').text('Deleting Collection');
+                            window.showAjaxLoader();
+                        }
+
+                        const url = "{{ url('admin/reports/daily-report/collections') }}/" + id;
+                        $.ajax({
+                            url: url,
+                            type: 'DELETE',
+                            data: {
+                                _token: $('meta[name="csrf-token"]').attr('content')
+                            },
+                            success: function (res) {
+                                if (window.hideAjaxLoader) window.hideAjaxLoader();
+                                toastr.success(res.message || 'Payment collection deleted successfully.');
+                                submitFilters();
+                            },
+                            error: function (xhr) {
+                                if (window.hideAjaxLoader) window.hideAjaxLoader();
+                                const msg = xhr.responseJSON?.message || 'Something went wrong. Please try again.';
+                                toastr.error(typeof msg === 'string' ? msg : Object.values(msg)[0][0]);
+                            }
+                        });
                     }
                 });
             });

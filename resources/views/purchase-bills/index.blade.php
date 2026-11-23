@@ -632,8 +632,7 @@
                 }
 
                 let rows = historyData.payments.map(function (p) {
-                    let noteBadge = p.note ? `<span class="badge bg-label-info text-wrap text-start">${p.note}</span>` : '<span class="text-muted">-</span>';
-                    return `<tr><td class="text-nowrap">${p.date}</td><td>${noteBadge}</td><td class="text-end fw-semibold text-nowrap">${p.amount}</td></tr>`;
+                    return `<tr><td class="text-nowrap" data-order="${p.date_raw || p.date}">${p.date}</td><td class="text-end fw-semibold text-nowrap">${p.amount}</td></tr>`;
                 }).join('');
 
                 return `
@@ -644,9 +643,9 @@
                             <span>Balance: <strong class="text-danger">${historyData.balance_due}</strong></span>
                         </div>
                         <label class="form-label fw-semibold mb-1" style="font-size: 0.85rem;">Payment History</label>
-                        <div class="table-responsive border rounded" style="max-height:180px; overflow-y:auto;">
-                            <table class="table table-sm table-hover mb-0 align-middle" style="font-size: 0.8rem;">
-                                <thead class="table-light"><tr><th class="text-nowrap" style="width: 28%;">Date</th><th style="width: 47%;">Type / Note</th><th class="text-end text-nowrap" style="width: 25%;">Amount</th></tr></thead>
+                        <div class="table-responsive border rounded p-2">
+                            <table class="table table-sm table-hover mb-0 align-middle w-100" id="swalPbPaymentHistoryTable" style="font-size: 0.8rem;">
+                                <thead class="table-light"><tr><th class="text-nowrap" style="width: 60%;">Date & Time</th><th class="text-end text-nowrap" style="width: 40%;">Amount</th></tr></thead>
                                 <tbody>${rows}</tbody>
                             </table>
                         </div>
@@ -708,6 +707,22 @@
                         };
                         toggleAmount();
                         statusSelect.addEventListener('change', toggleAmount);
+
+                        if ($('#swalPbPaymentHistoryTable').length && historyData && historyData.payments && historyData.payments.length > 0) {
+                            $('#swalPbPaymentHistoryTable').DataTable({
+                                paging: true,
+                                searching: true,
+                                ordering: true,
+                                info: true,
+                                pageLength: 5,
+                                lengthMenu: [5, 10, 25],
+                                order: [[0, 'desc']],
+                                language: {
+                                    search: '',
+                                    searchPlaceholder: 'Search...'
+                                }
+                            });
+                        }
                     },
                     showLoaderOnConfirm: true,
                     preConfirm: () => {

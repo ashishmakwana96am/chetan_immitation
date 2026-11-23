@@ -4,6 +4,7 @@ namespace App\Http\Controllers;
 
 use App\Models\Location;
 use App\Models\User;
+use App\Services\ActivityLogger;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Hash;
 use Illuminate\Support\Facades\Validator;
@@ -330,6 +331,21 @@ class UserController extends Controller
         $user->update([
             'password' => Hash::make($request->password),
         ]);
+
+        $actor = auth()->user();
+        $actorName = $actor?->name ?? 'Admin';
+        $description = $actor && $actor->id === $user->id
+            ? $user->name . ' changed their account password'
+            : $actorName . ' changed password for user ' . $user->name;
+
+        ActivityLogger::log(
+            'User Management',
+            'change_password',
+            $user,
+            null,
+            null,
+            $description
+        );
 
         return response()->json([
             'status'  => 'success',

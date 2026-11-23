@@ -1354,23 +1354,29 @@ class PurchaseBillController extends Controller
         $paidAmount = (float) ($purchaseBill->paid_amount ?? 0);
         $balanceDue = max(0.0, round($totalAmount - $paidAmount, 2));
 
-        $payments = $purchaseBill->payments()->with(['createdBy', 'stockReturnBill'])->get()->map(function ($payment) {
-            $note = $payment->notes;
-            if (!$note) {
-                if ($payment->branch_balance_transfer_id) {
-                    $note = 'Balance Transfer';
-                } elseif ($payment->stock_return_bill_id) {
-                    $note = 'Stock Return Adjustment';
-                } else {
-                    $note = 'Direct Payment';
+        $payments = $purchaseBill->payments()
+            ->with(['createdBy', 'stockReturnBill'])
+            ->orderBy('created_at', 'desc')
+            ->orderBy('id', 'desc')
+            ->get()
+            ->map(function ($payment) {
+                $note = $payment->notes;
+                if (!$note) {
+                    if ($payment->branch_balance_transfer_id) {
+                        $note = 'Balance Transfer';
+                    } elseif ($payment->stock_return_bill_id) {
+                        $note = 'Stock Return Adjustment';
+                    } else {
+                        $note = 'Direct Payment';
+                    }
                 }
-            }
-            return [
-                'amount' => format_price($payment->amount),
-                'date'   => $payment->created_at->format('d M Y, h:i A'),
-                'note'   => $note,
-            ];
-        });
+                return [
+                    'amount'   => format_price($payment->amount),
+                    'date'     => $payment->created_at->format('d M Y, h:i A'),
+                    'date_raw' => $payment->created_at->format('YmdHis'),
+                    'note'     => $note,
+                ];
+            });
 
         return response()->json([
             'status' => 'success',

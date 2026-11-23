@@ -5,212 +5,244 @@
     <title>Product Catalog</title>
     <style>
         @page {
-            margin: 8mm 8mm 10mm 8mm;
             size: A4 portrait;
+            margin: 7mm;
         }
+
         body {
-            font-family: 'DejaVu Sans', 'Helvetica Neue', Arial, sans-serif;
-            color: #1e293b;
             margin: 0;
-            padding: 0;
-            font-size: 10px;
-            background-color: #ffffff;
+            color: #28211e;
+            font: 9pt "DejaVu Sans", sans-serif;
         }
-        .page-container {
-            width: 100%;
+
+        .page-break {
+            page-break-after: always;
         }
-        .header-table {
+
+        .catalog-header,
+        .catalog-grid,
+        .catalog-footer {
             width: 100%;
             border-collapse: collapse;
-            border-bottom: 2px solid #B4771E;
-            padding-bottom: 6px;
-            margin-bottom: 8px;
+            table-layout: fixed;
         }
-        .header-brand {
-            font-size: 16px;
+
+        .catalog-header {
+            margin-bottom: 3mm;
+            border-bottom: 1pt solid #a4773e;
+        }
+
+        .catalog-header td {
+            height: 19mm;
+            padding: 0;
+            vertical-align: middle;
+        }
+
+        .catalog-logo {
+            display: block;
+            width: 30mm;
+            height: auto;
+        }
+
+        .catalog-title {
+            color: #805a2e;
+            font-size: 9pt;
             font-weight: bold;
-            color: #0f172a;
-            letter-spacing: 0.5px;
+            letter-spacing: 1pt;
+            text-align: right;
             text-transform: uppercase;
         }
-        .header-sub {
-            font-size: 11px;
-            color: #B4771E;
-            font-weight: bold;
-            margin-top: 2px;
-        }
-        .grid-table {
-            width: 100%;
-            border-collapse: separate;
-            border-spacing: 8px;
-        }
-        .grid-table tr {
-            page-break-inside: avoid;
-        }
+
         .product-cell {
-            width: 50%;
+            width: 49.25%;
+            padding: 0;
             vertical-align: top;
+        }
+
+        .column-gap {
+            width: 1.5%;
             padding: 0;
         }
+
+        .catalog-grid + .catalog-grid {
+            margin-top: 3mm;
+        }
+
+        .product-slot {
+            height: 125mm;
+        }
+
         .product-card {
-            border: 1px solid #e2e8f0;
-            border-radius: 6px;
-            background: #ffffff;
-            padding: 8px 8px;
             text-align: center;
-            height: 355px;
-            box-sizing: border-box;
+            width: 100%;
+            border-collapse: collapse;
+            table-layout: fixed;
         }
-        .product-name {
-            font-size: 11px;
-            font-weight: bold;
-            color: #1e293b;
-            height: 20px;
-            line-height: 10px;
-            overflow: hidden;
-            margin-bottom: 2px;
-            text-align: center;
-            text-transform: uppercase;
+
+        .product-card td {
+            border: 0.85pt solid #b89e7c;
         }
-        .barcode-section {
-            margin-bottom: 6px;
-            text-align: center;
-            font-size: 9px;
-            line-height: 12px;
-        }
-        .barcode-text {
-            font-size: 9px;
-            font-weight: 600;
-            color: #475569;
-            font-family: monospace;
-            letter-spacing: 0.5px;
-        }
-        .meta-sep {
-            color: #cbd5e1;
-            margin: 0 4px;
-        }
-        .product-category {
-            font-size: 9px;
-            color: #64748b;
-            text-transform: uppercase;
-            letter-spacing: 0.3px;
-        }
-        .image-container {
-            height: 265px;
-            line-height: 265px;
-            text-align: center;
+
+        .image-area {
+            height: 103mm;
+            padding: 0;
             vertical-align: middle;
-            margin-bottom: 6px;
-            background: #ffffff;
-            border-radius: 4px;
-            overflow: hidden;
+            text-align: center;
+            font-size: 8pt;
+            line-height: 1;
+            color: #70665d;
         }
+
+        .no-price .image-area {
+            height: 109mm;
+        }
+
         .product-image {
-            max-height: 260px;
-            max-width: 95%;
-            display: inline-block;
+            max-width: 93mm;
+            max-height: 101mm;
             vertical-align: middle;
         }
-        .no-image {
-            display: inline-block;
-            vertical-align: middle;
-            color: #94a3b8;
-            font-size: 10px;
+
+        .no-price .product-image {
+            max-height: 107mm;
         }
+
+        .product-details {
+            padding: 1.5mm 3mm;
+            background-color: #faf6ef;
+        }
+
+        .product-name {
+            height: 8.5mm;
+            overflow-wrap: break-word;
+            font-size: 9pt;
+            font-weight: bold;
+            line-height: 4mm;
+        }
+
+        .product-meta {
+            height: 3.5mm;
+            overflow: hidden;
+            white-space: nowrap;
+            color: #6d6055;
+            font-size: 7pt;
+            line-height: 3.5mm;
+        }
+
+        .meta-separator {
+            margin: 0 1mm;
+            color: #9f7545;
+        }
+
         .price-section {
-            padding-top: 6px;
-            border-top: 1px dashed #e2e8f0;
-            text-align: center;
-            line-height: 16px;
+            height: 6mm;
+            overflow: hidden;
+            white-space: nowrap;
+            line-height: 5mm;
         }
-        .price-label {
-            font-size: 11px;
-            font-weight: bold;
-            color: #475569;
-            margin-right: 4px;
-        }
-        .price-mrp-struck {
-            font-size: 10px;
-            color: #94a3b8;
+
+        .previous-price {
+            margin-right: 1mm;
+            color: #6d6055;
+            font-size: 8pt;
             text-decoration: line-through;
-            margin-right: 5px;
         }
-        .price-sale-highlight {
-            font-size: 12px;
+
+        .product-price {
+            color: #774d21;
+            font-size: 11pt;
             font-weight: bold;
-            color: #B4771E;
+        }
+
+        .catalog-footer {
+            margin-top: 2mm;
+            border-top: 0.5pt solid #dccfbe;
+            color: #6d6055;
+            font-size: 7pt;
+        }
+
+        .catalog-footer td {
+            padding: 1mm 0 0;
+        }
+
+        .page-number {
+            text-align: right;
         }
     </style>
 </head>
 <body>
-    <script type="text/php">
-        if (isset($pdf)) {
-            $font = $fontMetrics->get_font("Helvetica", "normal");
-            $pdf->page_text(520, 820, "Page {PAGE_NUM} of {PAGE_COUNT}", $font, 7, array(0.5, 0.5, 0.5));
-            $pdf->page_text(25, 820, "Chetan Imitation - Product Catalog", $font, 7, array(0.5, 0.5, 0.5));
-        }
-    </script>
+    @php($pages = array_chunk($items, 4) ?: [[]])
 
-    @foreach(array_chunk($items, 4) as $pageIndex => $pageItems)
-        <div class="page-container" style="{{ !$loop->last ? 'page-break-after: always;' : '' }}">
-            <table class="header-table">
+    @foreach($pages as $pageIndex => $pageItems)
+        <div class="{{ $loop->last ? '' : 'page-break' }}">
+            <table class="catalog-header">
                 <tr>
                     <td>
-                        <div class="header-brand">Chetan Imitation</div>
-                        <div class="header-sub">Product Catalog</div>
+                        <img src="{{ public_path('assets/img/logo.png') }}" alt="Chetan Imitation" class="catalog-logo">
                     </td>
+                    <td class="catalog-title">Product Catalog</td>
                 </tr>
             </table>
 
-            <table class="grid-table">
-                @foreach(array_chunk($pageItems, 2) as $row)
+            @foreach(array_chunk(array_pad($pageItems, 4, null), 2) as $row)
+                <table class="catalog-grid{{ $priceDisplay === 'none' ? ' no-price' : '' }}">
                     <tr>
                         @foreach($row as $item)
+                            @unless($loop->first)
+                                <td class="column-gap"></td>
+                            @endunless
                             <td class="product-cell">
-                                <div class="product-card">
-                                    @if(!empty($item['is_first']))
-                                        <div class="product-name">{{ $item['name'] }}</div>
-                                        <div class="barcode-section">
-                                            <span class="barcode-text">{{ $item['barcode'] }}</span>
-                                            @if(!empty($item['sub_category']))
-                                                <span class="meta-sep">&bull;</span>
-                                                <span class="product-category">{{ $item['sub_category'] }}</span>
-                                            @endif
-                                        </div>
-                                    @else
-                                        <div class="product-name" style="visibility: hidden;">&nbsp;</div>
-                                        <div class="barcode-section" style="visibility: hidden;">&nbsp;</div>
-                                    @endif
+                                <div class="product-slot">
+                                    @if($item !== null)
+                                        <table class="product-card">
+                                            <tr>
+                                                <td class="image-area">
+                                                    @if(!empty($item['image_base64']))
+                                                        <img src="{{ $item['image_base64'] }}" alt="{{ $item['name'] }}" class="product-image">
+                                                    @else
+                                                        No image available
+                                                    @endif
+                                                </td>
+                                            </tr>
+                                            <tr>
+                                                <td class="product-details">
+                                                    <div class="product-name">
+                                                        {{ mb_strimwidth($item['name'], 0, 52, '…') }}
+                                                    </div>
+                                                    <div class="product-meta">
+                                                        {{ $item['barcode'] }}
+                                                        @if(!empty($item['sub_category']))
+                                                            <span class="meta-separator">&bull;</span>
+                                                            {{ $item['sub_category'] }}
+                                                        @endif
+                                                    </div>
 
-                                    <div class="image-container">
-                                        @if(!empty($item['image_base64']))
-                                            <img src="{{ $item['image_base64'] }}" alt="{{ $item['name'] }}" class="product-image">
-                                        @else
-                                            <span class="no-image">No Image</span>
-                                        @endif
-                                    </div>
-
-                                    @if($priceDisplay !== 'none')
-                                        <div class="price-section">
-                                            <span class="price-label">Price:</span>
-                                            @if($priceDisplay === 'both' && ($item['raw_mrp'] ?? 0) > ($item['raw_sale'] ?? 0))
-                                                <span class="price-mrp-struck">{{ $item['mrp'] }}</span>
-                                                <span class="price-sale-highlight">{{ $item['sale_price'] }}</span>
-                                            @elseif($priceDisplay === 'mrp')
-                                                <span class="price-sale-highlight">{{ $item['mrp'] }}</span>
-                                            @else
-                                                <span class="price-sale-highlight">{{ $item['sale_price'] }}</span>
-                                            @endif
-                                        </div>
+                                                    @if($priceDisplay !== 'none')
+                                                        <div class="price-section">
+                                                            @if($priceDisplay === 'both' && ($item['raw_mrp'] ?? 0) > ($item['raw_sale'] ?? 0))
+                                                                <span class="previous-price">{{ $item['mrp'] }}</span>
+                                                            @endif
+                                                            <span class="product-price">{{ $priceDisplay === 'mrp' ? $item['mrp'] : $item['sale_price'] }}</span>
+                                                        </div>
+                                                    @endif
+                                                </td>
+                                            </tr>
+                                        </table>
+                                    @elseif($pageItems === [] && $loop->parent->first && $loop->first)
+                                        No products available
                                     @endif
                                 </div>
                             </td>
                         @endforeach
-                        @for($i = count($row); $i < 2; $i++)
-                            <td class="product-cell" style="border:none; background:transparent;"></td>
-                        @endfor
                     </tr>
-                @endforeach
+                </table>
+            @endforeach
+
+            <table class="catalog-footer">
+                <tr>
+                    <td>Chetan Imitation</td>
+                    <td class="page-number">Page {{ $pageIndex + 1 }} of {{ count($pages) }}</td>
+                </tr>
             </table>
         </div>
     @endforeach

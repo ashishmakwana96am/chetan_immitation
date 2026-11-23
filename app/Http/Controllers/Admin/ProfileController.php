@@ -3,6 +3,7 @@
 namespace App\Http\Controllers\Admin;
 
 use App\Http\Controllers\Controller;
+use App\Services\ActivityLogger;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Hash;
 use Illuminate\Support\Facades\Validator;
@@ -49,6 +50,15 @@ class ProfileController extends Controller
         $user->update([
             'password' => Hash::make($request->new_password),
         ]);
+
+        ActivityLogger::log(
+            'User Management',
+            'change_password',
+            $user,
+            null,
+            null,
+            $user->name . ' changed their account password'
+        );
 
         return response()->json([
             'status'  => 'success',

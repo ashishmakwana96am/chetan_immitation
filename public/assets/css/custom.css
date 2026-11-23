@@ -263,7 +263,10 @@ table td {
 /* Short codes (bill/invoice/order numbers) shouldn't break mid-word onto
    several lines in a narrow column — let the table scroll horizontally instead. */
 table.dataTable td code,
-table td code {
+table td code,
+table.dataTable td a > code,
+table td a > code {
+  color: #e83e8c !important;
   white-space: nowrap !important;
 }
 

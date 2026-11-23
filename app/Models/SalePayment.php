@@ -11,10 +11,12 @@ class SalePayment extends Model
 
     protected $fillable = [
         'order_id',
+        'location_id',
         'amount',
         'cash_amount',
         'online_amount',
         'payment_method',
+        'notes',
         'created_by',
     ];
 
@@ -30,6 +32,11 @@ class SalePayment extends Model
     public function order()
     {
         return $this->belongsTo(Order::class);
+    }
+
+    public function location()
+    {
+        return $this->belongsTo(Location::class);
     }
 
     public function createdBy()

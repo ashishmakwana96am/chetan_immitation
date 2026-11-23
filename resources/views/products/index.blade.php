@@ -434,6 +434,12 @@
                     <i class="ti ti-file-zip me-1"></i> Bulk Image Upload
                 </button>
             @endcan
+
+            @can('export products')
+                <button type="button" class="btn btn-outline-primary" id="btnExportProducts">
+                    <i class="ti ti-file-spreadsheet me-1"></i> Export
+                </button>
+            @endcan
             @can('create products')
                 <button type="button" class="btn btn-outline-primary" id="productImportBtn">
                     <i class="ti ti-upload me-1"></i> Import
@@ -1110,21 +1116,49 @@
                 openBulkBarcodeModal();
             });
 
-            $(document).on('click', '#bulkActionExportProducts', function() {
+            function runProductExport() {
                 const checkedIds = Array.from(selectedProductsMap.keys());
-                if (checkedIds.length === 0) {
-                    toastr.warning('Please select at least one product.');
-                    return;
-                }
 
-                const $btn = $(this);
-                $btn.blur();
+                if (window.showAjaxLoader) {
+                    $('.loader-status').text('Exporting Products');
+                    window.showAjaxLoader();
+                }
 
                 const formData = new FormData();
                 formData.append('_token', '{{ csrf_token() }}');
-                checkedIds.forEach(function(id) {
-                    formData.append('product_ids[]', id);
-                });
+                if (checkedIds.length > 0) {
+                    checkedIds.forEach(function(id) {
+                        formData.append('product_ids[]', id);
+                    });
+                } else {
+                    const catVal = $('#filter-category').val();
+                    if (catVal) formData.append('category_id', catVal);
+
+                    const subCats = $('#filter-sub-category').val();
+                    if (subCats && subCats.length) {
+                        subCats.forEach(function(id) {
+                            formData.append('sub_category_ids[]', id);
+                        });
+                    }
+
+                    const collVal = $('#filter-collection').val();
+                    if (collVal) formData.append('collection_id', collVal);
+
+                    const statusVal = $('#filter-status').val();
+                    if (statusVal) formData.append('status', statusVal);
+
+                    const hideVal = $('#filter-hide-from-website').val();
+                    if (hideVal) formData.append('hide_from_website', hideVal);
+
+                    const pTypeVal = $('#filter-product-type').val();
+                    if (pTypeVal) formData.append('product_type', pTypeVal);
+
+                    const saleVal = $('#filter-sale-product').val();
+                    if (saleVal) formData.append('sale_product', saleVal);
+
+                    const searchVal = $('#productsTable_filter input').val();
+                    if (searchVal) formData.append('search', searchVal);
+                }
 
                 fetch('{{ route('admin.products.export') }}', {
                     method: 'POST',
@@ -1132,7 +1166,11 @@
                 })
                 .then(function(response) {
                     if (!response.ok) {
-                        throw new Error('Export failed');
+                        return response.json().then(function(err) {
+                            throw new Error(err.message || 'Export failed');
+                        }).catch(function() {
+                            throw new Error('Export failed');
+                        });
                     }
                     const disposition = response.headers.get('Content-Disposition');
                     let filename = 'products_export.xlsx';
@@ -1161,11 +1199,24 @@
                     $('#selectAllProducts').prop('checked', false);
                     $('.product-select-checkbox').prop('checked', false);
                     toggleBulkActionsDropdown();
-                    table.draw(false);
+                    if (table) {
+                        table.ajax.reload(null, false);
+                    }
                 })
-                .catch(function() {
-                    toastr.error('Failed to export products.');
+                .catch(function(err) {
+                    toastr.error(err.message || 'Failed to export products.');
+                })
+                .finally(function() {
+                    if (window.hideAjaxLoader) {
+                        window.hideAjaxLoader();
+                        $('.loader-status').text('Loading');
+                    }
                 });
+            }
+
+            $(document).on('click', '#btnExportProducts, #bulkActionExportProducts', function() {
+                $(this).blur();
+                runProductExport();
             });
 
             $(document).on('click', '#bulkActionHideWebsite, #bulkActionShowWebsite', function() {
@@ -1558,46 +1609,71 @@
                 const originalText = $btn.text();
                 $btn.prop('disabled', true).text('Generating PDF...');
 
-                const form = document.createElement('form');
-                form.method = 'POST';
-                form.action = '{{ route('admin.products.catalog.pdf') }}';
+                if (window.showAjaxLoader) {
+                    $('.loader-status').text('Generating Catalog PDF');
+                    window.showAjaxLoader();
+                }
 
-                const csrfInput = document.createElement('input');
-                csrfInput.type = 'hidden';
-                csrfInput.name = '_token';
-                csrfInput.value = '{{ csrf_token() }}';
-                form.appendChild(csrfInput);
-
-                const priceInput = document.createElement('input');
-                priceInput.type = 'hidden';
-                priceInput.name = 'price_display';
-                priceInput.value = priceDisplay;
-                form.appendChild(priceInput);
-
+                const formData = new FormData();
+                formData.append('_token', '{{ csrf_token() }}');
+                formData.append('price_display', priceDisplay);
                 idsArray.forEach(function (id) {
-                    const idInput = document.createElement('input');
-                    idInput.type = 'hidden';
-                    idInput.name = 'product_ids[]';
-                    idInput.value = id;
-                    form.appendChild(idInput);
+                    formData.append('product_ids[]', id);
                 });
 
-                document.body.appendChild(form);
-                form.submit();
-                document.body.removeChild(form);
+                fetch('{{ route('admin.products.catalog.pdf') }}', {
+                    method: 'POST',
+                    body: formData
+                })
+                .then(function (response) {
+                    if (!response.ok) {
+                        throw new Error('Catalog export failed');
+                    }
+                    const disposition = response.headers.get('Content-Disposition');
+                    let filename = 'product-catalog.pdf';
+                    if (disposition && disposition.indexOf('filename=') !== -1) {
+                        const match = disposition.match(/filename[^;=\n]*=((['"]).*?\2|[^;\n]*)/);
+                        if (match != null && match[1]) {
+                            filename = match[1].replace(/['"]/g, '');
+                        }
+                    }
+                    return response.blob().then(function (blob) {
+                        return { blob: blob, filename: filename };
+                    });
+                })
+                .then(function (res) {
+                    const url = window.URL.createObjectURL(res.blob);
+                    const a = document.createElement('a');
+                    a.href = url;
+                    a.download = res.filename;
+                    document.body.appendChild(a);
+                    a.click();
+                    a.remove();
+                    window.URL.revokeObjectURL(url);
 
-                $btn.prop('disabled', false).text(originalText);
+                    if (window.toastr) {
+                        toastr.success('Product catalog exported successfully.');
+                    }
 
-                const offcanvasEl = document.getElementById('productCatalogOffcanvas');
-                if (offcanvasEl && typeof bootstrap !== 'undefined' && bootstrap.Offcanvas) {
-                    bootstrap.Offcanvas.getOrCreateInstance(offcanvasEl).hide();
-                }
+                    const offcanvasEl = document.getElementById('productCatalogOffcanvas');
+                    if (offcanvasEl && typeof bootstrap !== 'undefined' && bootstrap.Offcanvas) {
+                        bootstrap.Offcanvas.getOrCreateInstance(offcanvasEl).hide();
+                    }
 
-                resetCatalogOffcanvas();
-
-                if (window.toastr) {
-                    toastr.success('Product catalog exported successfully.');
-                }
+                    resetCatalogOffcanvas();
+                })
+                .catch(function () {
+                    if (window.toastr) {
+                        toastr.error('Failed to export product catalog.');
+                    }
+                })
+                .finally(function () {
+                    $btn.prop('disabled', false).text(originalText);
+                    if (window.hideAjaxLoader) {
+                        window.hideAjaxLoader();
+                        $('.loader-status').text('Loading');
+                    }
+                });
             });
         });
     </script>

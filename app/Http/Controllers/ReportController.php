@@ -20,6 +20,8 @@ use App\Models\PurchaseBill;
 use App\Models\PurchaseBillItem;
 use App\Models\PurchaseItem;
 use App\Models\PurchasePayment;
+use App\Models\SalePayment;
+use App\Models\LocationBalanceTransaction;
 use App\Models\SubCategory;
 use App\Models\Supplier;
 use App\Services\ActivityLogger;
@@ -5649,6 +5651,222 @@ class ReportController extends Controller
         ))->render();
     }
 
+    public function editDailyReportCollection(SalePayment $salePayment)
+    {
+        $this->authorize('view daily reports');
+
+        $user = auth()->user();
+        if ($user->location_id && !$user->hasRole('super-admin')) {
+            $paymentLocId = $salePayment->location_id ?: $salePayment->order?->location_id;
+            if ((int) $paymentLocId !== (int) $user->location_id) {
+                abort(403, 'Unauthorized branch access.');
+            }
+        }
+
+        $order = $salePayment->order;
+        if (!$order) {
+            abort(404, 'Related sale not found.');
+        }
+
+        $otherPayments = SalePayment::where('order_id', $order->id)
+            ->where('id', '!=', $salePayment->id)
+            ->get();
+        $otherTotal = (float) $otherPayments->sum('amount');
+        $orderGrandTotal = (float) $order->final_amount;
+        $maxAllowed = max(0, $orderGrandTotal - $otherTotal);
+        $currentPaidTotal = (float) ($order->paid_cash_amount + $order->paid_online_amount);
+        $remainingDue = max(0, $orderGrandTotal - $currentPaidTotal);
+
+        return view('reports.partials.daily-report-collection-edit', compact(
+            'salePayment',
+            'order',
+            'maxAllowed',
+            'remainingDue'
+        ));
+    }
+
+    public function updateDailyReportCollection(Request $request, SalePayment $salePayment)
+    {
+        $this->authorize('view daily reports');
+
+        $user = auth()->user();
+        if ($user->location_id && !$user->hasRole('super-admin')) {
+            $paymentLocId = $salePayment->location_id ?: $salePayment->order?->location_id;
+            if ((int) $paymentLocId !== (int) $user->location_id) {
+                return response()->json(['status' => 'error', 'message' => 'Unauthorized branch access.'], 403);
+            }
+        }
+
+        $validator = Validator::make($request->all(), [
+            'payment_method' => ['required', 'string', 'in:cash,online,online_cash'],
+            'cash_amount'    => ['nullable', 'numeric', 'min:0'],
+            'online_amount'  => ['nullable', 'numeric', 'min:0'],
+            'notes'          => ['nullable', 'string', 'max:1000'],
+        ]);
+
+        if ($validator->fails()) {
+            return response()->json([
+                'status'  => 'error',
+                'message' => $validator->errors()->first(),
+            ], 422);
+        }
+
+        $cash = round((float) ($request->cash_amount ?? 0), 2);
+        $online = round((float) ($request->online_amount ?? 0), 2);
+        if ($request->payment_method === 'cash') {
+            $online = 0;
+        } elseif ($request->payment_method === 'online') {
+            $cash = 0;
+        }
+        $totalThisPayment = round($cash + $online, 2);
+
+        if ($totalThisPayment <= 0) {
+            return response()->json([
+                'status'  => 'error',
+                'message' => 'Total collected amount must be greater than 0.',
+            ], 422);
+        }
+
+        $order = $salePayment->order;
+        if (!$order) {
+            return response()->json(['status' => 'error', 'message' => 'Related sale not found.'], 404);
+        }
+
+        $otherPayments = SalePayment::where('order_id', $order->id)
+            ->where('id', '!=', $salePayment->id)
+            ->get();
+        $otherCash = (float) $otherPayments->sum('cash_amount');
+        $otherOnline = (float) $otherPayments->sum('online_amount');
+        $otherTotal = (float) $otherPayments->sum('amount');
+
+        $newTotalPaid = round($otherTotal + $totalThisPayment, 2);
+        $orderGrandTotal = round((float) $order->final_amount, 2);
+
+        if ($newTotalPaid > ($orderGrandTotal + 0.01)) {
+            $maxAllowed = max(0, $orderGrandTotal - $otherTotal);
+            return response()->json([
+                'status'  => 'error',
+                'message' => 'Collected amount cannot exceed the order remaining balance of ₹' . number_format($maxAllowed, 2) . '.',
+            ], 422);
+        }
+
+        $resolvedMethod = ($cash > 0 && $online > 0) ? 'online_cash' : ($online > 0 ? 'online' : 'cash');
+        $oldAmount = (float) $salePayment->amount;
+
+        DB::transaction(function () use ($salePayment, $order, $cash, $online, $totalThisPayment, $resolvedMethod, $request, $otherCash, $otherOnline, $newTotalPaid, $orderGrandTotal, $oldAmount) {
+            $salePayment->update([
+                'location_id'    => $salePayment->location_id ?: $order->location_id,
+                'cash_amount'    => $cash,
+                'online_amount'  => $online,
+                'amount'         => $totalThisPayment,
+                'payment_method' => $resolvedMethod,
+                'notes'          => $request->notes,
+            ]);
+
+            $finalCash = round($otherCash + $cash, 2);
+            $finalOnline = round($otherOnline + $online, 2);
+            $newStatus = ($newTotalPaid >= ($orderGrandTotal - 0.01))
+                ? Order::PAYMENT_STATUS_PAID
+                : ($newTotalPaid > 0 ? Order::PAYMENT_STATUS_PARTIAL : Order::PAYMENT_STATUS_PENDING);
+
+            $orderPaymentMethod = ($finalCash > 0 && $finalOnline > 0) ? 'online_cash' : ($finalOnline > 0 ? 'online' : 'cash');
+            if ($newStatus === Order::PAYMENT_STATUS_PENDING) {
+                $orderPaymentMethod = null;
+            }
+
+            Order::withoutActivityLogging(fn() => $order->update([
+                'paid_cash_amount'   => $finalCash,
+                'paid_online_amount' => $finalOnline,
+                'payment_status'     => $newStatus,
+                'payment_method'     => $orderPaymentMethod,
+            ]));
+
+            if ($order->location_id) {
+                LocationBalanceTransaction::syncLocationBalance($order->location_id, LocationBalanceTransaction::BALANCE_TYPE_CASH);
+                LocationBalanceTransaction::syncLocationBalance($order->location_id, LocationBalanceTransaction::BALANCE_TYPE_BANK);
+            }
+
+            ActivityLogger::log(
+                'Daily Report Collections',
+                'edit',
+                $salePayment,
+                ['amount' => $oldAmount],
+                ['amount' => $totalThisPayment, 'cash' => $cash, 'online' => $online, 'notes' => $request->notes],
+                'Payment collection for Sale #' . $order->order_no . ' edited (₹' . number_format($oldAmount, 2) . ' -> ₹' . number_format($totalThisPayment, 2) . ')'
+            );
+        });
+
+        return response()->json([
+            'status'  => 'success',
+            'message' => 'Payment collection updated successfully.',
+        ]);
+    }
+
+    public function destroyDailyReportCollection(Request $request, SalePayment $salePayment)
+    {
+        $this->authorize('view daily reports');
+
+        $user = auth()->user();
+        if ($user->location_id && !$user->hasRole('super-admin')) {
+            $paymentLocId = $salePayment->location_id ?: $salePayment->order?->location_id;
+            if ((int) $paymentLocId !== (int) $user->location_id) {
+                return response()->json(['status' => 'error', 'message' => 'Unauthorized branch access.'], 403);
+            }
+        }
+
+        $order = $salePayment->order;
+        if (!$order) {
+            return response()->json(['status' => 'error', 'message' => 'Related sale not found.'], 404);
+        }
+
+        $deletedAmount = (float) $salePayment->amount;
+
+        DB::transaction(function () use ($salePayment, $order, $deletedAmount) {
+            $salePayment->delete();
+
+            $remainingPayments = SalePayment::where('order_id', $order->id)->get();
+            $remCash = round((float) $remainingPayments->sum('cash_amount'), 2);
+            $remOnline = round((float) $remainingPayments->sum('online_amount'), 2);
+            $remTotal = round($remCash + $remOnline, 2);
+            $orderGrandTotal = round((float) $order->final_amount, 2);
+
+            $newStatus = ($remTotal >= ($orderGrandTotal - 0.01))
+                ? Order::PAYMENT_STATUS_PAID
+                : ($remTotal > 0 ? Order::PAYMENT_STATUS_PARTIAL : Order::PAYMENT_STATUS_PENDING);
+
+            $orderPaymentMethod = ($remCash > 0 && $remOnline > 0) ? 'online_cash' : ($remOnline > 0 ? 'online' : 'cash');
+            if ($newStatus === Order::PAYMENT_STATUS_PENDING) {
+                $orderPaymentMethod = null;
+            }
+
+            Order::withoutActivityLogging(fn() => $order->update([
+                'paid_cash_amount'   => $remCash,
+                'paid_online_amount' => $remOnline,
+                'payment_status'     => $newStatus,
+                'payment_method'     => $orderPaymentMethod,
+            ]));
+
+            if ($order->location_id) {
+                LocationBalanceTransaction::syncLocationBalance($order->location_id, LocationBalanceTransaction::BALANCE_TYPE_CASH);
+                LocationBalanceTransaction::syncLocationBalance($order->location_id, LocationBalanceTransaction::BALANCE_TYPE_BANK);
+            }
+
+            ActivityLogger::log(
+                'Daily Report Collections',
+                'delete',
+                $salePayment,
+                ['amount' => $deletedAmount],
+                null,
+                'Payment collection of ₹' . number_format($deletedAmount, 2) . ' for Sale #' . $order->order_no . ' deleted'
+            );
+        });
+
+        return response()->json([
+            'status'  => 'success',
+            'message' => 'Payment collection deleted successfully.',
+        ]);
+    }
+
     public function exportDailyReportExcel(Request $request)
     {
         $this->authorize('view daily reports');
@@ -5709,6 +5927,7 @@ class ReportController extends Controller
         $summaryMetrics = [
             ['Total Sales', $data['totalSalesCount'] . ' Sales', '₹' . number_format($data['totalSales'], 2)],
             ['Pending Sales', '-', '₹' . number_format($data['totalPendingSales'] ?? 0, 2)],
+            ['Payment Collections', ($data['totalDuesCollectedCount'] ?? 0) . ' Collections', '₹' . number_format($data['totalDuesCollectedAmount'] ?? 0, 2)],
             ['Total Purchases', $data['totalPurchasesCount'] . ' Purchases', '₹' . number_format($data['totalPurchases'], 2)],
             ['Pending Purchases', '-', '₹' . number_format($data['totalPendingPurchases'] ?? 0, 2)],
             ['Total Expenses', $data['totalExpensesCount'] . ' Expenses', '₹' . number_format($data['totalExpenses'], 2)],
@@ -5732,28 +5951,28 @@ class ReportController extends Controller
         $sheet0->getStyle("C2:C" . ($r0 - 1))->getAlignment()->setHorizontal(Alignment::HORIZONTAL_CENTER);
         $sheet0->getStyle("D2:D" . ($r0 - 1))->getAlignment()->setHorizontal(Alignment::HORIZONTAL_RIGHT);
 
-        // Branch-wise breakdown if multiple branches
         if ($data['branchRows']->count() > 1) {
             $r0 += 2;
-            $sheet0->mergeCells("A{$r0}:H{$r0}");
+            $sheet0->mergeCells("A{$r0}:I{$r0}");
             $sheet0->setCellValue("A{$r0}", 'Branch-wise Breakdown Data');
-            $sheet0->getStyle("A{$r0}:H{$r0}")->applyFromArray($titleStyle);
+            $sheet0->getStyle("A{$r0}:I{$r0}")->applyFromArray($titleStyle);
             $sheet0->getRowDimension($r0)->setRowHeight(30);
             $r0++;
 
-            $bbHeaders = ['#', 'Branch', 'Sales', 'Purchases', 'Expenses', 'Purchase Bill', 'Balance Transfer', 'Payments Out'];
-            $bbCols = ['A', 'B', 'C', 'D', 'E', 'F', 'G', 'H'];
+            $bbHeaders = ['#', 'Branch', 'Sales', 'Collections', 'Purchases', 'Expenses', 'Purchase Bill', 'Balance Transfer', 'Payments Out'];
+            $bbCols = ['A', 'B', 'C', 'D', 'E', 'F', 'G', 'H', 'I'];
             foreach ($bbHeaders as $cIdx => $hText) {
                 $sheet0->setCellValue($bbCols[$cIdx] . $r0, $hText);
             }
-            $sheet0->getStyle("A{$r0}:H{$r0}")->applyFromArray($headerStyle);
+            $sheet0->getStyle("A{$r0}:I{$r0}")->applyFromArray($headerStyle);
             $sheet0->getRowDimension($r0)->setRowHeight(26);
             $r0++;
 
             $bbStart = $r0;
-            $sumBBSales = 0; $sumBBPurchases = 0; $sumBBExpenses = 0; $sumBBTransfers = 0; $sumBBPayOut = 0;
+            $sumBBSales = 0; $sumBBDues = 0; $sumBBPurchases = 0; $sumBBExpenses = 0; $sumBBTransfers = 0; $sumBBPayOut = 0;
             foreach ($data['branchRows'] as $bIdx => $bRow) {
                 $sumBBSales += (float) $bRow['sales_amount'];
+                $sumBBDues += (float) ($bRow['dues_collected_amount'] ?? 0);
                 $sumBBPurchases += (float) $bRow['purchase_amount'];
                 $sumBBExpenses += (float) $bRow['expense_amount'];
                 $sumBBTransfers += (int) $bRow['transfer_count'];
@@ -5764,31 +5983,33 @@ class ReportController extends Controller
                 $sheet0->setCellValue("A{$r0}", $bIdx + 1);
                 $sheet0->setCellValue("B{$r0}", $bRow['location_name']);
                 $sheet0->setCellValue("C{$r0}", '₹' . number_format($bRow['sales_amount'], 2));
-                $sheet0->setCellValue("D{$r0}", '₹' . number_format($bRow['purchase_amount'], 2));
-                $sheet0->setCellValue("E{$r0}", '₹' . number_format($bRow['expense_amount'], 2));
-                $sheet0->setCellValue("F{$r0}", $bRow['transfer_count']);
-                $sheet0->setCellValue("G{$r0}", $btText);
-                $sheet0->setCellValue("H{$r0}", '₹' . number_format($bRow['payment_out_total'], 2));
+                $sheet0->setCellValue("D{$r0}", '₹' . number_format($bRow['dues_collected_amount'] ?? 0, 2));
+                $sheet0->setCellValue("E{$r0}", '₹' . number_format($bRow['purchase_amount'], 2));
+                $sheet0->setCellValue("F{$r0}", '₹' . number_format($bRow['expense_amount'], 2));
+                $sheet0->setCellValue("G{$r0}", $bRow['transfer_count']);
+                $sheet0->setCellValue("H{$r0}", $btText);
+                $sheet0->setCellValue("I{$r0}", '₹' . number_format($bRow['payment_out_total'], 2));
                 $sheet0->getRowDimension($r0)->setRowHeight(20);
                 $r0++;
             }
 
-            // Totals Row
             $sheet0->setCellValue("A{$r0}", 'Total');
             $sheet0->setCellValue("C{$r0}", '₹' . number_format($sumBBSales, 2));
-            $sheet0->setCellValue("D{$r0}", '₹' . number_format($sumBBPurchases, 2));
-            $sheet0->setCellValue("E{$r0}", '₹' . number_format($sumBBExpenses, 2));
-            $sheet0->setCellValue("F{$r0}", $sumBBTransfers);
-            $sheet0->setCellValue("H{$r0}", '₹' . number_format($sumBBPayOut, 2));
-            $sheet0->getStyle("A{$r0}:H{$r0}")->getFont()->setBold(true);
-            $sheet0->getStyle("A{$r0}:H{$r0}")->getFill()->setFillType(Fill::FILL_SOLID)->getStartColor()->setRGB('EAECF0');
+            $sheet0->setCellValue("D{$r0}", '₹' . number_format($sumBBDues, 2));
+            $sheet0->setCellValue("E{$r0}", '₹' . number_format($sumBBPurchases, 2));
+            $sheet0->setCellValue("F{$r0}", '₹' . number_format($sumBBExpenses, 2));
+            $sheet0->setCellValue("G{$r0}", $sumBBTransfers);
+            $sheet0->setCellValue("I{$r0}", '₹' . number_format($sumBBPayOut, 2));
+            $sheet0->getStyle("A{$r0}:I{$r0}")->getFont()->setBold(true);
+            $sheet0->getStyle("A{$r0}:I{$r0}")->getFill()->setFillType(Fill::FILL_SOLID)->getStartColor()->setRGB('EAECF0');
             $sheet0->getRowDimension($r0)->setRowHeight(24);
 
-            $sheet0->getStyle("A" . ($bbStart - 1) . ":H{$r0}")->applyFromArray($borderStyle);
+            $sheet0->getStyle("A" . ($bbStart - 1) . ":I{$r0}")->applyFromArray($borderStyle);
             $sheet0->getStyle("A{$bbStart}:A{$r0}")->getAlignment()->setHorizontal(Alignment::HORIZONTAL_CENTER);
-            $sheet0->getStyle("C{$bbStart}:E{$r0}")->getAlignment()->setHorizontal(Alignment::HORIZONTAL_RIGHT);
-            $sheet0->getStyle("F{$bbStart}:G{$r0}")->getAlignment()->setHorizontal(Alignment::HORIZONTAL_CENTER);
-            $sheet0->getStyle("H{$bbStart}:H{$r0}")->getAlignment()->setHorizontal(Alignment::HORIZONTAL_RIGHT);
+            $sheet0->getStyle("C{$bbStart}:F{$r0}")->getAlignment()->setHorizontal(Alignment::HORIZONTAL_RIGHT);
+            $sheet0->getStyle("G{$bbStart}:G{$r0}")->getAlignment()->setHorizontal(Alignment::HORIZONTAL_CENTER);
+            $sheet0->getStyle("H{$bbStart}:H{$r0}")->getAlignment()->setHorizontal(Alignment::HORIZONTAL_CENTER);
+            $sheet0->getStyle("I{$bbStart}:I{$r0}")->getAlignment()->setHorizontal(Alignment::HORIZONTAL_RIGHT);
 
             foreach ($bbCols as $colLetter) {
                 $sheet0->getColumnDimension($colLetter)->setAutoSize(true);
@@ -6122,6 +6343,57 @@ class ReportController extends Controller
             $sheet7->getColumnDimension($colLetter)->setAutoSize(true);
         }
 
+        $sheet8 = $spreadsheet->createSheet();
+        $sheet8->setTitle('Payment Collections');
+        $sheet8->mergeCells('A1:J1');
+        $sheet8->setCellValue('A1', "Payment Collections ({$date} - {$activeLocName})");
+        $sheet8->getStyle('A1:J1')->applyFromArray($titleStyle);
+        $sheet8->getRowDimension(1)->setRowHeight(30);
+
+        $headers8 = ['#', 'Date & Time', 'Sale No', 'Sale Date', 'Customer', 'Branch', 'Method', 'Amount Collected', 'Collected By', 'Notes'];
+        $cols8 = ['A', 'B', 'C', 'D', 'E', 'F', 'G', 'H', 'I', 'J'];
+        foreach ($headers8 as $cIdx => $hText) {
+            $sheet8->setCellValue($cols8[$cIdx] . '2', $hText);
+        }
+        $sheet8->getStyle('A2:J2')->applyFromArray($headerStyle);
+        $sheet8->getRowDimension(2)->setRowHeight(26);
+
+        if ($data['collectionRows']->isNotEmpty()) {
+            $r8 = 3;
+            $sumColAmount = 0.0;
+            foreach ($data['collectionRows'] as $idx => $row) {
+                $amt = (float) ($row['amount'] ?? 0);
+                $sumColAmount += $amt;
+                $sheet8->setCellValue('A' . $r8, $idx + 1);
+                $sheet8->setCellValue('B' . $r8, $row['created_at'] ?? '-');
+                $sheet8->setCellValue('C' . $r8, $row['sale_no'] ?? '-');
+                $sheet8->setCellValue('D' . $r8, $row['sale_date'] ?? '-');
+                $sheet8->setCellValue('E' . $r8, $row['customer_name'] ?? '-');
+                $sheet8->setCellValue('F' . $r8, $row['location_name'] ?? '-');
+                $sheet8->setCellValue('G' . $r8, $row['payment_method_label'] ?? '-');
+                $sheet8->setCellValue('H' . $r8, '₹' . number_format($amt, 2));
+                $sheet8->setCellValue('I' . $r8, $row['created_by'] ?? '-');
+                $sheet8->setCellValue('J' . $r8, $row['notes'] ?? '-');
+                $sheet8->getRowDimension($r8)->setRowHeight(20);
+                $r8++;
+            }
+            $sheet8->setCellValue('A' . $r8, 'Total');
+            $sheet8->setCellValue('H' . $r8, '₹' . number_format($sumColAmount, 2));
+            $sheet8->getStyle("A{$r8}:J{$r8}")->getFont()->setBold(true);
+            $sheet8->getStyle("A{$r8}:J{$r8}")->getFill()->setFillType(Fill::FILL_SOLID)->getStartColor()->setRGB('EAECF0');
+            $sheet8->getRowDimension($r8)->setRowHeight(24);
+            $sheet8->getStyle("A2:J{$r8}")->applyFromArray($borderStyle);
+            $sheet8->getStyle("A2:A{$r8}")->getAlignment()->setHorizontal(Alignment::HORIZONTAL_CENTER);
+            $sheet8->getStyle("H2:H{$r8}")->getAlignment()->setHorizontal(Alignment::HORIZONTAL_RIGHT);
+        } else {
+            $sheet8->setCellValue('A3', 'No previous pending payment collections recorded on this date.');
+            $sheet8->mergeCells('A3:J3');
+            $sheet8->getStyle('A2:J3')->applyFromArray($borderStyle);
+        }
+        foreach ($cols8 as $colLetter) {
+            $sheet8->getColumnDimension($colLetter)->setAutoSize(true);
+        }
+
         $spreadsheet->setActiveSheetIndex(0);
 
         ActivityLogger::log('Reports', 'export', null, null, null, 'Daily report exported to Excel for ' . $date);
@@ -6205,6 +6477,16 @@ class ReportController extends Controller
             ->whereIn('location_id', $locationIds)
             ->selectRaw('location_id, COUNT(*) as cnt, SUM(final_amount) as total')
             ->groupBy('location_id')
+            ->get()
+            ->keyBy('location_id');
+
+        $collectionsByLocation = SalePayment::join('orders', 'orders.id', '=', 'sale_payments.order_id')
+            ->whereNull('sale_payments.deleted_at')
+            ->whereNull('orders.deleted_at')
+            ->whereDate('sale_payments.created_at', $date)
+            ->whereIn('orders.location_id', $locationIds)
+            ->selectRaw('orders.location_id as location_id, COUNT(sale_payments.id) as cnt, SUM(sale_payments.amount) as total, SUM(sale_payments.cash_amount) as total_cash, SUM(sale_payments.online_amount) as total_online')
+            ->groupBy('orders.location_id')
             ->get()
             ->keyBy('location_id');
 
@@ -6319,6 +6601,7 @@ class ReportController extends Controller
 
         $branchRows = $reportLocations->map(function ($location) use (
             $salesByLocation,
+            $collectionsByLocation,
             $expensesByLocation,
             $purchasesByLocation,
             $transfersByLocation,
@@ -6330,6 +6613,7 @@ class ReportController extends Controller
             $bulkPaymentsCountForDate
         ) {
             $sale = $salesByLocation->get($location->id);
+            $col = $collectionsByLocation->get($location->id);
             $expense = $expensesByLocation->get($location->id);
             $purchase = $purchasesByLocation->get($location->id);
             $transfer = $transfersByLocation[$location->id] ?? null;
@@ -6349,6 +6633,8 @@ class ReportController extends Controller
                 'is_default' => (bool) $location->is_default,
                 'sales_amount' => (float) ($sale->total ?? 0),
                 'sales_count' => (int) ($sale->cnt ?? 0),
+                'dues_collected_amount' => (float) ($col->total ?? 0),
+                'dues_collected_count' => (int) ($col->cnt ?? 0),
                 'purchase_amount' => (float) ($purchase->total ?? 0),
                 'purchase_count' => (int) ($purchase->cnt ?? 0),
                 'expense_amount' => (float) ($expense->total ?? 0),
@@ -6436,7 +6722,16 @@ class ReportController extends Controller
                     'amount' => (float) $order->final_amount,
                     'status' => $badge($orderStatusLabels[$order->status] ?? '-', $orderStatusColors[$order->status] ?? 'bg-label-secondary'),
                     'payment_status' => $badge($orderPaymentLabels[$order->payment_status] ?? '-', $orderPaymentColors[$order->payment_status] ?? 'bg-label-secondary'),
-                    'method' => $order->payment_method === 'cod' ? 'COD' : ucwords(str_replace('_', ' ', (string) $order->payment_method)),
+                    'method' => match (strtolower((string) ($order->payment_method ?? ''))) {
+                        'online_cash' => 'Online + Cash',
+                        'cod'         => 'COD',
+                        'upi'         => 'UPI',
+                        ''            => '-',
+                        default       => ucwords(str_replace('_', ' + ', (string) $order->payment_method)),
+                    },
+                    'payment_method' => strtolower((string) ($order->payment_method ?? '')),
+                    'paid_cash_amount' => (float) ($order->paid_cash_amount ?? 0),
+                    'paid_online_amount' => (float) ($order->paid_online_amount ?? 0),
                 ];
             });
 
@@ -6610,9 +6905,68 @@ class ReportController extends Controller
         $totalOverallPaymentsOut = (float) $purchasePaymentRows->sum('amount');
         $totalOverallPaymentsOutCount = (int) $purchasePaymentRows->count();
 
+        $collectionRows = SalePayment::with(['order.customer', 'order.location', 'createdBy', 'location'])
+            ->whereDate('created_at', $date)
+            ->where(function ($q) use ($locationIds) {
+                $q->whereIn('location_id', $locationIds)
+                  ->orWhere(function ($q2) use ($locationIds) {
+                      $q2->whereNull('location_id')
+                         ->whereHas('order', function ($oq) use ($locationIds) {
+                             $oq->whereIn('location_id', $locationIds);
+                         });
+                  });
+            })
+            ->latest('created_at')
+            ->latest('id')
+            ->get()
+            ->values()
+            ->map(function ($payment, $index) {
+                $order = $payment->order;
+                $customer = $order?->customer;
+                $branchName = $payment->location?->name ?: ($order?->location?->name ?: '-');
+                $methodStr = $payment->payment_method === 'online_cash'
+                    ? 'Cash + Online'
+                    : ($payment->payment_method === 'online' ? 'Online' : 'Cash');
+
+                $orderTotal = (float) ($order?->final_amount ?? 0);
+                $paidCash = (float) ($order?->paid_cash_amount ?? 0);
+                $paidOnline = (float) ($order?->paid_online_amount ?? 0);
+                $totalPaid = $paidCash + $paidOnline;
+                $remainingDue = max(0, $orderTotal - $totalPaid);
+
+                return [
+                    'id'                   => $payment->id,
+                    'index'                => $index + 1,
+                    'order_id'             => $order?->id,
+                    'sale_no'              => $order?->order_no ?? '-',
+                    'sale_date'            => $order?->created_at ? $order->created_at->format('d M Y') : '-',
+                    'customer_name'        => $customer?->name ?? 'Walk-in',
+                    'customer_phone'       => $customer?->phone ?? '-',
+                    'location_name'        => $branchName,
+                    'location_id'          => $order?->location_id,
+                    'amount'               => (float) $payment->amount,
+                    'cash_amount'          => (float) $payment->cash_amount,
+                    'online_amount'        => (float) $payment->online_amount,
+                    'payment_method'       => $payment->payment_method,
+                    'payment_method_label' => $methodStr,
+                    'notes'                => $payment->notes ?? '-',
+                    'created_by'           => $payment->createdBy->name ?? '-',
+                    'created_at'           => $payment->created_at ? $payment->created_at->format('d M Y, h:i A') : '-',
+                    'order_total'          => $orderTotal,
+                    'order_paid'           => $totalPaid,
+                    'order_balance_due'    => $remainingDue,
+                ];
+            });
+
+        $totalDuesCollectedAmount = (float) $collectionsByLocation->sum('total');
+        $totalDuesCollectedCount  = (int) $collectionsByLocation->sum('cnt');
+        $totalDuesCollectedCash   = (float) $collectionsByLocation->sum('total_cash');
+        $totalDuesCollectedOnline = (float) $collectionsByLocation->sum('total_online');
+
         return [
             'branchRows'                   => $branchRows,
             'salesRows'                    => $salesRows,
+            'collectionRows'               => $collectionRows,
             'purchaseRows'                 => $purchaseRows,
             'expenseRows'                  => $expenseRows,
             'purchaseBillRows'             => $purchaseBillRows,
@@ -6624,6 +6978,10 @@ class ReportController extends Controller
             'totalSales'                   => $totalSales,
             'totalPendingSales'            => $totalPendingSales,
             'totalSalesCount'              => $totalSalesCount,
+            'totalDuesCollectedAmount'     => $totalDuesCollectedAmount,
+            'totalDuesCollectedCount'      => $totalDuesCollectedCount,
+            'totalDuesCollectedCash'       => $totalDuesCollectedCash,
+            'totalDuesCollectedOnline'     => $totalDuesCollectedOnline,
             'totalPurchases'               => $totalPurchases,
             'totalPendingPurchases'        => $totalPendingPurchases,
             'totalPurchasesCount'          => $totalPurchasesCount,

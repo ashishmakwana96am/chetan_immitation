@@ -96,14 +96,16 @@ class UtilityReportController extends Controller
 
         $data = $logs->map(function ($log, $index) use ($start) {
             $actionColors = [
-                'create'       => 'bg-label-success',
-                'update'       => 'bg-label-warning',
-                'delete'       => 'bg-label-danger',
-                'login'        => 'bg-label-info',
-                'login_failed' => 'bg-label-danger',
-                'logout'       => 'bg-label-secondary',
-                'import'       => 'bg-label-info',
-                'export'       => 'bg-label-info',
+                'create'          => 'bg-label-success',
+                'update'          => 'bg-label-warning',
+                'delete'          => 'bg-label-danger',
+                'login'           => 'bg-label-info',
+                'login_failed'    => 'bg-label-danger',
+                'logout'          => 'bg-label-secondary',
+                'import'          => 'bg-label-info',
+                'export'          => 'bg-label-info',
+                'change_password' => 'bg-label-warning',
+                'reset_password'  => 'bg-label-warning',
             ];
             $actionBadge = '<span class="badge ' . ($actionColors[$log->action] ?? 'bg-label-secondary') . '">' . ucwords(str_replace('_', ' ', $log->action)) . '</span>';
 

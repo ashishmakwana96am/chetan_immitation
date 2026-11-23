@@ -44,6 +44,18 @@
         }
     }
 
+    @media (max-width: 639.98px) {
+        #addToCartBtn, #buyNowBtn {
+            flex: 1 1 calc(50% - 6px) !important;
+            max-width: calc(50% - 6px) !important;
+        }
+        #buyWhatsAppBtn {
+            flex: 1 1 100% !important;
+            width: 100% !important;
+            max-width: 100% !important;
+        }
+    }
+
     .mainSwiper .swiper-slide {
         width: 100% !important;
         height: 100% !important;
@@ -1842,8 +1854,6 @@ Order Amount
             var productName = @json($product->name);
             var barcode = @json($product->barcode ?? $product->product_code ?? '');
             var qty = parseInt(document.getElementById('qty')?.innerText || 1) || 1;
-            var price = getBuyNowUnitPrice();
-            var total = price * qty;
             var productUrl = window.location.href;
 
             var msg = "Hello Chetan Imitation,\nI would like to order this product:\n\n" +
@@ -1852,9 +1862,7 @@ Order Amount
             if (barcode) {
                 msg += "🔖 Code: " + barcode + "\n";
             }
-            msg += "💰 Price: ₹" + price.toFixed(2) + "\n" +
-                "🔢 Quantity: " + qty + "\n" +
-                "💵 Total: ₹" + total.toFixed(2) + "\n\n" +
+            msg += "🔢 Quantity: " + qty + "\n\n" +
                 "🔗 Product Link: " + productUrl;
 
             var whatsappUrl = "https://wa.me/917725978871?text=" + encodeURIComponent(msg);

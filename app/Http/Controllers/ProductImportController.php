@@ -2,6 +2,7 @@
 
 namespace App\Http\Controllers;
 
+use App\Services\ActivityLogger;
 use App\Services\ProductImportService;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Log;
@@ -160,20 +161,59 @@ class ProductImportController extends Controller
         }
         $productIds = array_filter(array_map('intval', (array) $productIds));
 
-        if (empty($productIds)) {
-            return redirect()->back()->with('error', 'Please select at least one product to export.');
-        }
-
-        $products = \App\Models\Product::with([
+        $query = \App\Models\Product::with([
             'category',
             'subCategory',
             'collections',
             'collection',
             'variants.attributeValue.attribute',
-        ])
-        ->whereIn('id', $productIds)
-        ->orderBy('id', 'asc')
-        ->get();
+        ]);
+
+        if (!empty($productIds)) {
+            $query->whereIn('id', $productIds);
+        } else {
+            if ($request->filled('category_id')) {
+                $query->where('category_id', $request->category_id);
+            }
+            if ($request->filled('sub_category_ids')) {
+                $subCatIds = is_array($request->sub_category_ids) ? $request->sub_category_ids : explode(',', $request->sub_category_ids);
+                $query->whereIn('sub_category_id', array_filter($subCatIds));
+            }
+            if ($request->filled('collection_id')) {
+                $query->whereHas('collections', fn($q) => $q->where('collections.id', $request->collection_id));
+            }
+            if ($request->filled('status')) {
+                $query->where('status', $request->status);
+            }
+            if ($request->filled('hide_from_website')) {
+                $query->where('hide_from_website', $request->hide_from_website);
+            }
+            if ($request->filled('product_type')) {
+                $query->where('type', $request->product_type);
+            }
+            if ($request->filled('sale_product')) {
+                $query->where('sale_product', $request->sale_product);
+            }
+            if ($request->filled('search')) {
+                $search = $request->search;
+                $query->where(function ($q) use ($search) {
+                    $q->where('name', 'like', "%{$search}%")
+                      ->orWhere('barcode', 'like', "%{$search}%")
+                      ->orWhere('product_code', 'like', "%{$search}%");
+                });
+            }
+        }
+
+        $products = $query->orderBy('id', 'asc')->get();
+
+        if ($products->isEmpty()) {
+            return response()->json([
+                'status'  => 'error',
+                'message' => 'No products found to export.',
+            ], 422);
+        }
+
+        ActivityLogger::log('Products', 'export', null, null, null, 'Products exported to Excel (' . $products->count() . ' products)');
 
         $columns = [
             'Category', 'Sub Category', 'Collection Name', 'Product Name', 'Barcode', 'Product Code',

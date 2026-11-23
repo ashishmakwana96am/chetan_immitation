@@ -1,12 +1,12 @@
 <div id="chart-data"
      data-total-sales="{{ $totalSales }}"
+     data-total-dues-collected="{{ $totalDuesCollectedAmount ?? 0 }}"
      data-total-purchases="{{ $totalPurchases }}"
      data-total-expenses="{{ $totalExpenses }}"
      data-total-transfers="{{ $totalBalanceTransfersAmount ?? 0 }}"
      data-total-payments-out="{{ $totalOverallPaymentsOut ?? 0 }}">
 </div>
 
-<!-- Stats Cards -->
 <div class="row g-4 mb-4">
     <div class="col-sm-6 col-xl-3">
         <div class="card h-100">
@@ -18,6 +18,20 @@
                         <small class="text-muted d-block mt-1">Pending: <span class="fw-semibold text-warning" id="totalPendingSalesAmount">{{ format_price($totalPendingSales ?? 0) }}</span></small>
                     </div>
                     <span class="badge bg-label-success rounded p-2"><i class="ti ti-shopping-cart ti-sm"></i></span>
+                </div>
+            </div>
+        </div>
+    </div>
+    <div class="col-sm-6 col-xl-3">
+        <div class="card h-100">
+            <div class="card-body">
+                <div class="d-flex align-items-start justify-content-between">
+                    <div>
+                        <span class="text-muted">Payment Collections</span>
+                        <h4 class="mb-0 mt-1 text-success" id="totalDuesCollectedAmount">{{ format_price($totalDuesCollectedAmount ?? 0) }}</h4>
+                        <small class="text-muted d-block mt-1">Cash: <span class="fw-semibold">{{ format_price($totalDuesCollectedCash ?? 0) }}</span> | Online: <span class="fw-semibold">{{ format_price($totalDuesCollectedOnline ?? 0) }}</span></small>
+                    </div>
+                    <span class="badge bg-label-success rounded p-2"><i class="ti ti-receipt-refund ti-sm"></i></span>
                 </div>
             </div>
         </div>
@@ -143,6 +157,7 @@
                 <tr>
                     <th>Branch</th>
                     <th class="text-end">Sales</th>
+                    <th class="text-end">Collections</th>
                     <th class="text-end">Purchases</th>
                     <th class="text-end">Expenses</th>
                     <th class="text-end">Purchase Bill</th>
@@ -155,6 +170,7 @@
                     <tr>
                         <td class="fw-semibold">{{ $row['location_name'] }}</td>
                         <td class="text-end">{{ format_price($row['sales_amount']) }}</td>
+                        <td class="text-end fw-semibold text-success">{{ format_price($row['dues_collected_amount'] ?? 0) }}</td>
                         <td class="text-end">{{ format_price($row['purchase_amount']) }}</td>
                         <td class="text-end">{{ format_price($row['expense_amount']) }}</td>
                         <td class="text-end">{{ $row['transfer_count'] }}</td>
@@ -194,14 +210,110 @@
                 @foreach($salesRows as $row)
                     <tr>
                         <td>{{ $row['index'] }}</td>
-                        <td data-order="{{ $row['sale_no'] }}"><code>{{ $row['sale_no'] }}</code></td>
+                        <td data-order="{{ $row['sale_no'] }}"><code style="color: #e83e8c !important;">{{ $row['sale_no'] }}</code></td>
                         <td data-order="{{ strip_tags($row['customer']) }}">{{ $row['customer'] }}</td>
                         <td data-order="{{ $row['location'] }}">{{ $row['location'] }}</td>
                         <td data-order="{{ strtoupper($row['source']) }}"><span class="badge {{ strtoupper($row['source']) === 'ONLINE' ? 'bg-label-primary' : 'bg-label-secondary' }}">{{ $row['source'] }}</span></td>
                         <td class="text-end" data-order="{{ (float) $row['amount'] }}">{{ format_price($row['amount']) }}</td>
                         <td data-order="{{ strip_tags($row['status']) }}">{!! $row['status'] !!}</td>
                         <td data-order="{{ strip_tags($row['payment_status']) }}">{!! $row['payment_status'] !!}</td>
-                        <td data-order="{{ $row['method'] }}">{{ $row['method'] }}</td>
+                        <td data-order="{{ $row['method'] }}">
+                            @php
+                                $pm = $row['payment_method'] ?? '';
+                            @endphp
+                            @if($pm === 'cash')
+                                <span class="badge bg-label-info">Cash</span>
+                            @elseif($pm === 'online')
+                                <span class="badge bg-label-primary">Online</span>
+                            @elseif($pm === 'online_cash')
+                                <span class="badge bg-label-warning">Cash + Online</span>
+                            @elseif($pm === 'cod')
+                                <span class="badge bg-label-secondary">COD</span>
+                            @else
+                                <span class="badge bg-label-secondary">{{ $row['method'] }}</span>
+                            @endif
+                        </td>
+                    </tr>
+                @endforeach
+            </tbody>
+        </table>
+    </div>
+</div>
+
+<div class="card mb-4">
+    <div class="card-header d-flex justify-content-between align-items-center flex-wrap gap-2">
+        <div>
+            <h5 class="mb-0">Payment Collections</h5>
+        </div>
+        <span class="badge bg-label-success">{{ $totalDuesCollectedCount ?? count($collectionRows) }} Collections</span>
+    </div>
+    <div class="card-datatable table-responsive">
+        <table class="table border-top" id="dailyCollectionsTable">
+            <thead>
+                <tr>
+                    <th>#</th>
+                    <th>Sale No</th>
+                    <th>Sale Date</th>
+                    <th>Customer</th>
+                    <th>Branch</th>
+                    <th>Method</th>
+                    <th class="text-end">Amount Collected</th>
+                    <th>Collected By</th>
+                    <th class="text-center">Actions</th>
+                </tr>
+            </thead>
+            <tbody id="dailyCollectionsBody">
+                @foreach($collectionRows as $row)
+                    <tr>
+                        <td>{{ $row['index'] }}</td>
+                        <td data-order="{{ $row['sale_no'] }}">
+                            @can('view sales')
+                                <a href="{{ route('admin.sales.show', $row['order_id']) }}" target="_blank" class="fw-semibold"><code style="color: #e83e8c !important;">{{ $row['sale_no'] }}</code></a>
+                            @else
+                                <code style="color: #e83e8c !important;">{{ $row['sale_no'] }}</code>
+                            @endcan
+                        </td>
+                        <td>{{ $row['sale_date'] }}</td>
+                        <td data-order="{{ strip_tags($row['customer_name']) }}">
+                            <div class="d-flex flex-column">
+                                <span class="fw-semibold">{{ $row['customer_name'] }}</span>
+                                @if($row['customer_phone'] && $row['customer_phone'] !== '-')
+                                    <small class="text-muted">{{ $row['customer_phone'] }}</small>
+                                @endif
+                            </div>
+                        </td>
+                        <td data-order="{{ $row['location_name'] }}">{{ $row['location_name'] }}</td>
+                        <td data-order="{{ $row['payment_method'] }}">
+                            @if($row['payment_method'] === 'cash')
+                                <span class="badge bg-label-info">Cash</span>
+                            @elseif($row['payment_method'] === 'online')
+                                <span class="badge bg-label-primary">Online</span>
+                            @else
+                                <span class="badge bg-label-warning">Cash + Online</span>
+                            @endif
+                        </td>
+                        <td class="text-end fw-semibold text-success" data-order="{{ (float) $row['amount'] }}">
+                            {{ format_price($row['amount']) }}
+                        </td>
+                        <td data-order="{{ $row['created_by'] }}">{{ $row['created_by'] }}</td>
+                        <td class="text-center">
+                            <div class="dropdown table-action-dropdown">
+                                <button class="btn btn-sm btn-label-primary action-dropdown-btn dropdown-toggle" data-bs-toggle="dropdown" data-bs-boundary="viewport" aria-expanded="false">
+                                    <span>Actions</span>
+                                </button>
+                                <div class="dropdown-menu dropdown-menu-end action-dropdown-menu m-0">
+                                    <button type="button" class="dropdown-item" data-common-modal="{{ route('admin.reports.daily-report.collections.edit', $row['id']) }}">
+                                        <i class="ti ti-pencil me-2"></i>Edit
+                                    </button>
+                                    <button type="button" class="dropdown-item text-danger delete-collection-btn"
+                                        data-id="{{ $row['id'] }}"
+                                        data-sale-no="{{ $row['sale_no'] }}"
+                                        data-amount="{{ format_price($row['amount']) }}">
+                                        <i class="ti ti-trash me-2"></i>Delete
+                                    </button>
+                                </div>
+                            </div>
+                        </td>
                     </tr>
                 @endforeach
             </tbody>

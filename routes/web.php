@@ -263,6 +263,9 @@ Route::prefix('admin')->name('admin.')->group(function () {
             Route::get('daily-report', [ReportController::class, 'dailyReport'])->name('daily-report');
             Route::get('daily-report/data', [ReportController::class, 'dailyReportData'])->name('daily-report.data');
             Route::get('daily-report/export-excel', [ReportController::class, 'exportDailyReportExcel'])->name('daily-report.export-excel');
+            Route::get('daily-report/collections/{salePayment}/edit', [ReportController::class, 'editDailyReportCollection'])->name('daily-report.collections.edit');
+            Route::put('daily-report/collections/{salePayment}', [ReportController::class, 'updateDailyReportCollection'])->name('daily-report.collections.update');
+            Route::delete('daily-report/collections/{salePayment}', [ReportController::class, 'destroyDailyReportCollection'])->name('daily-report.collections.destroy');
             Route::get('customer-report', [ReportController::class, 'customerReport'])->name('customer-report');
             Route::get('customer-report/export-excel', [ReportController::class, 'exportCustomerReportExcel'])->name('customer-report.export-excel');
             Route::get('customer-report/detail', [ReportController::class, 'customerReportDetail'])->name('customer-report.detail');
@@ -368,6 +371,8 @@ Route::prefix('admin')->name('admin.')->group(function () {
         Route::delete('accounting/opening-balances/{transaction}', [AccountingController::class, 'branchBalancesDestroy'])->name('accounting.opening-balances.destroy')->whereNumber('transaction');
         Route::get('accounting/opening-balances/transfer', [AccountingController::class, 'branchBalancesTransferCreate'])->name('accounting.opening-balances.transfer');
         Route::post('accounting/opening-balances/transfer-store', [AccountingController::class, 'branchBalancesTransferStore'])->name('accounting.opening-balances.transfer-store');
+        Route::get('accounting/convert-balance', [AccountingController::class, 'convertBalanceCreate'])->name('accounting.convert-balance');
+        Route::post('accounting/convert-balance-store', [AccountingController::class, 'convertBalanceStore'])->name('accounting.convert-balance-store');
         Route::post('accounting/opening-balances/transfer/{transfer}/accept', [AccountingController::class, 'branchBalancesTransferAccept'])->name('accounting.opening-balances.transfer-accept');
         Route::post('accounting/opening-balances/transfer/{transfer}/reject', [AccountingController::class, 'branchBalancesTransferReject'])->name('accounting.opening-balances.transfer-reject');
         Route::get('accounting/opening-balances/transfer/{transfer}/edit', [AccountingController::class, 'branchBalancesTransferEdit'])->name('accounting.opening-balances.transfer-edit');

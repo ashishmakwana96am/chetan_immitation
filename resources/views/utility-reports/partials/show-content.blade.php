@@ -239,7 +239,8 @@
             'mrp',
             'unit_price',
             'subtotal',
-            'sale_price','purchase_price','display_sale_price','display_mrp'
+            'sale_price','purchase_price','display_sale_price','display_mrp',
+            'cash_balance', 'bank_balance'
         ])) {
             return is_numeric($val) ? format_price($val) : ($val ?: '-');
         }

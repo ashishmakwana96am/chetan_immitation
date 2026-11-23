@@ -97,6 +97,8 @@ class AccountingController extends Controller
                 $detectedSource = 'purchase';
             } elseif (stripos($notes, 'Expense') !== false) {
                 $detectedSource = 'expense';
+            } elseif (stripos($notes, 'Deposit') !== false || stripos($notes, 'Withdrawal') !== false || stripos($notes, 'Convert Balance') !== false) {
+                $detectedSource = 'convert_balance';
             } elseif (stripos($notes, 'Transfer') !== false || stripos($notes, 'BT-') !== false) {
                 $detectedSource = 'balance_transfer';
             }
@@ -119,6 +121,8 @@ class AccountingController extends Controller
                 $detectedSource = 'purchase';
             } elseif (stripos($notes, 'Expense') !== false) {
                 $detectedSource = 'expense';
+            } elseif (stripos($notes, 'Deposit') !== false || stripos($notes, 'Withdrawal') !== false || stripos($notes, 'Convert Balance') !== false) {
+                $detectedSource = 'convert_balance';
             } elseif (stripos($notes, 'Transfer') !== false || stripos($notes, 'BT-') !== false) {
                 $detectedSource = 'balance_transfer';
             }
@@ -239,6 +243,8 @@ class AccountingController extends Controller
                 $detectedSource = 'purchase';
             } elseif (stripos($notes, 'Expense') !== false) {
                 $detectedSource = 'expense';
+            } elseif (stripos($notes, 'Deposit') !== false || stripos($notes, 'Withdrawal') !== false || stripos($notes, 'Convert Balance') !== false) {
+                $detectedSource = 'convert_balance';
             } elseif (stripos($notes, 'Transfer') !== false || stripos($notes, 'BT-') !== false) {
                 $detectedSource = 'balance_transfer';
             }
@@ -257,6 +263,8 @@ class AccountingController extends Controller
                 $detectedSource = 'purchase';
             } elseif (stripos($notes, 'Expense') !== false) {
                 $detectedSource = 'expense';
+            } elseif (stripos($notes, 'Deposit') !== false || stripos($notes, 'Withdrawal') !== false || stripos($notes, 'Convert Balance') !== false) {
+                $detectedSource = 'convert_balance';
             } elseif (stripos($notes, 'Transfer') !== false || stripos($notes, 'BT-') !== false) {
                 $detectedSource = 'balance_transfer';
             }
@@ -384,6 +392,8 @@ class AccountingController extends Controller
                 $detectedSource = 'purchase';
             } elseif (stripos($notes, 'Expense') !== false) {
                 $detectedSource = 'expense';
+            } elseif (stripos($notes, 'Deposit') !== false || stripos($notes, 'Withdrawal') !== false || stripos($notes, 'Convert Balance') !== false) {
+                $detectedSource = 'convert_balance';
             } elseif (stripos($notes, 'Transfer') !== false || stripos($notes, 'BT-') !== false) {
                 $detectedSource = 'balance_transfer';
             }
@@ -407,6 +417,7 @@ class AccountingController extends Controller
                 'expense'          => 'Expense',
                 'purchase_bill'    => 'Purchase Bill',
                 'balance_transfer' => 'Balance Transfer',
+                'convert_balance'  => 'Convert Balance',
             ];
 
             $balanceTypeBadge = $tx->balance_type === LocationBalanceTransaction::BALANCE_TYPE_BANK
@@ -534,6 +545,7 @@ class AccountingController extends Controller
             'expense'          => 'Expense',
             'purchase_bill'    => 'Purchase Bill',
             'balance_transfer' => 'Balance Transfer',
+            'convert_balance'  => 'Convert Balance',
         ];
 
         $rows = collect();
@@ -551,6 +563,8 @@ class AccountingController extends Controller
                 $detectedSource = 'purchase';
             } elseif (stripos($notes, 'Expense') !== false) {
                 $detectedSource = 'expense';
+            } elseif (stripos($notes, 'Deposit') !== false || stripos($notes, 'Withdrawal') !== false || stripos($notes, 'Convert Balance') !== false) {
+                $detectedSource = 'convert_balance';
             } elseif (stripos($notes, 'Transfer') !== false || stripos($notes, 'BT-') !== false) {
                 $detectedSource = 'balance_transfer';
             }
@@ -1588,6 +1602,8 @@ class AccountingController extends Controller
                 $detectedSource = 'purchase';
             } elseif (stripos($notes, 'Expense') !== false || !empty($tx->expense_id)) {
                 $detectedSource = 'expense';
+            } elseif (stripos($notes, 'Deposit') !== false || stripos($notes, 'Withdrawal') !== false || stripos($notes, 'Convert Balance') !== false) {
+                $detectedSource = 'convert_balance';
             } elseif (stripos($notes, 'Transfer') !== false || stripos($notes, 'BT-') !== false) {
                 $detectedSource = 'balance_transfer';
             }
@@ -1609,6 +1625,8 @@ class AccountingController extends Controller
                 $detectedSource = 'purchase';
             } elseif (stripos($notes, 'Expense') !== false || !empty($tx->expense_id)) {
                 $detectedSource = 'expense';
+            } elseif (stripos($notes, 'Deposit') !== false || stripos($notes, 'Withdrawal') !== false || stripos($notes, 'Convert Balance') !== false) {
+                $detectedSource = 'convert_balance';
             } elseif (stripos($notes, 'Transfer') !== false || stripos($notes, 'BT-') !== false) {
                 $detectedSource = 'balance_transfer';
             }
@@ -3083,6 +3101,182 @@ class AccountingController extends Controller
             }
             return true;
         });
+    }
+
+    public function convertBalanceCreate()
+    {
+        $user = auth()->user();
+        if (!$user->hasRole('super-admin') && !$user->can('convert balance')) {
+            abort(403, 'Unauthorized to convert balance.');
+        }
+
+        $locations = Location::with('balance')->where('status', 1)->orderBy('name')->get();
+
+        return view('accounting.convert-balance', compact('locations'));
+    }
+
+    public function convertBalanceStore(Request $request)
+    {
+        $user = auth()->user();
+        if (!$user->hasRole('super-admin') && !$user->can('convert balance')) {
+            return response()->json([
+                'status'  => 'error',
+                'message' => ['general' => ['Unauthorized to convert balance.']],
+            ], 403);
+        }
+
+        $validator = Validator::make($request->all(), [
+            'location_id'     => ['required', 'integer', 'exists:locations,id'],
+            'conversion_type' => ['required', 'string', 'in:cash_to_bank,bank_to_cash'],
+            'amount'          => ['required', 'numeric', 'min:0.01'],
+            'notes'           => ['nullable', 'string', 'max:1000'],
+        ]);
+
+        if ($validator->fails()) {
+            return response()->json([
+                'status'  => 'error',
+                'message' => $validator->errors(),
+            ], 422);
+        }
+
+        $locationId = (int) $request->location_id;
+        if (!$user->hasRole('super-admin') && $user->location_id && (int) $user->location_id !== $locationId) {
+            return response()->json([
+                'status'  => 'error',
+                'message' => ['location_id' => ['You can only convert balance for your assigned branch.']],
+            ], 403);
+        }
+
+        $amount = (float) $request->amount;
+        $conversionType = $request->conversion_type;
+        $userNotes = !empty($request->notes) ? ' (Note: ' . trim($request->notes) . ')' : '';
+
+        try {
+            DB::transaction(function () use ($locationId, $conversionType, $amount, $userNotes, $user) {
+                $balanceRecord = LocationBalance::firstOrCreate(['location_id' => $locationId]);
+                $balanceRecord = LocationBalance::where('id', $balanceRecord->id)->lockForUpdate()->first();
+
+                $locName = Location::find($locationId)->name ?? 'Location #' . $locationId;
+
+                $oldCash = (float) $balanceRecord->cash_balance;
+                $oldBank = (float) $balanceRecord->bank_balance;
+
+                if ($conversionType === 'cash_to_bank') {
+                    $currentCash = $oldCash;
+                    if ($currentCash < $amount) {
+                        throw new \RuntimeException('insufficient_cash');
+                    }
+
+                    $newCash = $currentCash - $amount;
+                    $newBank = $oldBank + $amount;
+
+                    $balanceRecord->update([
+                        'cash_balance' => $newCash,
+                        'bank_balance' => $newBank,
+                    ]);
+
+                    LocationBalanceTransaction::create([
+                        'location_id'   => $locationId,
+                        'balance_type'  => LocationBalanceTransaction::BALANCE_TYPE_CASH,
+                        'type'          => LocationBalanceTransaction::TYPE_DEBIT,
+                        'amount'        => $amount,
+                        'balance_after' => $newCash,
+                        'notes'         => 'Cash Deposit to Bank' . $userNotes,
+                        'created_by'    => $user->id,
+                    ]);
+
+                    LocationBalanceTransaction::create([
+                        'location_id'   => $locationId,
+                        'balance_type'  => LocationBalanceTransaction::BALANCE_TYPE_BANK,
+                        'type'          => LocationBalanceTransaction::TYPE_CREDIT,
+                        'amount'        => $amount,
+                        'balance_after' => $newBank,
+                        'notes'         => 'Deposit from Cash' . $userNotes,
+                        'created_by'    => $user->id,
+                    ]);
+                } else {
+                    $currentBank = $oldBank;
+                    if ($currentBank < $amount) {
+                        throw new \RuntimeException('insufficient_bank');
+                    }
+
+                    $newBank = $currentBank - $amount;
+                    $newCash = $oldCash + $amount;
+
+                    $balanceRecord->update([
+                        'cash_balance' => $newCash,
+                        'bank_balance' => $newBank,
+                    ]);
+
+                    LocationBalanceTransaction::create([
+                        'location_id'   => $locationId,
+                        'balance_type'  => LocationBalanceTransaction::BALANCE_TYPE_BANK,
+                        'type'          => LocationBalanceTransaction::TYPE_DEBIT,
+                        'amount'        => $amount,
+                        'balance_after' => $newBank,
+                        'notes'         => 'Bank Withdrawal to Cash' . $userNotes,
+                        'created_by'    => $user->id,
+                    ]);
+
+                    LocationBalanceTransaction::create([
+                        'location_id'   => $locationId,
+                        'balance_type'  => LocationBalanceTransaction::BALANCE_TYPE_CASH,
+                        'type'          => LocationBalanceTransaction::TYPE_CREDIT,
+                        'amount'        => $amount,
+                        'balance_after' => $newCash,
+                        'notes'         => 'Withdrawal from Bank' . $userNotes,
+                        'created_by'    => $user->id,
+                    ]);
+                }
+
+                LocationBalanceTransaction::syncLocationBalance($locationId, LocationBalanceTransaction::BALANCE_TYPE_CASH);
+                LocationBalanceTransaction::syncLocationBalance($locationId, LocationBalanceTransaction::BALANCE_TYPE_BANK);
+
+                $directionText = $conversionType === 'cash_to_bank' ? 'Cash to Bank' : 'Bank to Cash';
+
+                ActivityLogger::log(
+                    'Branch Ledger',
+                    'convert_balance',
+                    $balanceRecord,
+                    [
+                        'cash_balance' => $oldCash,
+                        'bank_balance' => $oldBank,
+                    ],
+                    [
+                        'cash_balance' => $newCash,
+                        'bank_balance' => $newBank,
+                    ],
+                    'Converted ' . currency_symbol() . number_format($amount, 2) . ' (' . $directionText . ') for ' . $locName . ' | Cash: ' . currency_symbol() . number_format($oldCash, 2) . ' → ' . currency_symbol() . number_format($newCash, 2) . ', Bank: ' . currency_symbol() . number_format($oldBank, 2) . ' → ' . currency_symbol() . number_format($newBank, 2)
+                );
+            });
+
+            return response()->json([
+                'status'  => 'success',
+                'message' => 'Balance converted successfully.',
+            ]);
+        } catch (\RuntimeException $e) {
+            if ($e->getMessage() === 'insufficient_cash') {
+                return response()->json([
+                    'status'  => 'error',
+                    'message' => ['amount' => ['Insufficient cash balance for this conversion.']],
+                ], 422);
+            }
+            if ($e->getMessage() === 'insufficient_bank') {
+                return response()->json([
+                    'status'  => 'error',
+                    'message' => ['amount' => ['Insufficient bank balance for this conversion.']],
+                ], 422);
+            }
+            return response()->json([
+                'status'  => 'error',
+                'message' => ['general' => ['Something went wrong. Please try again.']],
+            ], 500);
+        } catch (\Throwable $e) {
+            return response()->json([
+                'status'  => 'error',
+                'message' => ['general' => ['Something went wrong. Please try again.']],
+            ], 500);
+        }
     }
 }
 

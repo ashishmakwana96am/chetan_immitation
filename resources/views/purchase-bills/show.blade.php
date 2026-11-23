@@ -234,8 +234,8 @@
                         <span class="card-title-icon text-success"><i class="ti ti-history"></i></span>
                         <h6 class="mb-0 fw-semibold">Payment History</h6>
                     </div>
-                    <div class="table-responsive">
-                        <table class="table table-sm mb-0">
+                    <div class="card-datatable table-responsive p-3">
+                        <table class="table table-sm mb-0 w-100" id="purchaseBillPaymentHistoryTable">
                             <thead class="table-light">
                                 <tr>
                                     <th>Date & Time</th>
@@ -243,10 +243,10 @@
                                 </tr>
                             </thead>
                             <tbody>
-                                @foreach($transfer->payments as $payment)
+                                @foreach($transfer->payments->sortByDesc('created_at') as $payment)
                                     <tr>
-                                        <td class="small text-nowrap">{{ format_date($payment->created_at, 'd-m-Y H:i A') }}</td>
-                                        <td class="text-end small fw-semibold text-success">{{ format_price($payment->amount) }}</td>
+                                        <td class="small text-nowrap" data-order="{{ $payment->created_at?->format('YmdHis') }}">{{ format_date($payment->created_at, 'd-m-Y H:i A') }}</td>
+                                        <td class="text-end small fw-semibold text-success" data-order="{{ (float)$payment->amount }}">{{ format_price($payment->amount) }}</td>
                                     </tr>
                                 @endforeach
                             </tbody>
@@ -365,14 +365,30 @@ $(document).ready(function () {
             }
         });
     }
+
+    if ($('#purchaseBillPaymentHistoryTable').length) {
+        $('#purchaseBillPaymentHistoryTable').DataTable({
+            paging: true,
+            searching: true,
+            ordering: true,
+            info: true,
+            pageLength: 5,
+            lengthMenu: [5, 10, 25],
+            order: [[0, 'desc']],
+            language: {
+                search: '',
+                searchPlaceholder: 'Search payments...'
+            }
+        });
+    }
+
     function buildPurchaseBillPaymentHistoryHtml(historyData) {
         if (!historyData || !historyData.payments || historyData.payments.length === 0) {
             return '';
         }
 
         let rows = historyData.payments.map(function (p) {
-            let noteBadge = p.note ? `<span class="badge bg-label-info text-wrap text-start">${p.note}</span>` : '<span class="text-muted">-</span>';
-            return `<tr><td class="text-nowrap">${p.date}</td><td>${noteBadge}</td><td class="text-end fw-semibold text-nowrap">${p.amount}</td></tr>`;
+            return `<tr><td class="text-nowrap" data-order="${p.date_raw || p.date}">${p.date}</td><td class="text-end fw-semibold text-nowrap">${p.amount}</td></tr>`;
         }).join('');
 
         return `
@@ -383,9 +399,9 @@ $(document).ready(function () {
                     <span>Balance: <strong class="text-danger">${historyData.balance_due}</strong></span>
                 </div>
                 <label class="form-label fw-semibold mb-1" style="font-size: 0.85rem;">Payment History</label>
-                <div class="table-responsive border rounded" style="max-height:180px; overflow-y:auto;">
-                    <table class="table table-sm table-hover mb-0 align-middle" style="font-size: 0.8rem;">
-                        <thead class="table-light"><tr><th class="text-nowrap" style="width: 28%;">Date</th><th style="width: 47%;">Type / Note</th><th class="text-end text-nowrap" style="width: 25%;">Amount</th></tr></thead>
+                <div class="table-responsive border rounded p-2">
+                    <table class="table table-sm table-hover mb-0 align-middle w-100" id="swalPbPaymentHistoryTable" style="font-size: 0.8rem;">
+                        <thead class="table-light"><tr><th class="text-nowrap" style="width: 60%;">Date & Time</th><th class="text-end text-nowrap" style="width: 40%;">Amount</th></tr></thead>
                         <tbody>${rows}</tbody>
                     </table>
                 </div>
@@ -447,6 +463,22 @@ $(document).ready(function () {
                 };
                 toggleAmount();
                 statusSelect.addEventListener('change', toggleAmount);
+
+                if ($('#swalPbPaymentHistoryTable').length && historyData && historyData.payments && historyData.payments.length > 0) {
+                    $('#swalPbPaymentHistoryTable').DataTable({
+                        paging: true,
+                        searching: true,
+                        ordering: true,
+                        info: true,
+                        pageLength: 5,
+                        lengthMenu: [5, 10, 25],
+                        order: [[0, 'desc']],
+                        language: {
+                            search: '',
+                            searchPlaceholder: 'Search...'
+                        }
+                    });
+                }
             },
             showLoaderOnConfirm: true,
             preConfirm: () => {

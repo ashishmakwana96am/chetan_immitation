@@ -731,6 +731,7 @@ class SaleController extends Controller
             if ($storePaidTotal > 0 && $cappedStatus !== Order::PAYMENT_STATUS_PENDING) {
                 $sp = SalePayment::create([
                     'order_id'       => $order->id,
+                    'location_id'    => $order->location_id,
                     'amount'         => $storePaidTotal,
                     'cash_amount'    => $paidCash,
                     'online_amount'  => $paidOnline,
@@ -1606,6 +1607,7 @@ class SaleController extends Controller
                             $sale->payments()->delete();
                             $sp = SalePayment::create([
                                 'order_id'       => $sale->id,
+                                'location_id'    => $sale->location_id,
                                 'amount'         => $editPaidTotal,
                                 'cash_amount'    => $paidCash,
                                 'online_amount'  => $paidOnline,
@@ -1973,6 +1975,7 @@ class SaleController extends Controller
                             $pmThis = ($installmentCash > 0 && $installmentOnline > 0) ? 'online_cash' : ($installmentOnline > 0 ? 'online' : 'cash');
                             SalePayment::create([
                                 'order_id'       => $sale->id,
+                                'location_id'    => $sale->location_id,
                                 'amount'         => $installmentAmount,
                                 'cash_amount'    => $installmentCash,
                                 'online_amount'  => $installmentOnline,
@@ -2009,6 +2012,7 @@ class SaleController extends Controller
                             $pmThis = ($newCash > 0 && $newOnline > 0) ? 'online_cash' : ($newOnline > 0 ? 'online' : 'cash');
                             SalePayment::create([
                                 'order_id'       => $sale->id,
+                                'location_id'    => $sale->location_id,
                                 'amount'         => $amountThisTime,
                                 'cash_amount'    => $newCash,
                                 'online_amount'  => $newOnline,

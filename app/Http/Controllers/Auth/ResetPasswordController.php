@@ -3,6 +3,7 @@
 namespace App\Http\Controllers\Auth;
 
 use App\Http\Controllers\Controller;
+use App\Services\ActivityLogger;
 use Illuminate\Auth\Events\PasswordReset;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Hash;
@@ -34,6 +35,15 @@ class ResetPasswordController extends Controller
                      ->setRememberToken(Str::random(60));
                 $user->save();
                 event(new PasswordReset($user));
+
+                ActivityLogger::log(
+                    'Auth',
+                    'reset_password',
+                    $user,
+                    null,
+                    null,
+                    'Password reset completed for ' . $user->name . ' (' . $user->email . ')'
+                );
             }
         );
 
