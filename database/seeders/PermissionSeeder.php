@@ -155,6 +155,10 @@ class PermissionSeeder extends Seeder
             'view settings' => 'Settings',
             'edit settings' => 'Settings',
             'download backup' => 'Settings',
+            // Video Call Bookings
+            'view video call bookings' => 'Video Call Bookings',
+            'cancel video call bookings' => 'Video Call Bookings',
+
             // Past Date Records
             'edit past date records' => 'Past Date Records',
         ];

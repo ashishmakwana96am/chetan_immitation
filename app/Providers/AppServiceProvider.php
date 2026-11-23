@@ -9,6 +9,7 @@ use App\Models\Expense;
 use App\Models\Order;
 use App\Models\Product;
 use App\Models\Purchase;
+use App\Models\Setting;
 use App\Models\SubCategory;
 use App\Observers\CustomerBalanceTransactionObserver;
 use App\Observers\ExpenseObserver;
@@ -67,8 +68,9 @@ class AppServiceProvider extends ServiceProvider
                 ->get();
             $view->with('sharedCategories', $categories);
             $view->with('sharedCollections', $collections);
-            $view->with('sharedInstagramPosts', \App\Models\Setting::getInstagramPosts());
-            $view->with('sharedInstagramProfileUrl', \App\Models\Setting::getInstagramProfileUrl());
+            $view->with('sharedInstagramPosts', Setting::getInstagramPosts());
+            $view->with('sharedInstagramProfileUrl', Setting::getInstagramProfileUrl());
+            $view->with('isGoogleCalendarConnected', !empty(Setting::getValue('google_calendar_oauth_token')));
         });
     }
 }
