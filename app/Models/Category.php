@@ -5,6 +5,7 @@ namespace App\Models;
 use App\Models\Concerns\LogsActivity;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\SoftDeletes;
+use Illuminate\Support\Facades\Cache;
 
 class Category extends Model
 {
@@ -29,8 +30,8 @@ class Category extends Model
 
     protected static function booted(): void
     {
-        static::saved(fn () => \Illuminate\Support\Facades\Cache::forget('active_categories_list'));
-        static::deleted(fn () => \Illuminate\Support\Facades\Cache::forget('active_categories_list'));
+        static::saved(fn () => Cache::forget('active_categories_list'));
+        static::deleted(fn () => Cache::forget('active_categories_list'));
     }
 
     protected $casts = [

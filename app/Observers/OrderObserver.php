@@ -8,6 +8,7 @@ use App\Models\LocationBalance;
 use App\Models\LocationBalanceTransaction;
 use App\Models\Order;
 use App\Services\ActivityLogger;
+use Illuminate\Support\Facades\Cache;
 use Illuminate\Support\Facades\DB;
 
 class OrderObserver
@@ -24,9 +25,9 @@ class OrderObserver
      */
     public function created(Order $order): void
     {
-        \Illuminate\Support\Facades\Cache::forget('dashboard_super_admin_data');
+        Cache::forget('dashboard_super_admin_data');
         if ($order->location_id) {
-            \Illuminate\Support\Facades\Cache::forget("dashboard_location_data_{$order->location_id}");
+            Cache::forget("dashboard_location_data_{$order->location_id}");
         }
         if ($order->order_type !== 'sale') {
             return;
@@ -67,9 +68,9 @@ class OrderObserver
      */
     public function updated(Order $order): void
     {
-        \Illuminate\Support\Facades\Cache::forget('dashboard_super_admin_data');
+        Cache::forget('dashboard_super_admin_data');
         if ($order->location_id) {
-            \Illuminate\Support\Facades\Cache::forget("dashboard_location_data_{$order->location_id}");
+            Cache::forget("dashboard_location_data_{$order->location_id}");
         }
         if ($order->order_type !== 'sale') {
             return;

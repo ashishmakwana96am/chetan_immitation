@@ -23,8 +23,10 @@
   <ul class="menu-inner py-1" id="menuInnerList">
 
     @php
+      use Illuminate\Support\Facades\Cache;
+      use App\Models\VideoCallBooking;
       try {
-          $modules = \Illuminate\Support\Facades\Cache::remember('admin_sidebar_modules', 3600, function () {
+          $modules = Cache::remember('admin_sidebar_modules', 3600, function () {
               return \App\Models\Module::whereNull('parent_id')->with('children')->orderBy('sort_order')->get();
           });
       } catch (\Exception $e) {
@@ -81,7 +83,7 @@
                       try {
                           $authUser = auth()->user();
                           $pendingSalesCacheKey = 'admin_sidebar_pending_sales_count_' . ($authUser->location_id && !$authUser->hasRole('super-admin') ? $authUser->location_id : 'all');
-                          $pendingSalesCount = \Illuminate\Support\Facades\Cache::remember($pendingSalesCacheKey, 30, function () use ($authUser) {
+                          $pendingSalesCount = Cache::remember($pendingSalesCacheKey, 30, function () use ($authUser) {
                               return \App\Models\Order::where('status', 1)
                                   ->when(
                                       $authUser->location_id && !$authUser->hasRole('super-admin'),
@@ -100,7 +102,7 @@
                   @if($child->route === 'admin.contact-inquiries.index')
                     @php
                       try {
-                          $todayInquiriesCount = \Illuminate\Support\Facades\Cache::remember('admin_sidebar_today_inquiries_count_' . today()->toDateString(), 30, function () {
+                          $todayInquiriesCount = Cache::remember('admin_sidebar_today_inquiries_count_' . today()->toDateString(), 30, function () {
                               return \App\Models\ContactInquiry::whereDate('created_at', today())->count();
                           });
                       } catch (\Exception $e) {
@@ -111,13 +113,28 @@
                       <span class="badge bg-primary rounded-pill ms-auto notranslate" translate="no" style="background-color: #B78326 !important; color: #fff !important; width: 20px; height: 20px; display: inline-flex !important; align-items: center; justify-content: center; font-size: 9px; font-weight: 700; flex-shrink: 0;">{{ $todayInquiriesCount }}</span>
                     @endif
                   @endif
+                  @if($child->route === 'admin.video-call-bookings.index')
+                    @php
+                      try {
+                          $scheduledVideoCallsCount = Cache::remember('admin_sidebar_scheduled_video_calls_count', 30, function () {
+                              VideoCallBooking::autoCompletePastBookings();
+                              return VideoCallBooking::where('status', 'scheduled')->count();
+                          });
+                      } catch (\Exception $e) {
+                          $scheduledVideoCallsCount = 0;
+                      }
+                    @endphp
+                    @if($scheduledVideoCallsCount > 0)
+                      <span id="video-call-scheduled-badge" class="badge bg-primary rounded-pill ms-auto notranslate" translate="no" style="background-color: #B78326 !important; color: #fff !important; width: 20px; height: 20px; display: inline-flex !important; align-items: center; justify-content: center; font-size: 9px; font-weight: 700; flex-shrink: 0;">{{ $scheduledVideoCallsCount }}</span>
+                    @endif
+                  @endif
                   @if($child->route === 'admin.purchase-bills.index')
                     @php
                       try {
                           $authUser = auth()->user();
                           $isTransferRestricted = $authUser->location_id && !$authUser->hasRole('super-admin');
                           $pendingTransfersCacheKey = 'admin_sidebar_pending_transfers_count_' . ($isTransferRestricted ? $authUser->location_id : 'all');
-                          $pendingTransfersCount = \Illuminate\Support\Facades\Cache::remember($pendingTransfersCacheKey, 30, function () use ($authUser, $isTransferRestricted) {
+                          $pendingTransfersCount = Cache::remember($pendingTransfersCacheKey, 30, function () use ($authUser, $isTransferRestricted) {
                               return \App\Models\PurchaseBill::where('status', \App\Models\PurchaseBill::STATUS_PENDING)
                                   ->when($isTransferRestricted, function ($q) use ($authUser) {
                                       $q->where(function ($sub) use ($authUser) {
@@ -139,7 +156,7 @@
                           $authUser = auth()->user();
                           $isBtRestricted = $authUser->location_id && !$authUser->hasRole('super-admin');
                           $pendingBtCacheKey = 'admin_sidebar_pending_bt_count_' . ($isBtRestricted ? $authUser->location_id : 'all');
-                          $pendingBtCount = \Illuminate\Support\Facades\Cache::remember($pendingBtCacheKey, 30, function () use ($authUser, $isBtRestricted) {
+                          $pendingBtCount = Cache::remember($pendingBtCacheKey, 30, function () use ($authUser, $isBtRestricted) {
                               return \App\Models\BranchBalanceTransfer::where('status', \App\Models\BranchBalanceTransfer::STATUS_PENDING)
                                   ->when($isBtRestricted, function ($q) use ($authUser) {
                                       $q->where(function ($sub) use ($authUser) {
@@ -164,6 +181,21 @@
             <a href="{{ (!is_null($module->route) && Route::has($module->route)) ? route($module->route) : 'javascript:void(0);' }}" class="menu-link">
               <i class="menu-icon tf-icons {{ $module->icon ?? 'ti ti-circle' }}"></i>
               <div>{{ $module->name }}</div>
+              @if($module->route === 'admin.video-call-bookings.index')
+                @php
+                  try {
+                      $scheduledVideoCallsCount = Cache::remember('admin_sidebar_scheduled_video_calls_count', 30, function () {
+                          VideoCallBooking::autoCompletePastBookings();
+                          return VideoCallBooking::where('status', 'scheduled')->count();
+                      });
+                  } catch (\Exception $e) {
+                      $scheduledVideoCallsCount = 0;
+                  }
+                @endphp
+                @if($scheduledVideoCallsCount > 0)
+                  <span id="video-call-scheduled-badge-top" class="badge bg-primary rounded-pill ms-auto notranslate" translate="no" style="background-color: #B78326 !important; color: #fff !important; width: 20px; height: 20px; display: inline-flex !important; align-items: center; justify-content: center; font-size: 9px; font-weight: 700; flex-shrink: 0;">{{ $scheduledVideoCallsCount }}</span>
+                @endif
+              @endif
             </a>
           </li>
         @endif

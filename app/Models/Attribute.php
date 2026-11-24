@@ -5,6 +5,7 @@ namespace App\Models;
 use App\Models\Concerns\LogsActivity;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\SoftDeletes;
+use Illuminate\Support\Facades\Cache;
 
 class Attribute extends Model
 {
@@ -24,8 +25,8 @@ class Attribute extends Model
 
     protected static function booted(): void
     {
-        static::saved(fn () => \Illuminate\Support\Facades\Cache::forget('active_attributes_list'));
-        static::deleted(fn () => \Illuminate\Support\Facades\Cache::forget('active_attributes_list'));
+        static::saved(fn () => Cache::forget('active_attributes_list'));
+        static::deleted(fn () => Cache::forget('active_attributes_list'));
     }
 
     public function values()

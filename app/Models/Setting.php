@@ -4,6 +4,11 @@ namespace App\Models;
 
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\SoftDeletes;
+use Illuminate\Database\Eloquent\SoftDeletingScope;
+use Illuminate\Support\Facades\Cache;
+use Illuminate\Support\Facades\Http;
+use Illuminate\Support\Facades\Log;
+use Illuminate\Support\Facades\Schema;
 
 class Setting extends Model
 {
@@ -11,8 +16,8 @@ class Setting extends Model
 
     public static function bootSoftDeletes()
     {
-        if (!app()->runningInConsole() || (\Illuminate\Support\Facades\Schema::hasTable('settings') && \Illuminate\Support\Facades\Schema::hasColumn('settings', 'deleted_at'))) {
-            static::addGlobalScope(new \Illuminate\Database\Eloquent\SoftDeletingScope);
+        if (!app()->runningInConsole() || (Schema::hasTable('settings') && Schema::hasColumn('settings', 'deleted_at'))) {
+            static::addGlobalScope(new SoftDeletingScope);
         }
     }
 
@@ -54,9 +59,9 @@ class Setting extends Model
         $accessToken = self::getValue('instagram_access_token', 'IGAAWZA8ewYnlBBZAFk2SVA1ZAHNpclhYVUh3dWo4STFRNTRvMGN3VnlXWG1hMGJmTGpoWGNYTExJSnQ1UFBNRFAzUEV2b1pmWVBpS1JSbDZApWEdCZAW85UW8zXzZATMGttVTVEdGNjMms1NnBVNDg3cWRqRW5ENEZA2N1FYdGVIeDkzdwZDZD');
 
         if (!empty($accessToken)) {
-            return \Illuminate\Support\Facades\Cache::remember('instagram_feed_posts_v6', 3600, function () use ($accessToken, $profileUrl) {
+            return Cache::remember('instagram_feed_posts_v6', 3600, function () use ($accessToken, $profileUrl) {
                 try {
-                    $response = \Illuminate\Support\Facades\Http::timeout(5)->get('https://graph.instagram.com/me/media', [
+                    $response = Http::timeout(5)->get('https://graph.instagram.com/me/media', [
                         'fields'       => 'id,caption,media_type,media_url,permalink,thumbnail_url,timestamp',
                         'access_token' => $accessToken,
                         'limit'        => 50,
@@ -82,7 +87,7 @@ class Setting extends Model
                         }
                     }
                 } catch (\Throwable $e) {
-                    \Illuminate\Support\Facades\Log::error('Instagram Feed Fetch Error: ' . $e->getMessage());
+                    Log::error('Instagram Feed Fetch Error: ' . $e->getMessage());
                 }
                 return self::getDefaultInstagramPosts($profileUrl);
             });

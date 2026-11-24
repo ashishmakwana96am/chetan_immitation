@@ -102,6 +102,7 @@ Route::middleware('auth:customer')->group(function () {
     Route::post('/buy-now/payment/initialize', [CheckoutController::class, 'buyNowInitialize'])->name('buynow.payment.initialize');
     Route::post('/buy-now/coupon/validate', [CheckoutController::class, 'validateBuyNowCoupon'])->name('buynow.coupon.validate');
     Route::post('/video-call/book', [VideoCallBookingController::class, 'storeCustomerBooking'])->name('video-call.book');
+    Route::post('/video-call/cancel', [VideoCallBookingController::class, 'cancelCustomerBooking'])->name('video-call.cancel');
 });
 
 Route::get('/cart', [CartController::class, 'index'])->name('cart');
@@ -114,7 +115,6 @@ Route::get('/shop/{slug?}', [ShopCategoryController::class, 'index'])->name('sho
 Route::post('/shop/filter', [ShopCategoryController::class, 'filter'])->name('shop.filter');
 Route::get('/product/{slug}', [HomeController::class, 'detail'])->name('product.detail');
 
-// Required by Laravel's password broker to generate reset URL in email
 Route::get('/admin/reset-password/{token}', [ResetPasswordController::class, 'showResetForm'])->name('password.reset')->middleware('admin.guest:web');
 
 // Admin routes

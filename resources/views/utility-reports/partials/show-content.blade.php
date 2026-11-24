@@ -170,40 +170,60 @@
 
         // Handle Status
         if ($key === 'status') {
-            $valStr = (string) $val;
+            $valStr = strtolower(trim((string) $val));
             if ($log->module === 'Purchase') {
-                $statusMap = [
-                    '1' => 'Pending',
-                    '2' => 'Approved',
-                    '3' => 'Declined',
+                $statusBadges = [
+                    '1' => '<span class="badge bg-label-warning">Pending</span>',
+                    '2' => '<span class="badge bg-label-success">Approved</span>',
+                    '3' => '<span class="badge bg-label-danger">Declined</span>',
                 ];
-                return $statusMap[$valStr] ?? "Status #$val";
+                return $statusBadges[$valStr] ?? ('<span class="badge bg-label-secondary">' . e(ucwords(str_replace(['_', '-'], ' ', $valStr))) . '</span>');
             }
             if ($log->module === 'Sales') {
-                $statusMap = [
-                    '1' => 'Pending',
-                    '2' => 'Approved',
-                    '3' => 'Shipped',
-                    '4' => 'Out for Delivery',
-                    '5' => 'Delivered',
-                    '6' => 'Declined',
+                $statusBadges = [
+                    '1' => '<span class="badge bg-label-warning">Pending</span>',
+                    '2' => '<span class="badge bg-label-info">Approved</span>',
+                    '3' => '<span class="badge bg-label-primary">Shipped</span>',
+                    '4' => '<span class="badge bg-label-info">Out for Delivery</span>',
+                    '5' => '<span class="badge bg-label-success">Delivered</span>',
+                    '6' => '<span class="badge bg-label-danger">Declined</span>',
                 ];
-                return $statusMap[$valStr] ?? "Status #$val";
+                return $statusBadges[$valStr] ?? ('<span class="badge bg-label-secondary">' . e(ucwords(str_replace(['_', '-'], ' ', $valStr))) . '</span>');
             }
             if ($log->module === 'Purchase Bill') {
-                $statusMap = [
-                    '1' => 'Pending',
-                    '2' => 'Accepted',
-                    '3' => 'Rejected',
+                $statusBadges = [
+                    '1' => '<span class="badge bg-label-warning">Pending</span>',
+                    '2' => '<span class="badge bg-label-success">Accepted</span>',
+                    '3' => '<span class="badge bg-label-danger">Rejected</span>',
                 ];
-                return $statusMap[$valStr] ?? "Status #$val";
+                return $statusBadges[$valStr] ?? ('<span class="badge bg-label-secondary">' . e(ucwords(str_replace(['_', '-'], ' ', $valStr))) . '</span>');
             }
-            // Master Tables Status (Active/Inactive)
-            $statusMap = [
-                '1' => 'Active',
-                '2' => 'Inactive',
+            if (in_array($log->module, ['Video Call Bookings', 'Video Call', 'Video Calls'])) {
+                $statusBadges = [
+                    'scheduled' => '<span class="badge bg-label-primary d-inline-flex align-items-center gap-1"><i class="ti ti-calendar-event fs-6"></i>Scheduled</span>',
+                    'cancelled' => '<span class="badge bg-label-danger d-inline-flex align-items-center gap-1"><i class="ti ti-x fs-6"></i>Cancelled</span>',
+                    'completed' => '<span class="badge bg-label-success d-inline-flex align-items-center gap-1"><i class="ti ti-check fs-6"></i>Completed</span>',
+                ];
+                return $statusBadges[$valStr] ?? ('<span class="badge bg-label-secondary">' . e(ucwords(str_replace(['_', '-'], ' ', $valStr))) . '</span>');
+            }
+            $genericBadges = [
+                'scheduled'   => '<span class="badge bg-label-primary d-inline-flex align-items-center gap-1"><i class="ti ti-calendar-event fs-6"></i>Scheduled</span>',
+                'cancelled'   => '<span class="badge bg-label-danger d-inline-flex align-items-center gap-1"><i class="ti ti-x fs-6"></i>Cancelled</span>',
+                'completed'   => '<span class="badge bg-label-success d-inline-flex align-items-center gap-1"><i class="ti ti-check fs-6"></i>Completed</span>',
+                'pending'     => '<span class="badge bg-label-warning">Pending</span>',
+                'approved'    => '<span class="badge bg-label-success">Approved</span>',
+                'accepted'    => '<span class="badge bg-label-success">Accepted</span>',
+                'declined'    => '<span class="badge bg-label-danger">Declined</span>',
+                'rejected'    => '<span class="badge bg-label-danger">Rejected</span>',
+                'active'      => '<span class="badge bg-label-success">Active</span>',
+                'inactive'    => '<span class="badge bg-label-danger">Inactive</span>',
+                '1'           => '<span class="badge bg-label-success">Active</span>',
+                '2'           => '<span class="badge bg-label-danger">Inactive</span>',
             ];
-            return $statusMap[$valStr] ?? "Status #$val";
+            if (isset($genericBadges[$valStr])) {
+                return $genericBadges[$valStr];
+            }
+            return '<span class="badge bg-label-secondary">' . e(ucwords(str_replace(['_', '-'], ' ', (string)$val))) . '</span>';
         }
 
         // Handle Payment Status
@@ -1414,11 +1434,11 @@
                                 {{ $renameKey($key) }}
                             </td>
 
-                            <td class="text-danger fw-semibold">
+                            <td class="{{ in_array($key, ['status', 'payment_status', 'is_active']) ? '' : 'text-danger fw-semibold' }}">
                                 {!! $formatSingleValue($key, $oldVal, $log) !!}
                             </td>
 
-                            <td class="text-success fw-semibold">
+                            <td class="{{ in_array($key, ['status', 'payment_status', 'is_active']) ? '' : 'text-success fw-semibold' }}">
                                 {!! $formatSingleValue($key, $newVal, $log) !!}
                             </td>
                         @endif

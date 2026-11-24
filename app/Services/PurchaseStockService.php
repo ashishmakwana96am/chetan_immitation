@@ -29,50 +29,70 @@ class PurchaseStockService
     {
         $purchase->load(['items.allocations.location', 'items.product', 'items.variant.attributeValue']);
         $stockChanges = [];
+        $syncTargets = [];
 
         foreach ($purchase->items as $item) {
             $product = $item->product;
             $multiplier = self::multiplierFor($item);
 
-            foreach ($item->allocations as $allocation) {
-                $qtyToAdd = (int) round($allocation->quantity * $multiplier);
+            if ($item->allocations && $item->allocations->isNotEmpty()) {
+                foreach ($item->allocations as $allocation) {
+                    $qtyToAdd = (int) round($allocation->quantity * $multiplier);
 
-                $inventory = Inventory::firstOrCreate(
-                    [
-                        'product_id'  => $item->product_id,
-                        'location_id' => $allocation->location_id,
-                    ],
-                    [
-                        'quantity'   => 0,
-                        'created_by' => auth()->id(),
-                    ]
-                );
+                    $inventory = Inventory::firstOrCreate(
+                        [
+                            'product_id'  => $item->product_id,
+                            'location_id' => $allocation->location_id,
+                        ],
+                        [
+                            'quantity'   => 0,
+                            'created_by' => auth()->id(),
+                        ]
+                    );
 
-                $oldQty = (int) $inventory->quantity;
-                $inventory->increment('quantity', $qtyToAdd);
-                $newQty = $oldQty + $qtyToAdd;
+                    $oldQty = (int) $inventory->quantity;
+                    $inventory->increment('quantity', $qtyToAdd);
+                    $newQty = $oldQty + $qtyToAdd;
 
-                $locationName = $allocation->location?->name ?? ('Location #' . $allocation->location_id);
-                $barcode = $product?->barcode ?: '-';
-                $productName = $product?->name ?: ('Product #' . $item->product_id);
+                    $locationName = $allocation->location?->name ?? ('Location #' . $allocation->location_id);
+                    $barcode = $product?->barcode ?: '-';
+                    $productName = $product?->name ?: ('Product #' . $item->product_id);
 
-                if ($item->product_variant_id && $item->variant) {
-                    $vLabel = trim((string)($item->variant->name ?? $item->variant->attributeValue?->value ?? ''));
-                    if ($vLabel !== '') {
-                        $productName .= ' (' . $vLabel . ')';
+                    if ($item->product_variant_id && $item->variant) {
+                        $vLabel = trim((string)($item->variant->name ?? $item->variant->attributeValue?->value ?? ''));
+                        if ($vLabel !== '') {
+                            $productName .= ' (' . $vLabel . ')';
+                        }
                     }
-                }
 
-                $stockChanges[] = [
-                    'product_id'   => $item->product_id,
-                    'product_name' => $productName,
-                    'barcode'      => $barcode,
-                    'location'     => $locationName,
-                    'quantity'     => $qtyToAdd,
-                    'old_quantity' => $oldQty,
-                    'new_quantity' => $newQty,
+                    $stockChanges[] = [
+                        'product_id'   => $item->product_id,
+                        'product_name' => $productName,
+                        'barcode'      => $barcode,
+                        'location'     => $locationName,
+                        'quantity'     => $qtyToAdd,
+                        'old_quantity' => $oldQty,
+                        'new_quantity' => $newQty,
+                    ];
+
+                    $syncTargets[$allocation->location_id . '_' . $item->product_id . '_' . ($item->product_variant_id ?? 0)] = [
+                        'location_id'        => (int) $allocation->location_id,
+                        'product_id'         => (int) $item->product_id,
+                        'product_variant_id' => $item->product_variant_id ? (int) $item->product_variant_id : null,
+                    ];
+                }
+            } else {
+                $purchLoc = (int) ($purchase->location_id ?: 1);
+                $syncTargets[$purchLoc . '_' . $item->product_id . '_' . ($item->product_variant_id ?? 0)] = [
+                    'location_id'        => $purchLoc,
+                    'product_id'         => (int) $item->product_id,
+                    'product_variant_id' => $item->product_variant_id ? (int) $item->product_variant_id : null,
                 ];
             }
+        }
+
+        foreach ($syncTargets as $st) {
+            PurchaseBatchService::syncProductBatchStocks($st['location_id'], $st['product_id'], $st['product_variant_id']);
         }
 
         if (!empty($stockChanges)) {
@@ -102,52 +122,68 @@ class PurchaseStockService
         }
     }
 
-    /**
-     * Reverse the inventory added by approve(), used when an approved
-     * purchase is edited back to a non-approved state or deleted.
-     */
     public static function reverse(Purchase $purchase, string $reason = 'edit'): void
     {
         $purchase->load(['items.allocations.location', 'items.product', 'items.variant.attributeValue']);
         $stockChanges = [];
+        $syncTargets = [];
 
         foreach ($purchase->items as $item) {
             $product = $item->product;
             $multiplier = self::multiplierFor($item);
 
-            foreach ($item->allocations as $allocation) {
-                $inventory = Inventory::where('product_id', $item->product_id)
-                    ->where('location_id', $allocation->location_id)
-                    ->first();
+            if ($item->allocations && $item->allocations->isNotEmpty()) {
+                foreach ($item->allocations as $allocation) {
+                    $inventory = Inventory::where('product_id', $item->product_id)
+                        ->where('location_id', $allocation->location_id)
+                        ->first();
 
-                if ($inventory) {
-                    $oldQty = (int) $inventory->quantity;
-                    $qtyToSubtract = (int) round($allocation->quantity * $multiplier);
-                    $newQty = max(0, $inventory->quantity - $qtyToSubtract);
-                    $inventory->update(['quantity' => $newQty]);
+                    if ($inventory) {
+                        $oldQty = (int) $inventory->quantity;
+                        $qtyToSubtract = (int) round($allocation->quantity * $multiplier);
+                        $newQty = max(0, $inventory->quantity - $qtyToSubtract);
+                        $inventory->update(['quantity' => $newQty]);
 
-                    $locationName = $allocation->location?->name ?? ('Location #' . $allocation->location_id);
-                    $barcode = $product?->barcode ?: '-';
-                    $productName = $product?->name ?: ('Product #' . $item->product_id);
+                        $locationName = $allocation->location?->name ?? ('Location #' . $allocation->location_id);
+                        $barcode = $product?->barcode ?: '-';
+                        $productName = $product?->name ?: ('Product #' . $item->product_id);
 
-                    if ($item->product_variant_id && $item->variant) {
-                        $vLabel = trim((string)($item->variant->name ?? $item->variant->attributeValue?->value ?? ''));
-                        if ($vLabel !== '') {
-                            $productName .= ' (' . $vLabel . ')';
+                        if ($item->product_variant_id && $item->variant) {
+                            $vLabel = trim((string)($item->variant->name ?? $item->variant->attributeValue?->value ?? ''));
+                            if ($vLabel !== '') {
+                                $productName .= ' (' . $vLabel . ')';
+                            }
                         }
-                    }
 
-                    $stockChanges[] = [
-                        'product_id'   => $item->product_id,
-                        'product_name' => $productName,
-                        'barcode'      => $barcode,
-                        'location'     => $locationName,
-                        'quantity'     => $qtyToSubtract,
-                        'old_quantity' => $oldQty,
-                        'new_quantity' => $newQty,
-                    ];
+                        $stockChanges[] = [
+                            'product_id'   => $item->product_id,
+                            'product_name' => $productName,
+                            'barcode'      => $barcode,
+                            'location'     => $locationName,
+                            'quantity'     => $qtyToSubtract,
+                            'old_quantity' => $oldQty,
+                            'new_quantity' => $newQty,
+                        ];
+
+                        $syncTargets[$allocation->location_id . '_' . $item->product_id . '_' . ($item->product_variant_id ?? 0)] = [
+                            'location_id'        => (int) $allocation->location_id,
+                            'product_id'         => (int) $item->product_id,
+                            'product_variant_id' => $item->product_variant_id ? (int) $item->product_variant_id : null,
+                        ];
+                    }
                 }
+            } else {
+                $purchLoc = (int) ($purchase->location_id ?: 1);
+                $syncTargets[$purchLoc . '_' . $item->product_id . '_' . ($item->product_variant_id ?? 0)] = [
+                    'location_id'        => $purchLoc,
+                    'product_id'         => (int) $item->product_id,
+                    'product_variant_id' => $item->product_variant_id ? (int) $item->product_variant_id : null,
+                ];
             }
+        }
+
+        foreach ($syncTargets as $st) {
+            PurchaseBatchService::syncProductBatchStocks($st['location_id'], $st['product_id'], $st['product_variant_id']);
         }
 
         if (!empty($stockChanges)) {
@@ -198,23 +234,34 @@ class PurchaseStockService
             ];
         });
 
-        // 1. Transfers: Find PurchaseBills where items match product, variant, and exact purchase_price of THIS purchase
+        $createdAtMin = $purchase->created_at ? $purchase->created_at->copy()->subMinutes(5) : null;
+
+        $matchingTransferBillIds = \Illuminate\Support\Facades\DB::table('purchase_bill_items')
+            ->join('purchase_bills', 'purchase_bills.id', '=', 'purchase_bill_items.purchase_bill_id')
+            ->whereIn('purchase_bill_items.product_id', $productIds)
+            ->whereNull('purchase_bill_items.deleted_at')
+            ->whereNull('purchase_bills.deleted_at')
+            ->where('purchase_bills.status', '!=', PurchaseBill::STATUS_REJECTED)
+            ->when($createdAtMin, function ($q) use ($createdAtMin) {
+                $q->where('purchase_bills.created_at', '>=', $createdAtMin);
+            })
+            ->pluck('purchase_bills.id')
+            ->unique()
+            ->all();
+
         $transfers = PurchaseBill::with(['fromLocation', 'toLocation', 'items.product', 'items.variant'])
-            ->where('from_location_id', $purchaseLocationId)
-            ->whereNull('deleted_at')
-            ->where('status', '!=', PurchaseBill::STATUS_REJECTED)
-            ->where('created_at', '>=', $purchase->created_at->subMinutes(5))
+            ->whereIn('id', $matchingTransferBillIds)
             ->get();
 
         $toLocationIds = $transfers->pluck('to_location_id')->unique()->all();
-        $allRelevantLocationIds = array_unique(array_merge([$purchaseLocationId], $toLocationIds));
+        $fromLocationIds = $transfers->pluck('from_location_id')->unique()->all();
+        $allRelevantLocationIds = array_unique(array_merge([$purchaseLocationId], $toLocationIds, $fromLocationIds));
 
         $transfersGrouped = [];
         foreach ($transfers as $transfer) {
             $matchingItems = [];
             $totalQty = 0;
             foreach ($transfer->items as $tbItem) {
-                // Must match product, variant AND exact purchase_price of THIS purchase!
                 $matchesThisPurchase = $purchaseItemSignatures->first(function ($sig) use ($tbItem) {
                     return $sig['product_id'] === (int) $tbItem->product_id
                         && $sig['product_variant_id'] === (int) ($tbItem->product_variant_id ?? 0)
@@ -262,7 +309,7 @@ class PurchaseStockService
             ->unique()
             ->all();
 
-        $createdAtMin = $purchase->created_at ? $purchase->created_at->subMinutes(5) : null;
+        $createdAtMin = $purchase->created_at ? $purchase->created_at->copy()->subMinutes(5) : null;
 
         $matchingOrderItems = OrderItem::query()
             ->with(['product', 'order'])
@@ -422,7 +469,7 @@ class PurchaseStockService
             ];
         });
 
-        $createdAtMin = $purchase->created_at ? $purchase->created_at->subMinutes(5) : null;
+        $createdAtMin = $purchase->created_at ? $purchase->created_at->copy()->subMinutes(5) : null;
 
         $orderItemsDirect = OrderItem::query()
             ->with(['product', 'order'])
@@ -500,7 +547,7 @@ class PurchaseStockService
             ->get();
 
         // 2. Match by product_id and signature within recent timeframe
-        $createdAtMin = $purchase->created_at ? $purchase->created_at->subMinutes(5) : null;
+        $createdAtMin = $purchase->created_at ? $purchase->created_at->copy()->subMinutes(5) : null;
         $orderItemsByProd = OrderItem::with(['product', 'order'])
             ->whereIn('product_id', $productIds)
             ->whereNull('deleted_at')
@@ -771,17 +818,32 @@ class PurchaseStockService
             ];
         });
 
+        $createdAtMin = $purchase->created_at ? $purchase->created_at->copy()->subMinutes(5) : null;
+
+        $matchingTransferBillIds = \Illuminate\Support\Facades\DB::table('purchase_bill_items')
+            ->join('purchase_bills', 'purchase_bills.id', '=', 'purchase_bill_items.purchase_bill_id')
+            ->whereIn('purchase_bill_items.product_id', $productIds)
+            ->whereNull('purchase_bill_items.deleted_at')
+            ->whereNull('purchase_bills.deleted_at')
+            ->where('purchase_bills.status', '!=', PurchaseBill::STATUS_REJECTED)
+            ->when($createdAtMin, function ($q) use ($createdAtMin) {
+                $q->where('purchase_bills.created_at', '>=', $createdAtMin);
+            })
+            ->pluck('purchase_bills.id')
+            ->unique()
+            ->all();
+
         $transfers = PurchaseBill::with(['items.product', 'items.variant'])
-            ->where('from_location_id', $purchaseLocationId)
-            ->where('created_at', '>=', $purchase->created_at->subMinutes(5))
-            ->whereNull('deleted_at')
+            ->whereIn('id', $matchingTransferBillIds)
             ->get();
 
-        $transferredStockByProductLoc = [];
+        $transfersInByProductLoc = [];
+        $transfersOutByProductLoc = [];
+        $allTransferLocations = [];
+
         foreach ($transfers as $transfer) {
             if ((int) $transfer->status !== PurchaseBill::STATUS_ACCEPTED) continue;
             foreach ($transfer->items as $tbItem) {
-                // Must match product, variant AND exact purchase_price of this purchase!
                 $matchesThisPurchase = $purchaseItemSignatures->first(function ($sig) use ($tbItem) {
                     return $sig['product_id'] === (int) $tbItem->product_id
                         && $sig['product_variant_id'] === (int) ($tbItem->product_variant_id ?? 0)
@@ -792,8 +854,16 @@ class PurchaseStockService
                 $multiplier = self::multiplierForProduct($tbItem->product, $tbItem->pair_type, $tbItem->custom_size_value);
                 $qty = (int) round($tbItem->quantity * $multiplier);
                 $priceKey = number_format((float)$tbItem->purchase_price, 2, '.', '');
-                $key = $tbItem->product_id . '_' . ($tbItem->product_variant_id ?? 0) . '_' . $priceKey . '_' . $transfer->to_location_id;
-                $transferredStockByProductLoc[$key] = ($transferredStockByProductLoc[$key] ?? 0) + $qty;
+                $itemKey = $tbItem->product_id . '_' . ($tbItem->product_variant_id ?? 0) . '_' . $priceKey;
+
+                $toKey = $itemKey . '_' . $transfer->to_location_id;
+                $transfersInByProductLoc[$toKey] = ($transfersInByProductLoc[$toKey] ?? 0) + $qty;
+
+                $fromKey = $itemKey . '_' . $transfer->from_location_id;
+                $transfersOutByProductLoc[$fromKey] = ($transfersOutByProductLoc[$fromKey] ?? 0) + $qty;
+
+                $allTransferLocations[] = (int) $transfer->to_location_id;
+                $allTransferLocations[] = (int) $transfer->from_location_id;
             }
         }
 
@@ -829,7 +899,6 @@ class PurchaseStockService
         } else {
             $soldMap = self::getSoldQuantityForPurchase($purchase);
 
-            // On purchase deletion, reverse stock from destination branches and remove/adjust transfers
             foreach ($purchase->items as $item) {
                 $product = $item->product;
                 $multiplier = self::multiplierFor($item);
@@ -837,63 +906,48 @@ class PurchaseStockService
                 $priceKey = number_format((float)$item->purchase_price, 2, '.', '');
                 $itemKey = $item->product_id . '_' . ($item->product_variant_id ?? 0) . '_' . $priceKey;
 
-                $soldItemQty = $soldMap[$itemKey] ?? 0;
-                $soldItemStockQty = (int) round($soldItemQty * $multiplier);
+                $locationsToCheck = array_unique(array_merge([$purchaseLocationId], $allTransferLocations));
 
-                $transferredOutQty = 0;
-                foreach ($transferredStockByProductLoc as $k => $tQty) {
-                    $prefix = $item->product_id . '_' . ($item->product_variant_id ?? 0) . '_' . $priceKey . '_';
-                    if (str_starts_with($k, $prefix)) {
-                        $locId = (int) substr($k, strlen($prefix));
-                        $affectedLocations[] = $locId;
-
-                        $soldAtDestQty = $soldMap[$itemKey . '_' . $locId] ?? 0;
-                        $soldAtDestStockQty = (int) round($soldAtDestQty * $multiplier);
-                        $deductForSalesDest = $deleteSales ? 0 : $soldAtDestStockQty;
-                        $destDeductQty = max(0, $tQty - $deductForSalesDest);
-
-                        $destInv = Inventory::where('product_id', $item->product_id)->where('location_id', $locId)->first();
-                        if ($destInv) {
-                            $oldDestQty = (int) $destInv->quantity;
-                            $deductDest = min($oldDestQty, $destDeductQty);
-                            $destInv->update(['quantity' => max(0, $oldDestQty - $deductDest)]);
-
-                            $locObj = Location::find($locId);
-                            $stockChanges[] = [
-                                'product_name' => $product?->name ?? ('Product #' . $item->product_id),
-                                'barcode'      => $product?->barcode ?: '-',
-                                'location'     => $locObj?->name ?? ('Location #' . $locId),
-                                'old_quantity' => $oldDestQty,
-                                'new_quantity' => max(0, $oldDestQty - $deductDest),
-                                'qty_deducted' => '-' . $deductDest,
-                            ];
+                foreach ($locationsToCheck as $locId) {
+                    $affectedLocations[] = $locId;
+                    $allocatedAtLoc = 0;
+                    if ($item->allocations && $item->allocations->isNotEmpty()) {
+                        $allocRow = $item->allocations->firstWhere('location_id', $locId);
+                        if ($allocRow) {
+                            $allocatedAtLoc = (int) round($allocRow->quantity * $multiplier);
                         }
-                        PurchaseBatchService::deductBatchStock($locId, (int)$item->product_id, !empty($item->product_variant_id) ? (int)$item->product_variant_id : null, (float)$item->purchase_price, (float)$destDeductQty);
-                        $transferredOutQty += $tQty;
+                    } elseif ((int)$locId === (int)$purchaseLocationId) {
+                        $allocatedAtLoc = $totalPurchasedQty;
                     }
-                }
 
-                $soldAtSourceQty = $soldMap[$itemKey . '_' . $purchaseLocationId] ?? 0;
-                $soldAtSourceStockQty = (int) round($soldAtSourceQty * $multiplier);
-                $deductForSales = $deleteSales ? 0 : $soldAtSourceStockQty;
-                $sourceDeductQty = max(0, $totalPurchasedQty - $transferredOutQty - $deductForSales);
-                $sourceInv = Inventory::where('product_id', $item->product_id)->where('location_id', $purchaseLocationId)->first();
-                if ($sourceInv) {
-                    $oldSrcQty = (int) $sourceInv->quantity;
-                    $deductSrc = min($oldSrcQty, $sourceDeductQty);
-                    $sourceInv->update(['quantity' => max(0, $oldSrcQty - $deductSrc)]);
+                    $tIn = $transfersInByProductLoc[$itemKey . '_' . $locId] ?? 0;
+                    $tOut = $transfersOutByProductLoc[$itemKey . '_' . $locId] ?? 0;
+                    $netStockAtLoc = max(0, $allocatedAtLoc + $tIn - $tOut);
 
-                    $srcLocObj = Location::find($purchaseLocationId);
-                    $stockChanges[] = [
-                        'product_name' => $product?->name ?? ('Product #' . $item->product_id),
-                        'barcode'      => $product?->barcode ?: '-',
-                        'location'     => $srcLocObj?->name ?? ('Location #' . $purchaseLocationId),
-                        'old_quantity' => $oldSrcQty,
-                        'new_quantity' => max(0, $oldSrcQty - $deductSrc),
-                        'qty_deducted' => '-' . $deductSrc,
-                    ];
+                    $soldAtLoc = $soldMap[$itemKey . '_' . $locId] ?? 0;
+                    $soldStockAtLoc = (int) round($soldAtLoc * $multiplier);
+                    $deductForSales = $deleteSales ? 0 : $soldStockAtLoc;
+                    $locDeductQty = max(0, $netStockAtLoc - $deductForSales);
+
+                    $inv = Inventory::where('product_id', $item->product_id)->where('location_id', $locId)->first();
+                    if ($inv) {
+                        $oldQty = (int) $inv->quantity;
+                        $deduct = min($oldQty, $locDeductQty);
+                        $newQty = max(0, $oldQty - $deduct);
+                        $inv->update(['quantity' => $newQty]);
+
+                        $locObj = Location::find($locId);
+                        $stockChanges[] = [
+                            'product_name' => $product?->name ?? ('Product #' . $item->product_id),
+                            'barcode'      => $product?->barcode ?: '-',
+                            'location'     => $locObj?->name ?? ('Location #' . $locId),
+                            'old_quantity' => $oldQty,
+                            'new_quantity' => $newQty,
+                            'qty_deducted' => '-' . $deduct,
+                        ];
+                    }
+                    PurchaseBatchService::deductBatchStock($locId, (int)$item->product_id, !empty($item->product_variant_id) ? (int)$item->product_variant_id : null, (float)$item->purchase_price, (float)$locDeductQty);
                 }
-                PurchaseBatchService::deductBatchStock($purchaseLocationId, (int)$item->product_id, !empty($item->product_variant_id) ? (int)$item->product_variant_id : null, (float)$item->purchase_price, (float)$sourceDeductQty);
             }
 
             foreach ($transfers as $transfer) {
@@ -965,12 +1019,10 @@ class PurchaseStockService
             }
         }
 
-        if ($reason !== 'edit') {
-            $affectedLocations = array_unique($affectedLocations);
-            foreach ($affectedLocations as $locId) {
-                foreach ($productIds as $prodId) {
-                    PurchaseBatchService::syncProductBatchStocks($locId, $prodId);
-                }
+        $affectedLocations = array_unique($affectedLocations);
+        foreach ($affectedLocations as $locId) {
+            foreach ($productIds as $prodId) {
+                PurchaseBatchService::syncProductBatchStocks($locId, $prodId);
             }
         }
 

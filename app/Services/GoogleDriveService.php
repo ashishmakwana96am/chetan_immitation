@@ -6,6 +6,7 @@ use Google\Client as GoogleClient;
 use Google\Service\Drive as GoogleDrive;
 use Google\Service\Drive\DriveFile;
 use App\Models\Setting;
+use Illuminate\Support\Facades\Log;
 use RuntimeException;
 
 class GoogleDriveService
@@ -44,7 +45,7 @@ class GoogleDriveService
                     $newToken = $this->client->fetchAccessTokenWithRefreshToken($refreshToken);
                     if (isset($newToken['error'])) {
                         // Log the error but don't crash instantiation in case we are on settings page.
-                        \Illuminate\Support\Facades\Log::error('Google Drive token refresh failed: ' . ($newToken['error_description'] ?? $newToken['error']));
+                        Log::error('Google Drive token refresh failed: ' . ($newToken['error_description'] ?? $newToken['error']));
                     } else {
                         // Merge refresh token back if it wasn't returned in the refresh response
                         if (!isset($newToken['refresh_token'])) {

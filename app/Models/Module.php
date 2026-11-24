@@ -4,6 +4,8 @@ namespace App\Models;
 
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\SoftDeletes;
+use Illuminate\Database\Eloquent\SoftDeletingScope;
+use Illuminate\Support\Facades\Schema;
 
 class Module extends Model
 {
@@ -11,8 +13,8 @@ class Module extends Model
 
     public static function bootSoftDeletes()
     {
-        if (!app()->runningInConsole() || (\Illuminate\Support\Facades\Schema::hasTable('modules') && \Illuminate\Support\Facades\Schema::hasColumn('modules', 'deleted_at'))) {
-            static::addGlobalScope(new \Illuminate\Database\Eloquent\SoftDeletingScope);
+        if (!app()->runningInConsole() || (Schema::hasTable('modules') && Schema::hasColumn('modules', 'deleted_at'))) {
+            static::addGlobalScope(new SoftDeletingScope);
         }
     }
 

@@ -617,6 +617,79 @@
                 });
             }
 
+            function escapeHtml(str) {
+                if (!str) return '';
+                return String(str).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;');
+            }
+
+            function renderDependencyItemsHtml(items, isSales) {
+                if (!items || !items.length) {
+                    return '<span class="text-muted">-</span>';
+                }
+                const totalPcs = items.reduce(function (sum, it) {
+                    return sum + (parseFloat(it.quantity) || 0);
+                }, 0);
+                const countBadgeClass = isSales ? 'bg-label-danger' : 'bg-label-primary';
+                const dotClass = isSales ? 'text-danger' : 'text-warning';
+                const pillClass = isSales ? 'badge bg-label-dark' : 'dependency-item-pill';
+                const summaryHtml = items.length > 2
+                    ? `<div class="d-flex align-items-center justify-content-between mb-1 pb-1 border-bottom" style="font-size: 0.72rem;">
+                        <span class="badge ${countBadgeClass} px-1.5 py-0.5"><i class="ti ${isSales ? 'ti-shopping-bag' : 'ti-packages'} me-1"></i>${items.length} Products</span>
+                        <span class="text-muted fw-semibold">${totalPcs} pcs total</span>
+                       </div>`
+                    : '';
+                const listHtml = items.map(function (it) {
+                    let bcode = it.barcode ? (isSales ? ` <span class="badge bg-label-secondary ms-1" style="font-size: 0.65rem;">${escapeHtml(it.barcode)}</span>` : ` <code class="ms-1" style="color: #e83e8c; font-size: 0.73rem;">${escapeHtml(it.barcode)}</code>`) : '';
+                    let qtyLabel = it.qty_label ? it.qty_label : (it.quantity + ' pcs');
+                    return `
+                        <div class="d-flex align-items-center justify-content-between py-1 border-bottom border-light" style="font-size: 0.78rem;">
+                            <span class="me-2 text-truncate" style="max-width: 190px;" title="${escapeHtml(it.product_name)}">
+                                <i class="ti ti-circle-filled ${dotClass} me-1.5" style="font-size: 6px; vertical-align: middle;"></i>
+                                <span class="text-dark fw-medium">${escapeHtml(it.product_name)}</span>${bcode}
+                            </span>
+                            <span class="${pillClass}" style="font-size: 0.72rem;">${qtyLabel}</span>
+                        </div>
+                    `;
+                }).join('');
+
+                return `
+                    <div class="dependency-items-container">
+                        ${summaryHtml}
+                        <div class="dependency-items-scroll" style="max-height: ${items.length > 2 ? '100px' : 'auto'}; overflow-y: ${items.length > 2 ? 'auto' : 'visible'}; padding-right: 3px;">
+                            ${listHtml}
+                        </div>
+                    </div>
+                `;
+            }
+
+            function initDependencyDataTable(tableSelector, rowCount, searchPlaceholder) {
+                if ($.fn.DataTable.isDataTable(tableSelector)) {
+                    $(tableSelector).DataTable().destroy();
+                }
+                return $(tableSelector).DataTable({
+                    paging: rowCount > 5,
+                    pageLength: 5,
+                    lengthChange: rowCount > 5,
+                    lengthMenu: [5, 10, 25],
+                    searching: rowCount > 5,
+                    ordering: false,
+                    info: rowCount > 5,
+                    autoWidth: false,
+                    responsive: false,
+                    dom: '<"d-flex justify-content-between align-items-center mb-2 flex-wrap gap-2"<"d-flex align-items-center"l><"ms-auto"f>>t<"d-flex justify-content-between align-items-center mt-2 flex-wrap gap-2"<"small text-muted"i><"ms-auto"p>>',
+                    language: {
+                        search: '',
+                        searchPlaceholder: searchPlaceholder,
+                        lengthMenu: '_MENU_',
+                        info: 'Showing _START_-_END_ of _TOTAL_',
+                        paginate: {
+                            previous: '<i class="ti ti-chevron-left"></i>',
+                            next: '<i class="ti ti-chevron-right"></i>'
+                        }
+                    }
+                });
+            }
+
             let pendingDeleteUrl = null;
             let pendingRedirectUrl = '{{ route("admin.purchases.index") }}';
 
@@ -627,11 +700,6 @@
                 pendingRedirectUrl = $btn.data('redirect-url') || '{{ route("admin.purchases.index") }}';
                 const impactUrl = $btn.data('impact-url');
                 const invoiceNo = $btn.data('invoice-no') || '';
-
-                function escapeHtml(str) {
-                    if (!str) return '';
-                    return String(str).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;');
-                }
 
                 window.showAjaxLoader();
 
@@ -649,39 +717,36 @@
                     $('#modalPurchaseInvoiceNo').text(invoiceNo);
 
                     if (hasTransfers && data.transfers.length) {
+                        $('#deleteTabItemTransfers').removeClass('d-none');
                         $('#modalTransfersCount').text(data.transfers.length);
                         let transferRows = data.transfers.map(function (t) {
-                            let itemsText = t.items.map(function (it) {
-                                let barcodeHtml = it.barcode ? ` <code class="ms-1">${escapeHtml(it.barcode)}</code>` : '';
-                                let qtyBadge = it.qty_label ? it.qty_label : (it.quantity + ' pcs');
-                                return `<div class="d-flex align-items-center justify-content-between py-1 border-bottom border-light"><span class="me-2"><i class="ti ti-point text-primary me-1"></i>${escapeHtml(it.product_name)}${barcodeHtml}</span><span class="badge bg-label-primary">${qtyBadge}</span></div>`;
-                            }).join('');
+                            let itemsHtml = renderDependencyItemsHtml(t.items, false);
                             return `
                                 <tr>
                                     <td><code class="fw-bold">${escapeHtml(t.transfer_no)}</code></td>
                                     <td><span class="badge bg-label-info">${escapeHtml(t.to_location)}</span></td>
-                                    <td>${itemsText}</td>
+                                    <td>${itemsHtml}</td>
                                     <td><span class="text-muted small">${escapeHtml(t.created_at)}</span></td>
                                     <td class="text-center"><span class="badge ${t.status === 'Accepted' ? 'bg-label-success' : 'bg-label-warning'}">${t.status}</span></td>
                                 </tr>
                             `;
                         }).join('');
                         $('#modalTransfersTableBody').html(transferRows);
-                        $('#modalTransfersSection').removeClass('d-none');
+                        initDependencyDataTable('#modalTransfersTable', data.transfers.length, 'Search transfers...');
                     } else {
-                        $('#modalTransfersSection').addClass('d-none');
+                        $('#deleteTabItemTransfers').addClass('d-none');
+                        if ($.fn.DataTable.isDataTable('#modalTransfersTable')) {
+                            $('#modalTransfersTable').DataTable().destroy();
+                        }
                         $('#modalTransfersTableBody').empty();
                     }
 
                     if (hasSales && data.sales.length) {
+                        $('#deleteTabItemSales').removeClass('d-none');
                         $('#modalSalesCount').text(data.sales.length);
                         let salesRows = data.sales.map(function (s) {
                             let itemsHtml = (s.matching_items && s.matching_items.length)
-                                ? s.matching_items.map(function (it) {
-                                    let bcode = it.barcode ? ` <span class="badge bg-label-secondary fs-tiny" style="font-size: 0.65rem;">${escapeHtml(it.barcode)}</span>` : '';
-                                    let qtyBadge = it.qty_label ? it.qty_label : (it.quantity + ' pcs');
-                                    return `<div><i class="ti ti-point text-danger me-1"></i>${escapeHtml(it.product_name)}${bcode} <strong class="badge bg-label-dark ms-1">${qtyBadge}</strong></div>`;
-                                }).join('')
+                                ? renderDependencyItemsHtml(s.matching_items, true)
                                 : `<span class="badge bg-label-dark">${s.items_count} pcs</span>`;
 
                             return `
@@ -697,24 +762,40 @@
                             `;
                         }).join('');
                         $('#modalSalesTableBody').html(salesRows);
-                        $('#modalSalesSection').removeClass('d-none');
+                        initDependencyDataTable('#modalSalesTable', data.sales.length, 'Search sales orders...');
                         $('#modalDecisionSection').removeClass('d-none');
                         $('#choiceKeepSales').prop('checked', true);
                     } else {
-                        $('#modalSalesSection').addClass('d-none');
+                        $('#deleteTabItemSales').addClass('d-none');
                         $('#modalDecisionSection').addClass('d-none');
+                        if ($.fn.DataTable.isDataTable('#modalSalesTable')) {
+                            $('#modalSalesTable').DataTable().destroy();
+                        }
                         $('#modalSalesTableBody').empty();
                     }
 
-                    if (!hasTransfers && !hasSales) {
-                        $('#modalSimpleNotice').removeClass('d-none');
-                    } else {
+                    if (hasTransfers || hasSales) {
+                        $('#deleteModalTabsWrapper').removeClass('d-none');
                         $('#modalSimpleNotice').addClass('d-none');
+
+                        if (hasTransfers) {
+                            bootstrap.Tab.getOrCreateInstance(document.getElementById('deleteTabBtnTransfers')).show();
+                        } else {
+                            bootstrap.Tab.getOrCreateInstance(document.getElementById('deleteTabBtnSales')).show();
+                        }
+                    } else {
+                        $('#deleteModalTabsWrapper').addClass('d-none');
+                        $('#modalDecisionSection').addClass('d-none');
+                        $('#modalSimpleNotice').removeClass('d-none');
                     }
 
                     const modalEl = document.getElementById('purchaseDeleteImpactModal');
                     const modal = bootstrap.Modal.getOrCreateInstance(modalEl);
                     modal.show();
+
+                    $(modalEl).off('shown.bs.modal').on('shown.bs.modal', function () {
+                        $.fn.dataTable.tables({ visible: true, api: true }).columns.adjust();
+                    });
                 }).fail(function () {
                     window.hideAjaxLoader();
                     toastr.error('Failed to load purchase dependency details.');
@@ -759,7 +840,6 @@
                 });
             });
 
-            // ─── Purchase Return Modal Handler ───
             let pendingReturnUrl = null;
 
             $(document).on('click', '.purchase-return-btn', function (e) {
@@ -768,11 +848,6 @@
                 pendingReturnUrl = $btn.data('url');
                 const impactUrl = $btn.data('impact-url');
                 const invoiceNo = $btn.data('invoice-no') || '';
-
-                function escapeHtml(str) {
-                    if (!str) return '';
-                    return String(str).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;');
-                }
 
                 window.showAjaxLoader();
 
@@ -790,39 +865,36 @@
                     $('#returnModalPurchaseInvoiceNo').text(invoiceNo);
 
                     if (hasTransfers && data.transfers.length) {
+                        $('#returnTabItemTransfers').removeClass('d-none');
                         $('#returnModalTransfersCount').text(data.transfers.length);
                         let transferRows = data.transfers.map(function (t) {
-                            let itemsText = t.items.map(function (it) {
-                                let barcodeHtml = it.barcode ? ` <code class="ms-1">${escapeHtml(it.barcode)}</code>` : '';
-                                let qtyBadge = it.qty_label ? it.qty_label : (it.quantity + ' pcs');
-                                return `<div class="d-flex align-items-center justify-content-between py-1 border-bottom border-light"><span class="me-2"><i class="ti ti-point text-primary me-1"></i>${escapeHtml(it.product_name)}${barcodeHtml}</span><span class="badge bg-label-primary">${qtyBadge}</span></div>`;
-                            }).join('');
+                            let itemsHtml = renderDependencyItemsHtml(t.items, false);
                             return `
                                 <tr>
                                     <td><code class="fw-bold">${escapeHtml(t.transfer_no)}</code></td>
                                     <td><span class="badge bg-label-info">${escapeHtml(t.to_location)}</span></td>
-                                    <td>${itemsText}</td>
+                                    <td>${itemsHtml}</td>
                                     <td><span class="text-muted small">${escapeHtml(t.created_at)}</span></td>
                                     <td class="text-center"><span class="badge ${t.status === 'Accepted' ? 'bg-label-success' : 'bg-label-warning'}">${t.status}</span></td>
                                 </tr>
                             `;
                         }).join('');
                         $('#returnModalTransfersTableBody').html(transferRows);
-                        $('#returnModalTransfersSection').removeClass('d-none');
+                        initDependencyDataTable('#returnModalTransfersTable', data.transfers.length, 'Search transfers...');
                     } else {
-                        $('#returnModalTransfersSection').addClass('d-none');
+                        $('#returnTabItemTransfers').addClass('d-none');
+                        if ($.fn.DataTable.isDataTable('#returnModalTransfersTable')) {
+                            $('#returnModalTransfersTable').DataTable().destroy();
+                        }
                         $('#returnModalTransfersTableBody').empty();
                     }
 
                     if (hasSales && data.sales.length) {
+                        $('#returnTabItemSales').removeClass('d-none');
                         $('#returnModalSalesCount').text(data.sales.length);
                         let salesRows = data.sales.map(function (s) {
                             let itemsHtml = (s.matching_items && s.matching_items.length)
-                                ? s.matching_items.map(function (it) {
-                                    let bcode = it.barcode ? ` <span class="badge bg-label-secondary fs-tiny" style="font-size: 0.65rem;">${escapeHtml(it.barcode)}</span>` : '';
-                                    let qtyBadge = it.qty_label ? it.qty_label : (it.quantity + ' pcs');
-                                    return `<div><i class="ti ti-point text-danger me-1"></i>${escapeHtml(it.product_name)}${bcode} <strong class="badge bg-label-dark ms-1">${qtyBadge}</strong></div>`;
-                                }).join('')
+                                ? renderDependencyItemsHtml(s.matching_items, true)
                                 : `<span class="badge bg-label-dark">${s.items_count} pcs</span>`;
 
                             return `
@@ -838,17 +910,28 @@
                             `;
                         }).join('');
                         $('#returnModalSalesTableBody').html(salesRows);
-                        $('#returnModalSalesSection').removeClass('d-none');
+                        initDependencyDataTable('#returnModalSalesTable', data.sales.length, 'Search sales orders...');
                     } else {
-                        $('#returnModalSalesSection').addClass('d-none');
+                        $('#returnTabItemSales').addClass('d-none');
+                        if ($.fn.DataTable.isDataTable('#returnModalSalesTable')) {
+                            $('#returnModalSalesTable').DataTable().destroy();
+                        }
                         $('#returnModalSalesTableBody').empty();
                     }
 
                     if (hasTransfers || hasSales) {
+                        $('#returnModalTabsWrapper').removeClass('d-none');
                         $('#returnModalDecisionSection').removeClass('d-none');
                         $('#choiceReturnPurchaseOnly').prop('checked', true);
                         $('#returnModalSimpleNotice').addClass('d-none');
+
+                        if (hasTransfers) {
+                            bootstrap.Tab.getOrCreateInstance(document.getElementById('returnTabBtnTransfers')).show();
+                        } else {
+                            bootstrap.Tab.getOrCreateInstance(document.getElementById('returnTabBtnSales')).show();
+                        }
                     } else {
+                        $('#returnModalTabsWrapper').addClass('d-none');
                         $('#returnModalDecisionSection').addClass('d-none');
                         $('#returnModalSimpleNotice').removeClass('d-none');
                     }
@@ -856,10 +939,18 @@
                     const modalEl = document.getElementById('purchaseReturnImpactModal');
                     const modal = bootstrap.Modal.getOrCreateInstance(modalEl);
                     modal.show();
+
+                    $(modalEl).off('shown.bs.modal').on('shown.bs.modal', function () {
+                        $.fn.dataTable.tables({ visible: true, api: true }).columns.adjust();
+                    });
                 }).fail(function () {
                     window.hideAjaxLoader();
                     toastr.error('Failed to load purchase dependency details.');
                 });
+            });
+
+            $('button[data-bs-toggle="pill"]').on('shown.bs.tab', function () {
+                $.fn.dataTable.tables({ visible: true, api: true }).columns.adjust();
             });
 
             $(document).on('click', '#modalConfirmReturnBtn', function (e) {

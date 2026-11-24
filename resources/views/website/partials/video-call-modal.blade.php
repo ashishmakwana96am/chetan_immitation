@@ -1,3 +1,20 @@
+@php
+    $activeBooking = null;
+    $activeBookingData = null;
+    if (auth('customer')->check()) {
+        $activeBooking = \App\Models\VideoCallBooking::getActiveBookingForCustomer(auth('customer')->id());
+        if ($activeBooking) {
+            $activeBookingData = [
+                'booking_no' => $activeBooking->booking_no,
+                'booking_date' => $activeBooking->booking_date->format('d M Y'),
+                'time_slot' => \Carbon\Carbon::parse($activeBooking->time_slot_start)->format('h:i A') . ' - ' . \Carbon\Carbon::parse($activeBooking->time_slot_end)->format('h:i A'),
+                'google_meet_link' => $activeBooking->google_meet_link,
+                'end_datetime' => \Carbon\Carbon::parse($activeBooking->booking_date->format('Y-m-d') . ' ' . $activeBooking->time_slot_end)->toIso8601String(),
+            ];
+        }
+    }
+@endphp
+
 <style>
     .vc-slot-btn {
         border-radius: 4px !important;
@@ -46,7 +63,7 @@
                 <h3 class="text-base sm:text-lg md:text-xl font-bold text-[#131615]">
                     Book a Video Shopping Call
                 </h3>
-                <p class="text-[11px] sm:text-xs text-[#757575] mt-0.5">Explore our handcrafted jewellery live 1-on-1 with our stylist</p>
+                <p class="text-[11px] sm:text-xs text-[#757575] mt-0.5">Explore our handcrafted jewellery live with our expert stylist</p>
             </div>
             <button type="button" id="closeVideoCallModal" class="w-8 h-8 rounded-sm border border-[#EFE7DB] text-gray-400 hover:text-[#131615] hover:bg-[#FAF7F2] flex items-center justify-center text-xl transition" aria-label="Close">&times;</button>
         </div>
@@ -89,7 +106,7 @@
                 </div>
 
                 <div class="mb-5">
-                    <label class="block text-xs sm:text-sm font-semibold text-[#131615] mb-1.5">Notes / Preferences (Optional)</label>
+                    <label class="block text-xs sm:text-sm font-semibold text-[#131615] mb-1.5">Notes / Preferences</label>
                     <textarea id="vcNotes" name="notes" rows="2" placeholder="e.g. Bridal choker sets, Kundan bangles, earrings..." class="w-full border border-gray-300 rounded-sm px-3.5 py-2 text-xs sm:text-sm outline-none focus:border-[#B4771E] resize-none"></textarea>
                 </div>
 
@@ -107,8 +124,8 @@
             <div class="w-14 h-14 bg-[#FAF7F2] text-[#B4771E] border border-[#EFE7DB] flex items-center justify-center mx-auto mb-3.5 text-2xl rounded-sm">
                 <i class="fa-solid fa-check"></i>
             </div>
-            <h4 class="text-lg sm:text-xl font-bold text-[#131615] mb-1">Booking Confirmed!</h4>
-            <p class="text-xs sm:text-sm text-gray-600 mb-4">Your virtual video shopping call has been scheduled successfully.</p>
+            <h4 id="vcSuccessTitle" class="text-lg sm:text-xl font-bold text-[#131615] mb-1">Booking Confirmed!</h4>
+            <p id="vcSuccessSubtitle" class="text-xs sm:text-sm text-gray-600 mb-4">Your video shopping call has been scheduled successfully.</p>
             
             <div class="bg-[#FAF7F2] border border-[#EFE7DB] p-3.5 sm:p-4 text-left mb-4 text-xs sm:text-sm space-y-2 rounded-sm">
                 <div class="flex justify-between">
@@ -143,9 +160,42 @@
                 </p>
             </div>
 
-            <button type="button" id="vcDoneBtn" class="w-full bg-[#131615] hover:bg-[#B4771E] text-white font-medium py-2.5 rounded-sm text-xs sm:text-sm transition duration-300">
-                Close
-            </button>
+            <div class="flex items-center gap-2">
+                <button type="button" id="vcDoneBtn" class="flex-1 bg-[#131615] hover:bg-[#B4771E] text-white font-medium py-2.5 rounded-sm text-xs sm:text-sm transition duration-300 cursor-pointer">
+                    Close
+                </button>
+                <button type="button" id="vcCancelBookingBtn" class="flex-1 bg-red-600 hover:bg-[#131615] text-white font-medium py-2.5 rounded-sm text-xs sm:text-sm transition duration-300 flex items-center justify-center gap-1.5 cursor-pointer">
+                    <i class="fa-solid fa-xmark"></i>
+                    <span id="vcCancelBookingText">Cancel Call</span>
+                </button>
+            </div>
+            <p id="vcCancelError" class="text-xs text-red-600 mt-2 hidden text-center"></p>
+        </div>
+
+        <div id="vcConfirmCancelModal" class="absolute inset-0 bg-black/60 backdrop-blur-[2px] z-50 flex items-center justify-center p-4 hidden">
+            <div class="bg-white rounded-sm p-5 sm:p-6 max-w-sm w-full text-center shadow-2xl border-t-4 border-red-600" onclick="event.stopPropagation();">
+                <div class="w-12 h-12 bg-red-50 text-red-600 border border-red-200 flex items-center justify-center mx-auto mb-3 text-xl rounded-sm">
+                    <i class="fa-solid fa-triangle-exclamation"></i>
+                </div>
+                <h4 class="text-base sm:text-lg font-bold text-[#131615] mb-1.5">Cancel Video Call?</h4>
+                <p class="text-xs text-gray-600 mb-5 leading-relaxed">
+                    Are you sure you want to cancel your video shopping call? The Google Meet link will also be cancelled.
+                </p>
+                <p id="vcConfirmCancelError" class="text-xs text-red-600 mb-3 hidden"></p>
+                <div class="flex items-center gap-2">
+                    <button type="button" id="btnDismissCancelModal" class="flex-1 bg-gray-100 hover:bg-gray-200 text-[#131615] font-medium py-2.5 rounded-sm text-xs sm:text-sm transition duration-300 cursor-pointer">
+                        Keep Call
+                    </button>
+                    <button type="button" id="btnConfirmCancelModal" class="flex-1 bg-red-600 hover:bg-[#131615] text-white font-medium py-2.5 rounded-sm text-xs sm:text-sm transition duration-300 flex items-center justify-center gap-1.5 shadow-sm cursor-pointer">
+                        <i class="fa-solid fa-xmark"></i>
+                        <span id="vcConfirmCancelText">Yes, Cancel</span>
+                        <svg id="vcConfirmCancelSpinner" class="hidden animate-spin w-3.5 h-3.5 text-white" fill="none" viewBox="0 0 24 24">
+                            <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"/>
+                            <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8v8z"/>
+                        </svg>
+                    </button>
+                </div>
+            </div>
         </div>
     </div>
 </div>
@@ -168,11 +218,23 @@ document.addEventListener('DOMContentLoaded', function () {
 
     const formState = document.getElementById('vcFormState');
     const successState = document.getElementById('vcSuccessState');
+    const successTitle = document.getElementById('vcSuccessTitle');
+    const successSubtitle = document.getElementById('vcSuccessSubtitle');
 
     const copyBtn = document.getElementById('btnCopyMeetLink');
     const copyText = document.getElementById('copyBtnText');
     const meetLinkEl = document.getElementById('vcSuccessMeetLink');
     const meetLinkText = document.getElementById('vcSuccessMeetLinkText');
+    const meetWrap = document.getElementById('vcMeetLinkWrap');
+    const cancelBookingBtn = document.getElementById('vcCancelBookingBtn');
+    const confirmCancelModal = document.getElementById('vcConfirmCancelModal');
+    const btnDismissCancelModal = document.getElementById('btnDismissCancelModal');
+    const btnConfirmCancelModal = document.getElementById('btnConfirmCancelModal');
+    const confirmCancelText = document.getElementById('vcConfirmCancelText');
+    const confirmCancelSpinner = document.getElementById('vcConfirmCancelSpinner');
+    const confirmCancelError = document.getElementById('vcConfirmCancelError');
+
+    let currentActiveBooking = @json($activeBookingData);
 
     const ALL_SLOTS = [
         { start: '09:00', end: '10:00', label: '09:00 - 10:00 AM' },
@@ -205,6 +267,44 @@ document.addEventListener('DOMContentLoaded', function () {
         return `${y}-${m}-${d}`;
     }
 
+    function isBookingStillActive(booking) {
+        if (!booking || !booking.end_datetime) return false;
+        return new Date(booking.end_datetime).getTime() > Date.now();
+    }
+
+    function showActiveBookingPopup(booking, isNewlyBooked = false) {
+        document.getElementById('vcSuccessBookingNo').textContent = booking.booking_no;
+        document.getElementById('vcSuccessDate').textContent = booking.booking_date;
+        document.getElementById('vcSuccessSlot').textContent = booking.time_slot;
+
+        if (booking.google_meet_link) {
+            meetLinkEl.href = booking.google_meet_link;
+            meetLinkText.textContent = booking.google_meet_link;
+            meetWrap.classList.remove('hidden');
+        } else {
+            meetWrap.classList.add('hidden');
+        }
+
+        if (confirmCancelModal) confirmCancelModal.classList.add('hidden');
+
+        if (isNewlyBooked) {
+            successTitle.textContent = 'Booking Confirmed!';
+            successSubtitle.textContent = 'Your video shopping call has been scheduled successfully.';
+        } else {
+            successTitle.textContent = 'Active Video Call Booking';
+            successSubtitle.textContent = 'You have an active scheduled video call. You can book a new call once this slot ends.';
+        }
+
+        formState.classList.add('hidden');
+        successState.classList.remove('hidden');
+        modal.classList.remove('hidden');
+
+        document.documentElement.classList.add('overflow-hidden', 'vc-modal-open');
+        document.body.classList.add('overflow-hidden', 'vc-modal-open');
+        document.documentElement.style.overflow = 'hidden';
+        document.body.style.overflow = 'hidden';
+    }
+
     function openModal() {
         if (!isCustomerLoggedIn) {
             const currentUrl = new URL(window.location.href);
@@ -213,6 +313,12 @@ document.addEventListener('DOMContentLoaded', function () {
             return;
         }
 
+        if (isBookingStillActive(currentActiveBooking)) {
+            showActiveBookingPopup(currentActiveBooking, false);
+            return;
+        }
+
+        currentActiveBooking = null;
         formState.classList.remove('hidden');
         successState.classList.add('hidden');
         modal.classList.remove('hidden');
@@ -229,6 +335,7 @@ document.addEventListener('DOMContentLoaded', function () {
     }
 
     function closeModal() {
+        if (confirmCancelModal) confirmCancelModal.classList.add('hidden');
         modal.classList.add('hidden');
         document.documentElement.classList.remove('overflow-hidden', 'vc-modal-open');
         document.body.classList.remove('overflow-hidden', 'vc-modal-open');
@@ -249,8 +356,14 @@ document.addEventListener('DOMContentLoaded', function () {
     }, { passive: false });
 
     document.addEventListener('keydown', function (e) {
-        if (e.key === 'Escape' && !modal.classList.contains('hidden')) {
-            closeModal();
+        if (e.key === 'Escape') {
+            if (confirmCancelModal && !confirmCancelModal.classList.contains('hidden')) {
+                confirmCancelModal.classList.add('hidden');
+                return;
+            }
+            if (!modal.classList.contains('hidden')) {
+                closeModal();
+            }
         }
     });
 
@@ -431,21 +544,8 @@ document.addEventListener('DOMContentLoaded', function () {
                 submitSpinner.classList.add('hidden');
 
                 if (data.status === 'success') {
-                    formState.classList.add('hidden');
-                    successState.classList.remove('hidden');
-
-                    document.getElementById('vcSuccessBookingNo').textContent = data.booking.booking_no;
-                    document.getElementById('vcSuccessDate').textContent = data.booking.booking_date;
-                    document.getElementById('vcSuccessSlot').textContent = data.booking.time_slot;
-
-                    const meetWrap = document.getElementById('vcMeetLinkWrap');
-                    if (data.booking.google_meet_link) {
-                        meetLinkEl.href = data.booking.google_meet_link;
-                        meetLinkText.textContent = data.booking.google_meet_link;
-                        meetWrap.classList.remove('hidden');
-                    } else {
-                        meetWrap.classList.add('hidden');
-                    }
+                    currentActiveBooking = data.booking;
+                    showActiveBookingPopup(data.booking, true);
                 } else {
                     slotError.textContent = data.message || 'Something went wrong. Please try again.';
                     slotError.classList.remove('hidden');
@@ -457,6 +557,87 @@ document.addEventListener('DOMContentLoaded', function () {
                 submitSpinner.classList.add('hidden');
                 slotError.textContent = 'Network error. Please try again.';
                 slotError.classList.remove('hidden');
+            });
+        });
+    }
+
+    if (cancelBookingBtn) {
+        cancelBookingBtn.addEventListener('click', function () {
+            if (confirmCancelError) confirmCancelError.classList.add('hidden');
+            if (confirmCancelModal) confirmCancelModal.classList.remove('hidden');
+        });
+    }
+
+    if (btnDismissCancelModal) {
+        btnDismissCancelModal.addEventListener('click', function () {
+            if (confirmCancelModal) confirmCancelModal.classList.add('hidden');
+        });
+    }
+
+    if (confirmCancelModal) {
+        confirmCancelModal.addEventListener('click', function (e) {
+            if (e.target === confirmCancelModal) {
+                confirmCancelModal.classList.add('hidden');
+            }
+        });
+    }
+
+    if (btnConfirmCancelModal) {
+        btnConfirmCancelModal.addEventListener('click', function () {
+            btnConfirmCancelModal.disabled = true;
+            if (confirmCancelText) confirmCancelText.textContent = 'Cancelling...';
+            if (confirmCancelSpinner) confirmCancelSpinner.classList.remove('hidden');
+            if (confirmCancelError) confirmCancelError.classList.add('hidden');
+
+            const payload = {
+                booking_no: (currentActiveBooking && currentActiveBooking.booking_no) ? currentActiveBooking.booking_no : '',
+                _token: '{{ csrf_token() }}'
+            };
+
+            fetch("{{ route('video-call.cancel') }}", {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                    'Accept': 'application/json',
+                    'X-CSRF-TOKEN': '{{ csrf_token() }}'
+                },
+                body: JSON.stringify(payload)
+            })
+            .then(res => res.json())
+            .then(data => {
+                btnConfirmCancelModal.disabled = false;
+                if (confirmCancelText) confirmCancelText.textContent = 'Yes, Cancel';
+                if (confirmCancelSpinner) confirmCancelSpinner.classList.add('hidden');
+
+                if (data.status === 'success') {
+                    if (confirmCancelModal) confirmCancelModal.classList.add('hidden');
+                    currentActiveBooking = null;
+                    if (window.showWishlistToast) {
+                        window.showWishlistToast(data.message || 'Video call booking cancelled.', true);
+                    }
+                    successState.classList.add('hidden');
+                    formState.classList.remove('hidden');
+                    if (dateInput) {
+                        dateInput.value = getTodayString();
+                    }
+                    renderSlots();
+                } else {
+                    if (confirmCancelError) {
+                        confirmCancelError.textContent = data.message || 'Could not cancel booking.';
+                        confirmCancelError.classList.remove('hidden');
+                    } else if (window.showWishlistToast) {
+                        window.showWishlistToast(data.message || 'Could not cancel booking.', false);
+                    }
+                }
+            })
+            .catch(err => {
+                btnConfirmCancelModal.disabled = false;
+                if (confirmCancelText) confirmCancelText.textContent = 'Yes, Cancel';
+                if (confirmCancelSpinner) confirmCancelSpinner.classList.add('hidden');
+                if (confirmCancelError) {
+                    confirmCancelError.textContent = 'Network error. Please try again.';
+                    confirmCancelError.classList.remove('hidden');
+                }
             });
         });
     }
