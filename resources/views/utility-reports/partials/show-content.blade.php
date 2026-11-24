@@ -198,14 +198,6 @@
                 ];
                 return $statusBadges[$valStr] ?? ('<span class="badge bg-label-secondary">' . e(ucwords(str_replace(['_', '-'], ' ', $valStr))) . '</span>');
             }
-            if (in_array($log->module, ['Video Call Bookings', 'Video Call', 'Video Calls'])) {
-                $statusBadges = [
-                    'scheduled' => '<span class="badge bg-label-primary d-inline-flex align-items-center gap-1"><i class="ti ti-calendar-event fs-6"></i>Scheduled</span>',
-                    'cancelled' => '<span class="badge bg-label-danger d-inline-flex align-items-center gap-1"><i class="ti ti-x fs-6"></i>Cancelled</span>',
-                    'completed' => '<span class="badge bg-label-success d-inline-flex align-items-center gap-1"><i class="ti ti-check fs-6"></i>Completed</span>',
-                ];
-                return $statusBadges[$valStr] ?? ('<span class="badge bg-label-secondary">' . e(ucwords(str_replace(['_', '-'], ' ', $valStr))) . '</span>');
-            }
             $genericBadges = [
                 'scheduled'   => '<span class="badge bg-label-primary d-inline-flex align-items-center gap-1"><i class="ti ti-calendar-event fs-6"></i>Scheduled</span>',
                 'cancelled'   => '<span class="badge bg-label-danger d-inline-flex align-items-center gap-1"><i class="ti ti-x fs-6"></i>Cancelled</span>',

@@ -271,16 +271,14 @@
 
                     <!-- Right Side -->
                     <div class="flex items-center gap-2 sm:gap-5">
-                        @if(!empty($isGoogleCalendarConnected))
-                        <button type="button" class="btnOpenVideoCall hidden sm:inline-flex items-center gap-2 px-3.5 h-[34px] lg:h-[40px] text-xs xl:text-sm font-medium bg-[#B4771E] text-white border border-[#B4771E] hover:bg-transparent hover:text-[#B4771E] hover:border-[#B4771E] transition-all duration-300 rounded-sm shadow-sm">
+                        <a href="https://calendar.app.google/eL5YRZTf9qiET7kA9" target="_blank" rel="noopener noreferrer" class="hidden sm:inline-flex items-center gap-2 px-3.5 h-[34px] lg:h-[40px] text-xs xl:text-sm font-medium bg-[#B4771E] text-white border border-[#B4771E] hover:bg-transparent hover:text-[#B4771E] hover:border-[#B4771E] transition-all duration-300 rounded-sm shadow-sm">
                             <i class="fa-solid fa-video text-xs"></i>
                             <span class="whitespace-nowrap">Book a Video Call</span>
-                        </button>
+                        </a>
 
-                        <button type="button" class="btnOpenVideoCall sm:hidden text-white hover:text-[#B4771E] p-1 flex items-center" title="Book a Video Call">
+                        <a href="https://calendar.app.google/eL5YRZTf9qiET7kA9" target="_blank" rel="noopener noreferrer" class="sm:hidden text-white hover:text-[#B4771E] p-1 flex items-center" title="Book a Video Call">
                             <i class="fa-solid fa-video text-lg"></i>
-                        </button>
-                        @endif
+                        </a>
                         <!-- Mobile Search Icon -->
 
                         <div class="search-container items-center w-[130px] min-[400px]:w-[150px] sm:w-[170px] xl:w-[200px] 2xl:w-[240px] rounded-sm h-[34px] lg:h-[40px] border border-[#D5D5D533] pl-2 sm:pl-4 pr-2 sm:pr-3 bg-[#FFFFFF08] focus-within:border-[#B4771E] transition-all duration-300 flex">
@@ -438,14 +436,12 @@
         </div>
 
         <div class="px-[15px] py-[30px]">
-            @if(!empty($isGoogleCalendarConnected))
             <div class="mb-4">
-                <button type="button" class="btnOpenVideoCall w-full flex items-center justify-center gap-2 py-3 px-4 rounded-sm text-sm font-semibold bg-[#B4771E] text-white border border-[#B4771E] hover:bg-[#966113] active:bg-[#966113] transition-all duration-300 shadow-sm">
+                <a href="https://calendar.app.google/eL5YRZTf9qiET7kA9" target="_blank" rel="noopener noreferrer" class="w-full flex items-center justify-center gap-2 py-3 px-4 rounded-sm text-sm font-semibold bg-[#B4771E] text-white border border-[#B4771E] hover:bg-[#966113] active:bg-[#966113] transition-all duration-300 shadow-sm">
                     <i class="fa-solid fa-video"></i>
                     <span>Book a Video Call</span>
-                </button>
+                </a>
             </div>
-            @endif
             
         @auth('customer')
     <div class="border-b">
@@ -1466,8 +1462,5 @@ window.addEventListener('resize', function () {
     </script>
 
     @yield('page-js')
-    @if(!empty($isGoogleCalendarConnected))
-        @include('website.partials.video-call-modal')
-    @endif
 </body>
 </html>

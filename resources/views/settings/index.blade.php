@@ -263,31 +263,6 @@
                             </div>
                         </div>
 
-                        <div class="d-flex align-items-center justify-content-between border rounded p-3 mb-3 flex-wrap gap-3">
-                            <div>
-                                <p class="fw-semibold mb-0">Google Calendar Integration (Video Calls)</p>
-                                @if($googleCalendarConnected)
-                                    <p class="text-success small mb-0">
-                                        <i class="ti ti-circle-check me-1"></i> Connected to: <strong>{{ $googleCalendarEmail }}</strong>
-                                    </p>
-                                @else
-                                    <p class="text-danger small mb-0">
-                                        <i class="ti ti-circle-x me-1"></i> Disconnected
-                                    </p>
-                                @endif
-                            </div>
-                            <div>
-                                @if($googleCalendarConnected)
-                                    <button type="button" class="btn btn-outline-danger btn-sm" onclick="event.preventDefault(); document.getElementById('googleCalendarDisconnectForm').submit();">
-                                        <i class="ti ti-logout me-1"></i> Disconnect Calendar
-                                    </button>
-                                @else
-                                    <a href="{{ route('admin.settings.google-calendar.connect') }}" class="btn btn-outline-success btn-sm">
-                                        <i class="ti ti-brand-google me-1"></i> Connect Google Calendar
-                                    </a>
-                                @endif
-                            </div>
-                        </div>
 
                         <!-- Backup Action -->
                         @if($googleDriveConnected)
@@ -563,9 +538,6 @@ document.addEventListener('DOMContentLoaded', function () {
 </script>
 
 <form action="{{ route('admin.settings.google-drive.disconnect') }}" method="POST" id="googleDriveDisconnectForm" style="display: none;">
-    @csrf
-</form>
-<form action="{{ route('admin.settings.google-calendar.disconnect') }}" method="POST" id="googleCalendarDisconnectForm" style="display: none;">
     @csrf
 </form>
 @endsection

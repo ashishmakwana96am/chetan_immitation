@@ -24,7 +24,6 @@
 
     @php
       use Illuminate\Support\Facades\Cache;
-      use App\Models\VideoCallBooking;
       try {
           $modules = Cache::remember('admin_sidebar_modules', 3600, function () {
               return \App\Models\Module::whereNull('parent_id')->with('children')->orderBy('sort_order')->get();
@@ -113,21 +112,6 @@
                       <span class="badge bg-primary rounded-pill ms-auto notranslate" translate="no" style="background-color: #B78326 !important; color: #fff !important; width: 20px; height: 20px; display: inline-flex !important; align-items: center; justify-content: center; font-size: 9px; font-weight: 700; flex-shrink: 0;">{{ $todayInquiriesCount }}</span>
                     @endif
                   @endif
-                  @if($child->route === 'admin.video-call-bookings.index')
-                    @php
-                      try {
-                          $scheduledVideoCallsCount = Cache::remember('admin_sidebar_scheduled_video_calls_count', 30, function () {
-                              VideoCallBooking::autoCompletePastBookings();
-                              return VideoCallBooking::where('status', 'scheduled')->count();
-                          });
-                      } catch (\Exception $e) {
-                          $scheduledVideoCallsCount = 0;
-                      }
-                    @endphp
-                    @if($scheduledVideoCallsCount > 0)
-                      <span id="video-call-scheduled-badge" class="badge bg-primary rounded-pill ms-auto notranslate" translate="no" style="background-color: #B78326 !important; color: #fff !important; width: 20px; height: 20px; display: inline-flex !important; align-items: center; justify-content: center; font-size: 9px; font-weight: 700; flex-shrink: 0;">{{ $scheduledVideoCallsCount }}</span>
-                    @endif
-                  @endif
                   @if($child->route === 'admin.purchase-bills.index')
                     @php
                       try {
@@ -181,21 +165,6 @@
             <a href="{{ (!is_null($module->route) && Route::has($module->route)) ? route($module->route) : 'javascript:void(0);' }}" class="menu-link">
               <i class="menu-icon tf-icons {{ $module->icon ?? 'ti ti-circle' }}"></i>
               <div>{{ $module->name }}</div>
-              @if($module->route === 'admin.video-call-bookings.index')
-                @php
-                  try {
-                      $scheduledVideoCallsCount = Cache::remember('admin_sidebar_scheduled_video_calls_count', 30, function () {
-                          VideoCallBooking::autoCompletePastBookings();
-                          return VideoCallBooking::where('status', 'scheduled')->count();
-                      });
-                  } catch (\Exception $e) {
-                      $scheduledVideoCallsCount = 0;
-                  }
-                @endphp
-                @if($scheduledVideoCallsCount > 0)
-                  <span id="video-call-scheduled-badge-top" class="badge bg-primary rounded-pill ms-auto notranslate" translate="no" style="background-color: #B78326 !important; color: #fff !important; width: 20px; height: 20px; display: inline-flex !important; align-items: center; justify-content: center; font-size: 9px; font-weight: 700; flex-shrink: 0;">{{ $scheduledVideoCallsCount }}</span>
-                @endif
-              @endif
             </a>
           </li>
         @endif

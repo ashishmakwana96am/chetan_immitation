@@ -8,7 +8,6 @@ use Illuminate\Support\Facades\Validator;
 use App\Models\Setting;
 use App\Services\ActivityLogger;
 use App\Services\GoogleDriveService;
-use App\Services\GoogleCalendarService;
 use Symfony\Component\Process\Process;
 
 class SettingController extends Controller
@@ -36,13 +35,6 @@ class SettingController extends Controller
             $googleDriveEmail = Setting::getValue('google_drive_connected_email', 'Connected Account');
         }
 
-        $googleCalendarConnected = false;
-        $googleCalendarEmail = '';
-        $calToken = Setting::getValue('google_calendar_oauth_token');
-        if ($calToken) {
-            $googleCalendarConnected = true;
-            $googleCalendarEmail = Setting::getValue('google_calendar_connected_email', 'Connected Account');
-        }
 
         $prefixOnlineOrder      = Setting::getValue('prefix_online_order', 'OR');
         $prefixOfflineSale      = Setting::getValue('prefix_offline_sale', 'SA');
@@ -73,8 +65,6 @@ class SettingController extends Controller
             'comingSoon',
             'googleDriveConnected',
             'googleDriveEmail',
-            'googleCalendarConnected',
-            'googleCalendarEmail',
             'prefixOnlineOrder',
             'prefixOfflineSale',
             'prefixOfflineSaleGst',
@@ -265,84 +255,6 @@ class SettingController extends Controller
         ActivityLogger::log('Settings', 'update', null, null, null, 'Google Drive account disconnected (was: ' . $email . ')');
 
         return redirect()->route('admin.settings.index')->with('success', 'Google Drive disconnected successfully.');
-    }
-
-    public function googleCalendarConnect()
-    {
-        if (!auth()->user()->hasRole('super-admin')) {
-            return redirect()->route('admin.dashboard');
-        }
-
-        try {
-            $calService = app(GoogleCalendarService::class);
-            $client = $calService->getClient();
-            $authUrl = $client->createAuthUrl();
-
-            return redirect()->away($authUrl);
-        } catch (\Throwable $e) {
-            Log::error('Google Calendar connection initiation failed: ' . $e->getMessage());
-            return redirect()->route('admin.settings.index')->with('error', 'Failed to initiate Google Calendar connection: ' . $e->getMessage());
-        }
-    }
-
-    public function googleCalendarCallback(Request $request)
-    {
-        if (!auth()->user()->hasRole('super-admin')) {
-            return redirect()->route('admin.dashboard');
-        }
-
-        if ($request->has('error')) {
-            return redirect()->route('admin.settings.index')->with('error', 'Google Calendar connection cancelled: ' . $request->get('error'));
-        }
-
-        if (!$request->has('code')) {
-            return redirect()->route('admin.settings.index')->with('error', 'Google Calendar connection failed: Authorization code not found.');
-        }
-
-        try {
-            $calService = app(GoogleCalendarService::class);
-            $client = $calService->getClient();
-            $token = $client->fetchAccessTokenWithAuthCode($request->get('code'));
-
-            if (isset($token['error'])) {
-                return redirect()->route('admin.settings.index')->with('error', 'Failed to fetch access token: ' . ($token['error_description'] ?? $token['error']));
-            }
-
-            Setting::setValue('google_calendar_oauth_token', $token);
-
-            $oauth2 = new \Google\Service\Oauth2($client);
-            $email = 'Connected Account';
-            try {
-                $userInfo = $oauth2->userinfo->get();
-                $email = $userInfo->email;
-                Setting::setValue('google_calendar_connected_email', $email);
-            } catch (\Throwable $e) {
-                Setting::setValue('google_calendar_connected_email', $email);
-            }
-
-            ActivityLogger::log('Settings', 'update', null, null, null, 'Google Calendar account connected: ' . $email);
-
-            return redirect()->route('admin.settings.index')->with('success', 'Google Calendar connected successfully!');
-        } catch (\Throwable $e) {
-            Log::error('Google Calendar OAuth callback failed: ' . $e->getMessage());
-            return redirect()->route('admin.settings.index')->with('error', 'Failed to connect Google Calendar: ' . $e->getMessage());
-        }
-    }
-
-    public function googleCalendarDisconnect()
-    {
-        if (!auth()->user()->hasRole('super-admin')) {
-            return redirect()->route('admin.dashboard');
-        }
-
-        $email = Setting::getValue('google_calendar_connected_email', 'Connected Account');
-
-        Setting::setValue('google_calendar_oauth_token', null);
-        Setting::setValue('google_calendar_connected_email', null);
-
-        ActivityLogger::log('Settings', 'update', null, null, null, 'Google Calendar account disconnected (was: ' . $email . ')');
-
-        return redirect()->route('admin.settings.index')->with('success', 'Google Calendar disconnected successfully.');
     }
 
     public function runBackup()

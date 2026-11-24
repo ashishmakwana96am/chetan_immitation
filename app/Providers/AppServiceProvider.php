@@ -70,7 +70,6 @@ class AppServiceProvider extends ServiceProvider
             $view->with('sharedCollections', $collections);
             $view->with('sharedInstagramPosts', Setting::getInstagramPosts());
             $view->with('sharedInstagramProfileUrl', Setting::getInstagramProfileUrl());
-            $view->with('isGoogleCalendarConnected', !empty(Setting::getValue('google_calendar_oauth_token')));
         });
     }
 }

@@ -345,15 +345,6 @@ class ModuleSeeder extends Seeder
             'permission'     => 'view contact inquiries',
             'sort_order'     => 3,
         ]);
-        Module::create([
-            'parent_id'      => $websiteCategory->id,
-            'name'           => 'Video Call Bookings',
-            'icon'           => 'ti ti-video',
-            'route'          => 'admin.video-call-bookings.index',
-            'active_pattern' => 'admin/video-call-bookings*',
-            'permission'     => 'view video call bookings',
-            'sort_order'     => 4,
-        ]);
 
         // 9. Settings
         $settingsCategory = Module::create([

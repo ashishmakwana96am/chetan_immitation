@@ -44,7 +44,6 @@ use App\Http\Controllers\StateController;
 use App\Http\Controllers\SubCategoryController;
 use App\Http\Controllers\SupplierController;
 use App\Http\Controllers\UserController;
-use App\Http\Controllers\VideoCallBookingController;
 use App\Http\Controllers\Website\ProductReviewController as WebsiteProductReviewController;
 use App\Http\Controllers\Website\ProfileController as WebsiteProfileController;
 use App\Http\Controllers\WebsiteContentController;
@@ -101,8 +100,6 @@ Route::middleware('auth:customer')->group(function () {
     Route::post('/checkout/payment/cod', [CheckoutController::class, 'placeCodOrder'])->name('checkout.payment.cod');
     Route::post('/buy-now/payment/initialize', [CheckoutController::class, 'buyNowInitialize'])->name('buynow.payment.initialize');
     Route::post('/buy-now/coupon/validate', [CheckoutController::class, 'validateBuyNowCoupon'])->name('buynow.coupon.validate');
-    Route::post('/video-call/book', [VideoCallBookingController::class, 'storeCustomerBooking'])->name('video-call.book');
-    Route::post('/video-call/cancel', [VideoCallBookingController::class, 'cancelCustomerBooking'])->name('video-call.cancel');
 });
 
 Route::get('/cart', [CartController::class, 'index'])->name('cart');
@@ -149,9 +146,6 @@ Route::prefix('admin')->name('admin.')->group(function () {
         Route::get('contact-inquiries/{contactInquiry}', [ContactInquiryController::class, 'show'])->name('contact-inquiries.show');
         Route::delete('contact-inquiries/{contactInquiry}', [ContactInquiryController::class, 'destroy'])->name('contact-inquiries.destroy');
 
-        Route::get('video-call-bookings/data', [VideoCallBookingController::class, 'data'])->name('video-call-bookings.data');
-        Route::get('video-call-bookings', [VideoCallBookingController::class, 'index'])->name('video-call-bookings.index');
-        Route::post('video-call-bookings/{booking}/cancel', [VideoCallBookingController::class, 'cancel'])->name('video-call-bookings.cancel');
 
         // Products
         Route::get('products/import/sample', [ProductImportController::class, 'sample'])->name('products.import.sample');
@@ -444,9 +438,6 @@ Route::prefix('admin')->name('admin.')->group(function () {
         Route::get('settings/google-drive/connect', [SettingController::class, 'googleDriveConnect'])->name('settings.google-drive.connect');
         Route::get('settings/google-drive/callback', [SettingController::class, 'googleDriveCallback'])->name('settings.google-drive.callback');
         Route::post('settings/google-drive/disconnect', [SettingController::class, 'googleDriveDisconnect'])->name('settings.google-drive.disconnect');
-        Route::get('settings/google-calendar/connect', [SettingController::class, 'googleCalendarConnect'])->name('settings.google-calendar.connect');
-        Route::get('settings/google-calendar/callback', [SettingController::class, 'googleCalendarCallback'])->name('settings.google-calendar.callback');
-        Route::post('settings/google-calendar/disconnect', [SettingController::class, 'googleCalendarDisconnect'])->name('settings.google-calendar.disconnect');
 
         // AJAX Backup
         Route::post('settings/backup/run', [SettingController::class, 'runBackup'])->name('settings.backup.run');
