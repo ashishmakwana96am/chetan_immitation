@@ -75,21 +75,6 @@
         border-radius: 4px;
         white-space: nowrap;
     }
-    .dependency-table-card .dataTables_wrapper .dataTables_paginate .paginate_button {
-        padding: 3px 9px !important;
-        font-size: 0.8rem;
-    }
-    .dependency-table-card .dataTables_wrapper .dataTables_filter input {
-        font-size: 0.8rem;
-        padding: 4px 10px;
-        border-radius: 6px;
-        border: 1px solid #d8d6de;
-    }
-    .dependency-table-card .dataTables_wrapper .dataTables_length select {
-        font-size: 0.8rem;
-        padding: 3px 24px 3px 8px;
-        border-radius: 6px;
-    }
 </style>
 
 <div class="modal fade" id="purchaseReturnImpactModal" tabindex="-1" aria-labelledby="purchaseReturnImpactModalLabel" aria-hidden="true" data-bs-backdrop="static">
@@ -126,21 +111,21 @@
                         </ul>
                     </div>
 
-                    <div class="tab-content border rounded-3 p-3 bg-white shadow-xs mb-3 dependency-table-card" id="returnImpactTabsContent">
+                    <div class="tab-content border rounded-3 p-3 bg-white shadow-xs mb-3" id="returnImpactTabsContent">
                         <div class="tab-pane fade show active" id="returnTabPaneTransfers" role="tabpanel">
                             <div class="alert alert-primary bg-primary-subtle border-primary-subtle d-flex align-items-center py-2 px-3 mb-3 small">
                                 <i class="ti ti-info-circle fs-5 me-2 text-primary flex-shrink-0"></i>
                                 <span>Stock from this purchase was transferred via Purchase Bills. Review dependencies below:</span>
                             </div>
-                            <div class="table-responsive">
-                                <table class="table table-sm table-hover align-middle mb-0 w-100" id="returnModalTransfersTable" style="font-size: 0.82rem;">
-                                    <thead class="table-light">
+                            <div class="card-datatable table-responsive">
+                                <table class="table border-top table-hover mb-0" id="returnModalTransfersTable">
+                                    <thead>
                                         <tr>
-                                            <th style="width: 16%;">Transfer No</th>
-                                            <th style="width: 20%;">Destination Branch</th>
-                                            <th style="width: 38%;">Items & Qty</th>
-                                            <th style="width: 14%;">Transfer Date</th>
-                                            <th style="width: 12%;" class="text-center">Status</th>
+                                            <th>Transfer No</th>
+                                            <th>Destination Branch</th>
+                                            <th>Items & Qty</th>
+                                            <th>Transfer Date</th>
+                                            <th class="text-center">Status</th>
                                         </tr>
                                     </thead>
                                     <tbody id="returnModalTransfersTableBody"></tbody>
@@ -153,17 +138,17 @@
                                 <i class="ti ti-alert-triangle fs-5 me-2 text-danger flex-shrink-0"></i>
                                 <span>Sales have been recorded for items in this purchase. Please choose how to handle this return below:</span>
                             </div>
-                            <div class="table-responsive">
-                                <table class="table table-sm table-hover align-middle mb-0 w-100" id="returnModalSalesTable" style="font-size: 0.82rem;">
-                                    <thead class="table-light">
+                            <div class="card-datatable table-responsive">
+                                <table class="table border-top table-hover mb-0" id="returnModalSalesTable">
+                                    <thead>
                                         <tr>
-                                            <th style="width: 14%;">Order No</th>
-                                            <th style="width: 16%;">Customer</th>
-                                            <th style="width: 14%;">Branch</th>
-                                            <th style="width: 28%;">Items Sold</th>
-                                            <th style="width: 12%;">Date</th>
-                                            <th style="width: 9%;" class="text-end">Total</th>
-                                            <th style="width: 7%;" class="text-center">Status</th>
+                                            <th>Order No</th>
+                                            <th>Customer</th>
+                                            <th>Branch</th>
+                                            <th>Items Sold</th>
+                                            <th>Date</th>
+                                            <th class="text-end">Total</th>
+                                            <th class="text-center">Status</th>
                                         </tr>
                                     </thead>
                                     <tbody id="returnModalSalesTableBody"></tbody>

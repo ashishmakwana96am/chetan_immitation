@@ -90,7 +90,7 @@ class StockFixCommand extends Command
                 return Command::SUCCESS;
             }
 
-            $barcodes = array_values(array_unique(array_filter(array_map('trim', explode(',', $content)))));
+            $barcodes = array_values(array_unique(array_filter(array_map('trim', preg_split('/[\r\n,]+/', $content)))));
             $this->info("Loaded " . count($barcodes) . " barcodes from {$fileName}.");
             $productQuery->whereIn('barcode', $barcodes);
         } else {
@@ -305,19 +305,41 @@ class StockFixCommand extends Command
                     $totalExpected += $locExpected;
                 }
 
-                // Current inventory and batch stock before fix
                 $currentInvRows = $inventoryRows->get($pId) ?? collect();
                 $currentInventorySum = (int) $currentInvRows->sum('quantity');
 
                 $currentBatchRows = $batchStockRows->get($pId) ?? collect();
                 $currentBatchSum = (int) $currentBatchRows->sum('quantity');
 
-                $hasDifference = (abs($currentInventorySum - $totalExpected) > 0.001) || (abs($currentBatchSum - $totalExpected) > 0.001);
+                $currentInvByLoc = [];
+                foreach ($currentInvRows as $inv) {
+                    $locId = (int) $inv->location_id;
+                    $currentInvByLoc[$locId] = ($currentInvByLoc[$locId] ?? 0.0) + (float) $inv->quantity;
+                }
 
-                // Apply DB Fix
+                $currentBatchByLoc = [];
+                foreach ($currentBatchRows as $bs) {
+                    $locId = (int) $bs->location_id;
+                    $currentBatchByLoc[$locId] = ($currentBatchByLoc[$locId] ?? 0.0) + (float) $bs->quantity;
+                }
+
+                $hasDifference = (abs($currentInventorySum - $totalExpected) > 0.001) || (abs($currentBatchSum - $totalExpected) > 0.001);
+                $locationMismatchDetails = [];
+
+                foreach ($allLocations as $loc) {
+                    $locId = (int) $loc->id;
+                    $expQty = (float) ($targetInventoryByLoc[$locId] ?? 0.0);
+                    $invQty = (float) ($currentInvByLoc[$locId] ?? 0.0);
+                    $batQty = (float) ($currentBatchByLoc[$locId] ?? 0.0);
+
+                    if (abs($expQty - $invQty) > 0.001 || abs($expQty - $batQty) > 0.001 || abs($invQty - $batQty) > 0.001) {
+                        $hasDifference = true;
+                        $locationMismatchDetails[] = "Loc #{$locId} [Exp:{$expQty}, Inv:{$invQty}, Batch:{$batQty}]";
+                    }
+                }
+
                 if (!$isDryRun) {
                     DB::transaction(function () use ($product, $pId, $allLocations, $targetInventoryByLoc, $isBatchOnly) {
-                        // 1. Update inventories table per location (unless --batch-only is specified)
                         if (!$isBatchOnly) {
                             foreach ($allLocations as $loc) {
                                 $locId = (int) $loc->id;
@@ -343,12 +365,10 @@ class StockFixCommand extends Command
                             }
                         }
 
-                        // 2. Synchronize purchase_batch_stocks via PurchaseBatchService
                         foreach ($allLocations as $loc) {
                             PurchaseBatchService::syncProductBatchStocks($loc->id, $pId, null);
                         }
 
-                        // 3. Clean up any zero quantity or zero price batch rows
                         DB::table('purchase_batch_stocks')
                             ->where('product_id', $pId)
                             ->where(function ($q) {
@@ -360,6 +380,7 @@ class StockFixCommand extends Command
                 }
 
                 if ($hasDifference || $isDetailed || $products->count() <= 10) {
+                    $status = $hasDifference ? ($isDryRun ? 'Mismatched' : 'Updated') : 'Matched';
                     $fixSummary[] = [
                         'id' => $product->id,
                         'barcode' => $product->barcode ?: '(NO BARCODE)',
@@ -367,7 +388,8 @@ class StockFixCommand extends Command
                         'old_inv' => $currentInventorySum,
                         'old_batch' => $currentBatchSum,
                         'fixed_stock' => $totalExpected,
-                        'status' => $hasDifference ? 'Updated' : 'Matched',
+                        'status' => $status,
+                        'details' => !empty($locationMismatchDetails) ? implode('; ', $locationMismatchDetails) : '-',
                     ];
                 }
 
@@ -382,24 +404,23 @@ class StockFixCommand extends Command
         $progressBar->finish();
         $this->newLine(2);
 
-        // Clear Caches
         Product::clearMappedCaches();
         Product::clearPreloadedVariantStock();
 
-        // Output table
         if (!empty($fixSummary)) {
             $this->info('--- Products Fix Details ---');
             $tableRows = array_map(fn($item) => [
                 $item['id'],
                 $item['barcode'],
-                mb_strimwidth($item['name'], 0, 30, '...'),
+                mb_strimwidth($item['name'], 0, 25, '...'),
                 $item['old_inv'],
                 $item['old_batch'],
                 $item['fixed_stock'],
                 $item['status'],
+                mb_strimwidth($item['details'], 0, 50, '...'),
             ], array_slice($fixSummary, 0, 100));
 
-            $this->table(['ID', 'Barcode', 'Product Name', 'Old Inv', 'Old Batch', 'Fixed Stock', 'Status'], $tableRows);
+            $this->table(['ID', 'Barcode', 'Product Name', 'Old Inv', 'Old Batch', 'Fixed Stock', 'Status', 'Details'], $tableRows);
             if (count($fixSummary) > 100) {
                 $this->line('... and ' . (count($fixSummary) - 100) . ' more products.');
             }

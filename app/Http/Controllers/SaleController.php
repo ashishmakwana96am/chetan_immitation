@@ -778,6 +778,10 @@ class SaleController extends Controller
         ], 422);
     }
 
+    if ($request->boolean('send_whatsapp') || $request->input('send_whatsapp') == '1') {
+        $this->generateAndStoreThermalPdf($order);
+    }
+
     return response()->json(['status' => 'success', 'message' => 'Sale created successfully.', 'id' => $order->id]);
 }
 
@@ -924,6 +928,54 @@ class SaleController extends Controller
         ActivityLogger::log('Sales', 'export', $sale, null, null, 'Tax Invoice PDF exported for sale #' . $sale->order_no);
 
         return $pdf->stream('tax-invoice-' . $sale->order_no . '.pdf');
+    }
+
+    private function generateAndStoreThermalPdf(Order $sale): string
+    {
+        $oldOrderNo = $sale->getOriginal('order_no');
+        if ($oldOrderNo && $oldOrderNo !== $sale->order_no) {
+            $oldFolder = public_path('uploads/invoice/' . str_replace(['/', '\\'], '-', $oldOrderNo));
+            if (file_exists($oldFolder)) {
+                $oldFiles = glob($oldFolder . '/*');
+                if (is_array($oldFiles)) {
+                    foreach ($oldFiles as $oldFile) {
+                        if (is_file($oldFile)) {
+                            @unlink($oldFile);
+                        }
+                    }
+                }
+                @rmdir($oldFolder);
+            }
+        }
+
+        $sale->loadMissing(['customer', 'location', 'customerAddress', 'items.product.subCategory', 'items.product.category']);
+        $height = $this->measureThermalHeight($sale);
+
+        $pdf = Pdf::loadView('sales.thermal', ['order' => $sale, 'pdfHeight' => $height])
+            ->setPaper([0, 0, 216, $height], 'portrait');
+
+        $safeFolder = str_replace(['/', '\\'], '-', $sale->order_no);
+        $folderPath = public_path('uploads/invoice/' . $safeFolder);
+
+        if (!file_exists($folderPath)) {
+            mkdir($folderPath, 0777, true);
+        } else {
+            $files = glob($folderPath . '/*');
+            if (is_array($files)) {
+                foreach ($files as $file) {
+                    if (is_file($file)) {
+                        @unlink($file);
+                    }
+                }
+            }
+        }
+
+        $fileName = 'Thermal Receipt ' . $safeFolder . '.pdf';
+        $fullPath = $folderPath . '/' . $fileName;
+
+        file_put_contents($fullPath, $pdf->output());
+
+        return $fullPath;
     }
 
     private function measureThermalHeight(Order $sale): int
@@ -1690,6 +1742,10 @@ class SaleController extends Controller
                 'status' => 'error',
                 'message' => ['items' => [$e->getMessage()]],
             ], 422);
+        }
+
+        if ($request->boolean('send_whatsapp') || $request->input('send_whatsapp') == '1') {
+            $this->generateAndStoreThermalPdf($sale);
         }
 
         return response()->json(['status' => 'success', 'message' => 'Sale updated successfully.', 'id' => $sale->id]);

@@ -224,15 +224,23 @@ class PurchaseStockService
             ?? $purchase->location_id
             ?? 1;
 
-        // Build signatures of items in this purchase to match by product, variant, and exact purchase_price
         $purchaseItemSignatures = $purchase->items->map(function ($pi) {
             return [
                 'id'                 => $pi->id,
                 'product_id'         => (int) $pi->product_id,
                 'product_variant_id' => (int) ($pi->product_variant_id ?? 0),
                 'purchase_price'     => (float) $pi->purchase_price,
+                'quantity'           => (int) $pi->quantity,
             ];
         });
+
+        $remainingTransferCapacity = [];
+        $remainingSalesCapacity = [];
+        foreach ($purchase->items as $pi) {
+            $key = $pi->product_id . '_' . (int)($pi->product_variant_id ?? 0) . '_' . number_format((float)$pi->purchase_price, 2, '.', '');
+            $remainingTransferCapacity[$key] = ($remainingTransferCapacity[$key] ?? 0) + (int) $pi->quantity;
+            $remainingSalesCapacity[$key] = ($remainingSalesCapacity[$key] ?? 0) + (int) $pi->quantity;
+        }
 
         $createdAtMin = $purchase->created_at ? $purchase->created_at->copy()->subMinutes(5) : null;
 
@@ -251,6 +259,8 @@ class PurchaseStockService
 
         $transfers = PurchaseBill::with(['fromLocation', 'toLocation', 'items.product', 'items.variant'])
             ->whereIn('id', $matchingTransferBillIds)
+            ->orderBy('created_at', 'asc')
+            ->orderBy('id', 'asc')
             ->get();
 
         $toLocationIds = $transfers->pluck('to_location_id')->unique()->all();
@@ -270,21 +280,29 @@ class PurchaseStockService
 
                 if (!$matchesThisPurchase) continue;
 
+                $priceKey = number_format((float)$tbItem->purchase_price, 2, '.', '');
+                $itemKey = $tbItem->product_id . '_' . ($tbItem->product_variant_id ?? 0) . '_' . $priceKey;
+                $cap = $remainingTransferCapacity[$itemKey] ?? 0;
+                if ($cap <= 0) continue;
+
+                $takeQty = min((int)$tbItem->quantity, $cap);
+                $remainingTransferCapacity[$itemKey] -= $takeQty;
+
                 $prod = $tbItem->product;
                 $vName = $tbItem->variant?->name ?? $tbItem->variant?->attributeValue?->value;
                 $prodName = $prod?->name ?? 'Product #' . $tbItem->product_id;
                 if ($vName) {
                     $prodName .= ' (' . $vName . ')';
                 }
-                $qtyLabel = self::formatItemQtyLabel($prod, $tbItem->quantity, $tbItem->pair_type ?? null, $tbItem->custom_size_value ?? null);
+                $qtyLabel = self::formatItemQtyLabel($prod, $takeQty, $tbItem->pair_type ?? null, $tbItem->custom_size_value ?? null);
                 $matchingItems[] = [
                     'product_name' => $prodName,
                     'price'        => (float) $tbItem->purchase_price,
                     'barcode'      => $tbItem->variant?->barcode ?: ($prod?->barcode ?: ''),
-                    'quantity'     => (int) $tbItem->quantity,
+                    'quantity'     => $takeQty,
                     'qty_label'    => $qtyLabel,
                 ];
-                $totalQty += (int) $tbItem->quantity;
+                $totalQty += $takeQty;
             }
 
             if (!empty($matchingItems)) {
@@ -309,11 +327,10 @@ class PurchaseStockService
             ->unique()
             ->all();
 
-        $createdAtMin = $purchase->created_at ? $purchase->created_at->copy()->subMinutes(5) : null;
-
         $matchingOrderItems = OrderItem::query()
             ->with(['product', 'order'])
             ->whereIn('product_id', $productIds)
+            ->whereNull('purchase_item_id')
             ->whereNull('deleted_at')
             ->whereHas('order', function ($q) use ($createdAtMin) {
                 $q->whereNull('deleted_at')->where('order_type', 'sale')->where('status', '!=', Order::STATUS_CANCELLED);
@@ -321,13 +338,18 @@ class PurchaseStockService
                     $q->where('created_at', '>=', $createdAtMin);
                 }
             })
+            ->orderBy('id', 'asc')
             ->get();
 
         $orderIdsLocation = [];
         foreach ($matchingOrderItems as $moi) {
             foreach ($purchaseItemSignatures as $sig) {
                 if (self::isMatchingOrderItemSingle($moi, $sig)) {
-                    $orderIdsLocation[] = $moi->order_id;
+                    $key = $sig['product_id'] . '_' . $sig['product_variant_id'] . '_' . number_format((float)$sig['purchase_price'], 2, '.', '');
+                    $cap = $remainingSalesCapacity[$key] ?? 0;
+                    if ($cap > 0) {
+                        $orderIdsLocation[] = $moi->order_id;
+                    }
                     break;
                 }
             }
@@ -337,10 +359,12 @@ class PurchaseStockService
 
         $orders = Order::with(['customer', 'location', 'items.product', 'items.variant'])
             ->whereIn('id', $allOrderIds)
-            ->orderByDesc('id')
+            ->orderBy('created_at', 'asc')
+            ->orderBy('id', 'asc')
             ->get();
 
-        $salesData = $orders->map(function ($order) use ($purchaseItemSignatures) {
+        $salesData = [];
+        foreach ($orders as $order) {
             $paymentStatusLabels = [
                 1 => 'Pending',
                 2 => 'Paid',
@@ -353,39 +377,49 @@ class PurchaseStockService
             foreach ($order->items as $oi) {
                 foreach ($purchaseItemSignatures as $sig) {
                     if (self::isMatchingOrderItemSingle($oi, $sig)) {
+                        $priceKey = number_format((float)$sig['purchase_price'], 2, '.', '');
+                        $itemKey = $sig['product_id'] . '_' . $sig['product_variant_id'] . '_' . $priceKey;
+                        $cap = $remainingSalesCapacity[$itemKey] ?? 0;
+                        if ($cap <= 0) break;
+
+                        $takeQty = min((int)$oi->quantity, $cap);
+                        $remainingSalesCapacity[$itemKey] -= $takeQty;
+
                         $prod = $oi->product;
                         $vName = $oi->variant?->name ?? $oi->variant?->attributeValue?->value;
                         $prodName = $prod?->name ?? 'Product #' . $oi->product_id;
                         if ($vName) {
                             $prodName .= ' (' . $vName . ')';
                         }
-                        $qtyLabel = self::formatItemQtyLabel($prod, $oi->quantity, $oi->pair_type ?? null, $oi->custom_size_value ?? null);
+                        $qtyLabel = self::formatItemQtyLabel($prod, $takeQty, $oi->pair_type ?? null, $oi->custom_size_value ?? null);
                         $matchingItems[] = [
                             'product_name' => $prodName,
                             'barcode'      => $oi->variant?->barcode ?: ($prod?->barcode ?: ''),
-                            'quantity'     => (int) $oi->quantity,
+                            'quantity'     => $takeQty,
                             'qty_label'    => $qtyLabel,
                         ];
-                        $totalSoldQtyFromThisPurchase += (int) $oi->quantity;
+                        $totalSoldQtyFromThisPurchase += $takeQty;
                         break;
                     }
                 }
             }
 
-            return [
-                'id'               => $order->id,
-                'order_no'         => $order->order_no,
-                'customer_name'    => $order->customer?->name ?? 'Walk-in',
-                'location_name'    => $order->location?->name ?? '-',
-                'location_id'      => $order->location_id,
-                'items_count'      => $totalSoldQtyFromThisPurchase > 0 ? $totalSoldQtyFromThisPurchase : (int) $order->items->sum('quantity'),
-                'matching_items'   => $matchingItems,
-                'final_amount'     => format_price($order->final_amount),
-                'final_amount_raw' => (float) $order->final_amount,
-                'payment_status'   => $paymentStatusLabels[$order->payment_status] ?? 'Pending',
-                'created_at'       => $order->created_at->format('d M Y, h:i A'),
-            ];
-        })->values()->all();
+            if (!empty($matchingItems)) {
+                $salesData[] = [
+                    'id'               => $order->id,
+                    'order_no'         => $order->order_no,
+                    'customer_name'    => $order->customer?->name ?? 'Walk-in',
+                    'location_name'    => $order->location?->name ?? '-',
+                    'location_id'      => $order->location_id,
+                    'items_count'      => $totalSoldQtyFromThisPurchase,
+                    'matching_items'   => $matchingItems,
+                    'final_amount'     => format_price($order->final_amount),
+                    'final_amount_raw' => (float) $order->final_amount,
+                    'payment_status'   => $paymentStatusLabels[$order->payment_status] ?? 'Pending',
+                    'created_at'       => $order->created_at->format('d M Y, h:i A'),
+                ];
+            }
+        }
 
         return [
             'purchase' => [
@@ -408,8 +442,8 @@ class PurchaseStockService
      */
     public static function isMatchingOrderItemSingle($oi, array $sig): bool
     {
-        if (!empty($oi->purchase_item_id) && (int)$oi->purchase_item_id === (int)$sig['id']) {
-            return true;
+        if (!empty($oi->purchase_item_id)) {
+            return (int)$oi->purchase_item_id === (int)$sig['id'];
         }
 
         if ((int)$oi->product_id !== (int)$sig['product_id']) {
@@ -476,18 +510,21 @@ class PurchaseStockService
             ->whereIn('purchase_item_id', $purchaseItemIds)
             ->whereNull('deleted_at')
             ->whereHas('order', fn($q) => $q->whereNull('deleted_at')->where('order_type', 'sale')->where('status', '!=', Order::STATUS_CANCELLED))
+            ->orderBy('id', 'asc')
             ->get();
 
         $orderItemsByProdQuery = OrderItem::query()
             ->with(['product', 'order'])
             ->whereIn('product_id', $productIds)
+            ->whereNull('purchase_item_id')
             ->whereNull('deleted_at')
             ->whereHas('order', function ($q) use ($createdAtMin) {
                 $q->whereNull('deleted_at')->where('order_type', 'sale')->where('status', '!=', Order::STATUS_CANCELLED);
                 if ($createdAtMin) {
                     $q->where('created_at', '>=', $createdAtMin);
                 }
-            });
+            })
+            ->orderBy('id', 'asc');
 
         $orderItemsByProd = $orderItemsByProdQuery->get();
         $allSoldItems = $orderItemsDirect->merge($orderItemsByProd)->unique('id');
@@ -537,19 +574,42 @@ class PurchaseStockService
                 'product_id'         => (int) $pi->product_id,
                 'product_variant_id' => (int) ($pi->product_variant_id ?? 0),
                 'purchase_price'     => (float) $pi->purchase_price,
+                'quantity'           => (int) $pi->quantity,
             ];
         });
 
-        // 1. Direct match by purchase_item_id
+        $remainingSalesCapacity = [];
+        foreach ($purchase->items as $pi) {
+            $key = $pi->product_id . '_' . (int)($pi->product_variant_id ?? 0) . '_' . number_format((float)$pi->purchase_price, 2, '.', '');
+            $remainingSalesCapacity[$key] = ($remainingSalesCapacity[$key] ?? 0) + (int) $pi->quantity;
+        }
+
+        $itemsToRemove = [];
+        $affectedOrderIds = [];
+
         $orderItemsDirect = OrderItem::whereIn('purchase_item_id', $purchaseItemIds)
             ->whereNull('deleted_at')
             ->whereHas('order', fn($q) => $q->whereNull('deleted_at')->where('order_type', 'sale')->where('status', '!=', Order::STATUS_CANCELLED))
+            ->orderBy('id', 'asc')
             ->get();
 
-        // 2. Match by product_id and signature within recent timeframe
+        foreach ($orderItemsDirect as $oi) {
+            $key = $oi->product_id . '_' . (int)($oi->product_variant_id ?? 0) . '_' . number_format((float)($oi->purchase_price ?? 0), 2, '.', '');
+            $takeQty = (int) $oi->quantity;
+            if (isset($remainingSalesCapacity[$key])) {
+                $takeQty = min($takeQty, max(0, $remainingSalesCapacity[$key]));
+                $remainingSalesCapacity[$key] -= $takeQty;
+            }
+            if ($takeQty > 0) {
+                $itemsToRemove[$oi->id] = $takeQty;
+                $affectedOrderIds[] = $oi->order_id;
+            }
+        }
+
         $createdAtMin = $purchase->created_at ? $purchase->created_at->copy()->subMinutes(5) : null;
         $orderItemsByProd = OrderItem::with(['product', 'order'])
             ->whereIn('product_id', $productIds)
+            ->whereNull('purchase_item_id')
             ->whereNull('deleted_at')
             ->whereHas('order', function ($q) use ($createdAtMin) {
                 $q->whereNull('deleted_at')->where('order_type', 'sale')->where('status', '!=', Order::STATUS_CANCELLED);
@@ -557,47 +617,56 @@ class PurchaseStockService
                     $q->where('created_at', '>=', $createdAtMin);
                 }
             })
+            ->orderBy('id', 'asc')
             ->get();
 
-        $allMatchingOrderItems = $orderItemsDirect->merge($orderItemsByProd)->unique('id');
-
-        $orderItemIdsToDelete = [];
-        $affectedOrderIds = [];
-
-        foreach ($allMatchingOrderItems as $oi) {
+        foreach ($orderItemsByProd as $oi) {
             foreach ($purchaseItemSignatures as $sig) {
                 if (self::isMatchingOrderItemSingle($oi, $sig)) {
-                    $orderItemIdsToDelete[] = $oi->id;
+                    $key = $sig['product_id'] . '_' . $sig['product_variant_id'] . '_' . number_format((float)$sig['purchase_price'], 2, '.', '');
+                    $cap = $remainingSalesCapacity[$key] ?? 0;
+                    if ($cap <= 0) break;
+
+                    $takeQty = min((int)$oi->quantity, $cap);
+                    $remainingSalesCapacity[$key] -= $takeQty;
+
+                    $itemsToRemove[$oi->id] = $takeQty;
                     $affectedOrderIds[] = $oi->order_id;
                     break;
                 }
             }
         }
 
-        $orderItemIdsToDelete = array_unique($orderItemIdsToDelete);
         $affectedOrderIds = array_unique($affectedOrderIds);
 
-        if (empty($affectedOrderIds)) {
+        if (empty($affectedOrderIds) || empty($itemsToRemove)) {
             return;
         }
 
         $orders = Order::with(['items', 'salePayments', 'customer'])->whereIn('id', $affectedOrderIds)->get();
 
         foreach ($orders as $order) {
-            $matchingItems = $order->items->whereIn('id', $orderItemIdsToDelete);
+            $orderItemIds = array_keys($itemsToRemove);
+            $matchingItems = $order->items->whereIn('id', $orderItemIds);
             if ($matchingItems->isEmpty()) {
                 continue;
             }
 
-            $totalItemsCount = $order->items->count();
-            $matchingItemsCount = $matchingItems->count();
+            $allOrderItemsFullyRemoved = true;
+            foreach ($order->items as $it) {
+                $rmQty = $itemsToRemove[$it->id] ?? 0;
+                if ($rmQty < (int)$it->quantity) {
+                    $allOrderItemsFullyRemoved = false;
+                    break;
+                }
+            }
 
-            // If ALL items in the order belong to this purchase, delete the entire order
-            if ($matchingItemsCount >= $totalItemsCount) {
+            if ($allOrderItemsFullyRemoved) {
                 foreach ($matchingItems as $itemToDelete) {
+                    $rmQty = $itemsToRemove[$itemToDelete->id] ?? (int)$itemToDelete->quantity;
                     $prod = $itemToDelete->product ?? Product::find($itemToDelete->product_id);
                     $multiplier = self::multiplierForProduct($prod, $itemToDelete->pair_type ?? null, $itemToDelete->custom_size_value ?? null);
-                    $qtyToRestore = (int) round($itemToDelete->quantity * $multiplier);
+                    $qtyToRestore = (int) round($rmQty * $multiplier);
 
                     $inventory = Inventory::firstOrCreate(
                         [
@@ -624,11 +693,11 @@ class PurchaseStockService
                 continue;
             }
 
-            // Otherwise, delete only the matching order items
             foreach ($matchingItems as $itemToDelete) {
+                $rmQty = $itemsToRemove[$itemToDelete->id] ?? (int)$itemToDelete->quantity;
                 $prod = $itemToDelete->product ?? Product::find($itemToDelete->product_id);
                 $multiplier = self::multiplierForProduct($prod, $itemToDelete->pair_type ?? null, $itemToDelete->custom_size_value ?? null);
-                $qtyToRestore = (int) round($itemToDelete->quantity * $multiplier);
+                $qtyToRestore = (int) round($rmQty * $multiplier);
 
                 $inventory = Inventory::firstOrCreate(
                     [
@@ -651,7 +720,16 @@ class PurchaseStockService
                     (float)$qtyToRestore
                 );
 
-                $itemToDelete->delete();
+                if ($rmQty >= (int)$itemToDelete->quantity) {
+                    $itemToDelete->delete();
+                } else {
+                    $newQty = (int)$itemToDelete->quantity - $rmQty;
+                    $unitPrice = (float) $itemToDelete->price;
+                    $itemToDelete->update([
+                        'quantity' => $newQty,
+                        'total'    => round($newQty * $unitPrice, 2),
+                    ]);
+                }
             }
 
             // Reload remaining items
@@ -835,7 +913,15 @@ class PurchaseStockService
 
         $transfers = PurchaseBill::with(['items.product', 'items.variant'])
             ->whereIn('id', $matchingTransferBillIds)
+            ->orderBy('created_at', 'asc')
+            ->orderBy('id', 'asc')
             ->get();
+
+        $remainingTransferCapacity = [];
+        foreach ($purchase->items as $pi) {
+            $key = $pi->product_id . '_' . (int)($pi->product_variant_id ?? 0) . '_' . number_format((float)$pi->purchase_price, 2, '.', '');
+            $remainingTransferCapacity[$key] = ($remainingTransferCapacity[$key] ?? 0) + (int) $pi->quantity;
+        }
 
         $transfersInByProductLoc = [];
         $transfersOutByProductLoc = [];
@@ -851,10 +937,15 @@ class PurchaseStockService
                 });
                 if (!$matchesThisPurchase) continue;
 
-                $multiplier = self::multiplierForProduct($tbItem->product, $tbItem->pair_type, $tbItem->custom_size_value);
-                $qty = (int) round($tbItem->quantity * $multiplier);
                 $priceKey = number_format((float)$tbItem->purchase_price, 2, '.', '');
                 $itemKey = $tbItem->product_id . '_' . ($tbItem->product_variant_id ?? 0) . '_' . $priceKey;
+                $cap = $remainingTransferCapacity[$itemKey] ?? 0;
+                if ($cap <= 0) continue;
+
+                $multiplier = self::multiplierForProduct($tbItem->product, $tbItem->pair_type, $tbItem->custom_size_value);
+                $takeQty = min((int)$tbItem->quantity, $cap);
+                $remainingTransferCapacity[$itemKey] -= $takeQty;
+                $qty = (int) round($takeQty * $multiplier);
 
                 $toKey = $itemKey . '_' . $transfer->to_location_id;
                 $transfersInByProductLoc[$toKey] = ($transfersInByProductLoc[$toKey] ?? 0) + $qty;
@@ -950,6 +1041,12 @@ class PurchaseStockService
                 }
             }
 
+            $remainingDeductCapacity = [];
+            foreach ($purchase->items as $pi) {
+                $key = $pi->product_id . '_' . (int)($pi->product_variant_id ?? 0) . '_' . number_format((float)$pi->purchase_price, 2, '.', '');
+                $remainingDeductCapacity[$key] = ($remainingDeductCapacity[$key] ?? 0) + (int) $pi->quantity;
+            }
+
             foreach ($transfers as $transfer) {
                 if ($transfer->status == PurchaseBill::STATUS_REJECTED) continue;
 
@@ -963,7 +1060,14 @@ class PurchaseStockService
 
                     if (!$matchingPurchaseItem) continue;
 
-                    $deductBillItemQty = (int) min((int)$tbItem->quantity, (int)$matchingPurchaseItem->quantity);
+                    $priceKey = number_format((float)$tbItem->purchase_price, 2, '.', '');
+                    $itemKey = $tbItem->product_id . '_' . ($tbItem->product_variant_id ?? 0) . '_' . $priceKey;
+                    $cap = $remainingDeductCapacity[$itemKey] ?? 0;
+                    if ($cap <= 0) continue;
+
+                    $deductBillItemQty = (int) min((int)$tbItem->quantity, $cap);
+                    $remainingDeductCapacity[$itemKey] -= $deductBillItemQty;
+
                     $newBillItemQty = max(0, (int)$tbItem->quantity - $deductBillItemQty);
 
                     if ($newBillItemQty <= 0) {

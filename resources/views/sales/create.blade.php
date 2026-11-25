@@ -477,6 +477,11 @@
                         </button>
                     </div>
                     <div class="col-12">
+                        <button type="submit" class="btn w-100 text-white" id="submitBtnWhatsApp" data-print="0" style="background-color: #128C7E; border-color: #128C7E; color: #ffffff;" onmouseover="this.style.backgroundColor='#0d7065'; this.style.borderColor='#0d7065';" onmouseout="this.style.backgroundColor='#128C7E'; this.style.borderColor='#128C7E';">
+                            <i class="ti ti-brand-whatsapp me-1 fs-5"></i> Save with WhatsApp
+                        </button>
+                    </div>
+                    <div class="col-12">
                         <a href="{{ route('admin.sales.index') }}" class="btn btn-label-secondary w-100 d-flex align-items-center justify-content-center">Cancel</a>
                     </div>
                 </div>
@@ -2229,7 +2234,7 @@ $(document).ready(function () {
     }
 
     let activeSubmitBtn = null;
-    $('#submitBtnPrint, #submitBtnNoPrint').on('click', function (e) {
+    $('#submitBtnPrint, #submitBtnNoPrint, #submitBtnWhatsApp').on('click', function (e) {
         activeSubmitBtn = $(this);
         printAfterSave = $(this).data('print') == 1;
 
@@ -2323,11 +2328,17 @@ $(document).ready(function () {
             submitIdx++;
         });
 
+        if (activeSubmitBtn && activeSubmitBtn.attr('id') === 'submitBtnWhatsApp') {
+            hiddenContainer.append('<input type="hidden" name="send_whatsapp" value="1">');
+        }
+
         const submitBtnPrint = $('#submitBtnPrint');
         const submitBtnNoPrint = $('#submitBtnNoPrint');
+        const submitBtnWhatsApp = $('#submitBtnWhatsApp');
         submitBtnPrint.prop('disabled', true);
         submitBtnNoPrint.prop('disabled', true);
-        (printAfterSave ? submitBtnPrint : submitBtnNoPrint)
+        submitBtnWhatsApp.prop('disabled', true);
+        (activeSubmitBtn || submitBtnPrint)
             .html('<span class="spinner-border spinner-border-sm me-1"></span> Saving...');
 
         $.ajax({
@@ -2353,6 +2364,7 @@ $(document).ready(function () {
                 } else {
                     submitBtnPrint.prop('disabled', false).html('<i class="ti ti-printer me-1"></i> Save with Print');
                     submitBtnNoPrint.prop('disabled', false).html('<i class="ti ti-device-floppy me-1"></i> Save without Print');
+                    submitBtnWhatsApp.prop('disabled', false).html('<i class="ti ti-brand-whatsapp me-1 fs-5"></i> Save with WhatsApp');
                     closePendingPrintTab();
                     toastr.error(res?.message || 'Something went wrong. Please try again.');
                 }
@@ -2362,6 +2374,7 @@ $(document).ready(function () {
                 hiddenContainer.remove();
                 submitBtnPrint.prop('disabled', false).html('<i class="ti ti-printer me-1"></i> Save with Print');
                 submitBtnNoPrint.prop('disabled', false).html('<i class="ti ti-device-floppy me-1"></i> Save without Print');
+                submitBtnWhatsApp.prop('disabled', false).html('<i class="ti ti-brand-whatsapp me-1 fs-5"></i> Save with WhatsApp');
                 closePendingPrintTab();
 
                 const responseJSON = xhr.responseJSON;

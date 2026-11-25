@@ -667,25 +667,17 @@
                     $(tableSelector).DataTable().destroy();
                 }
                 return $(tableSelector).DataTable({
-                    paging: rowCount > 5,
+                    paging: true,
                     pageLength: 5,
-                    lengthChange: rowCount > 5,
+                    lengthChange: true,
                     lengthMenu: [5, 10, 25],
-                    searching: rowCount > 5,
+                    searching: true,
                     ordering: false,
-                    info: rowCount > 5,
-                    autoWidth: false,
+                    info: true,
                     responsive: false,
-                    dom: '<"d-flex justify-content-between align-items-center mb-2 flex-wrap gap-2"<"d-flex align-items-center"l><"ms-auto"f>>t<"d-flex justify-content-between align-items-center mt-2 flex-wrap gap-2"<"small text-muted"i><"ms-auto"p>>',
                     language: {
                         search: '',
-                        searchPlaceholder: searchPlaceholder,
-                        lengthMenu: '_MENU_',
-                        info: 'Showing _START_-_END_ of _TOTAL_',
-                        paginate: {
-                            previous: '<i class="ti ti-chevron-left"></i>',
-                            next: '<i class="ti ti-chevron-right"></i>'
-                        }
+                        searchPlaceholder: searchPlaceholder
                     }
                 });
             }
