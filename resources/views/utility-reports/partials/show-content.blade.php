@@ -1155,7 +1155,7 @@
                                 foreach ($oldStockItems as $oldItem) {
                                     $oldItem = (array) $oldItem;
 
-                                    $matchKey = ($oldItem['product_id'] ?? $oldItem['product_name'] ?? '') . '|' .
+                                    $matchKey = ($oldItem['product_id'] ?? $oldItem['product_name'] ?? $oldItem['product'] ?? '') . '|' .
                                                 ($oldItem['location_id'] ?? $oldItem['location'] ?? '');
 
                                     $stockRows[$matchKey]['old'] = $oldItem;
@@ -1164,11 +1164,17 @@
                                 foreach ($newStockItems as $newItem) {
                                     $newItem = (array) $newItem;
 
-                                    $matchKey = ($newItem['product_id'] ?? $newItem['product_name'] ?? '') . '|' .
+                                    $matchKey = ($newItem['product_id'] ?? $newItem['product_name'] ?? $newItem['product'] ?? '') . '|' .
                                                 ($newItem['location_id'] ?? $newItem['location'] ?? '');
 
                                     $stockRows[$matchKey]['new'] = $newItem;
                                 }
+
+                                $hasAnyActualChange = collect($stockRows)->contains(function($r) {
+                                    $o = isset($r['old']['stock']) ? (float)$r['old']['stock'] : (float)($r['old']['quantity'] ?? 0);
+                                    $n = isset($r['new']['stock']) ? (float)$r['new']['stock'] : (float)($r['new']['quantity'] ?? 0);
+                                    return abs($n - $o) > 0.001;
+                                });
                             @endphp
 
                             <td colspan="3" class="p-3">
@@ -1202,10 +1208,6 @@
 
                                                         $item = !empty($new) ? $new : $old;
 
-                                                        $productName = $item['product_name'] ?? '-';
-                                                        $barcode = $item['barcode'] ?? '-';
-                                                        $location = $item['location'] ?? '-';
-
                                                         $oldStock = isset($old['stock'])
                                                             ? (float) $old['stock']
                                                             : (float) ($old['quantity'] ?? 0);
@@ -1215,6 +1217,21 @@
                                                             : (float) ($new['quantity'] ?? 0);
 
                                                         $change = $newStock - $oldStock;
+
+                                                        if ($hasAnyActualChange && abs($change) < 0.001) {
+                                                            continue;
+                                                        }
+
+                                                        $productId = $item['product_id'] ?? ($old['product_id'] ?? null);
+                                                        $product = $productId ? \App\Models\Product::withTrashed()->find($productId) : null;
+                                                        $productName = $item['product_name'] ?? $item['product'] ?? $item['name'] ?? ($old['product_name'] ?? $old['product'] ?? ($product?->name ?? '-'));
+
+                                                        if (!$product && $productName !== '-') {
+                                                            $product = \App\Models\Product::withTrashed()->where('name', $productName)->first();
+                                                        }
+
+                                                        $barcode = $item['barcode'] ?? ($old['barcode'] ?? ($product?->barcode ?: '-'));
+                                                        $location = $item['location'] ?? ($old['location'] ?? ($item['location_name'] ?? '-'));
                                                     @endphp
                                                     <tr>
                                                         <td>

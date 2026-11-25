@@ -1221,10 +1221,8 @@ class PurchaseController extends Controller
         $wasApproved = ((int) $purchase->status === Purchase::STATUS_APPROVE);
 
         DB::transaction(function () use ($purchase, $isCascade, $purchaseLocationId, $allAffectedLocations, $productIds, $paidAmount, $wasApproved) {
-            // 1. Restore supplier advance
             SupplierAdvancePayment::restoreAdvanceForPurchase($purchase);
 
-            // Mark purchase as cancelled FIRST so that syncProductBatchStocks sees it as cancelled
             Purchase::withoutEvents(function () use ($purchase) {
                 $purchase->update([
                     'status'         => Purchase::STATUS_CANCELLED,
@@ -1234,14 +1232,12 @@ class PurchaseController extends Controller
             });
 
             if ($isCascade) {
-                // 2. Cascade reversal of associated sales & transfers
                 PurchaseStockService::adjustOrDeleteSalesForPurchase($purchase);
 
                 if ($wasApproved) {
                     PurchaseStockService::reversePurchaseWithTransfers($purchase, deleteSales: true, reason: 'deletion');
                 }
             } else {
-                // Option 1: Only return purchase at purchase location
                 if ($wasApproved) {
                     foreach ($purchase->items as $item) {
                         $multiplier = PurchaseStockService::multiplierForProduct($item->product, $item->pair_type ?? null, $item->custom_size_value ?? null);
@@ -1265,7 +1261,6 @@ class PurchaseController extends Controller
                 }
             }
 
-            // 3. Sync batch stocks across all affected locations
             foreach ($allAffectedLocations as $locId) {
                 foreach ($productIds as $prodId) {
                     PurchaseBatchService::syncProductBatchStocks((int)$locId, (int)$prodId);
