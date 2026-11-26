@@ -114,6 +114,9 @@ class ProductController extends Controller
                 $q->where(function ($sub) use ($search) {
                     $sub->where('products.name', 'like', "%{$search}%")
                         ->orWhere('products.barcode', 'like', "%{$search}%")
+                        ->orWhereHas('variants', function ($variants) use ($search) {
+                            $variants->where('product_variants.barcode', 'like', "%{$search}%");
+                        })
                         ->orWhere('products.product_code', 'like', "%{$search}%");
                 });
             });
@@ -252,7 +255,7 @@ class ProductController extends Controller
 
             $variantsList = $product->type === 'variable'
                 ? $product->variants->filter(fn($v) => $v->attributeValue)
-                    ->map(fn($v) => ['id' => $v->id, 'value' => $v->attributeValue->value ?? ''])
+                    ->map(fn($v) => ['id' => $v->id, 'value' => $v->attributeValue->value ?? '', 'barcode' => $v->barcode])
                     ->values()->toArray()
                 : [];
 
@@ -381,7 +384,9 @@ class ProductController extends Controller
                 $variantLabel = null;
                 if (!empty($item['selected_variant_id'])) {
                     $selectedVariant = $product->variants->firstWhere('id', (int) $item['selected_variant_id']);
-                    $variantLabel = $selectedVariant?->attributeValue?->value;
+                    abort_unless($selectedVariant?->barcode, 422, 'The selected variant does not have a barcode.');
+                    $barcodeVal = $selectedVariant->barcode;
+                    $variantLabel = $selectedVariant->attributeValue?->value;
                 }
                 
                 $salePriceVal = $product->sale_price;
@@ -500,9 +505,10 @@ class ProductController extends Controller
             'subCategory' => fn($q) => $q->whereNull('sub_categories.deleted_at'),
             'collection' => fn($q) => $q->whereNull('collections.deleted_at'),
             'collections',
-            'images',
+            'allImages.variant.attributeValue.attribute',
             'createdBy',
-            'variants.attributeValue',
+            'variants.attributeValue.attribute',
+            'variants.images',
             'inventories.location'
         ]);
 
@@ -779,7 +785,7 @@ class ProductController extends Controller
             'collection_ids'           => ['nullable', 'array'],
             'collection_ids.*'         => ['exists:collections,id'],
             'collection_id'            => ['nullable', 'exists:collections,id'],
-            'barcode'                  => ['required', 'string', 'max:100', 'unique:products,barcode'],
+            'barcode'                  => ['required', 'string', 'max:100', 'unique:products,barcode', 'unique:product_variants,barcode'],
             'description'              => ['nullable', 'string'],
             'additional_information'   => ['nullable', 'string'],
             'product_highlights'        => ['nullable', 'string'],
@@ -974,7 +980,7 @@ class ProductController extends Controller
                 $variants = json_decode($request->variants_json, true);
                 foreach ($variants as $item) {
                     $variantSizes = $request->has('pair_product') ? ($item['custom_sizes'] ?? []) : [];
-                    ProductVariant::create([
+                    $variant = ProductVariant::create([
                         'product_id'         => $product->id,
                         'attribute_value_id' => $item['attribute_value_id'],
                         'purchase_price'     => $item['purchase_price'] ?? 0,
@@ -982,6 +988,24 @@ class ProductController extends Controller
                         'status'             => ($item['status'] ?? 1) == 1 ? 1 : 2,
                         'custom_sizes'       => !empty($variantSizes) ? $variantSizes : null,
                     ]);
+
+                    if (!empty($item['images']) && is_array($item['images'])) {
+                        foreach ($item['images'] as $imgData) {
+                            $base64 = $imgData['base64'] ?? ($imgData['image_base64'] ?? null);
+                            if ($base64) {
+                                $imagePath = $this->saveBase64Image($base64, 'products', $product->barcode, $variant->barcode);
+                                if ($imagePath) {
+                                    ProductImage::create([
+                                        'product_id'         => $product->id,
+                                        'product_variant_id' => $variant->id,
+                                        'image_path'         => $imagePath,
+                                        'is_primary'         => !empty($imgData['is_primary']),
+                                        'created_by'         => auth()->id(),
+                                    ]);
+                                }
+                            }
+                        }
+                    }
                 }
             }
         });
@@ -1004,7 +1028,7 @@ class ProductController extends Controller
             ->orderBy('name')
             ->get();
         $attributes = \Cache::remember('active_attributes_list', 3600, fn() => Attribute::with('values')->where('status', 1)->orderBy('name')->get());
-        $product->load('images', 'variants.attributeValue', 'collections');
+        $product->load('images', 'variants.attributeValue', 'variants.images', 'collections');
         return view('products.edit', compact('product', 'categories', 'collections', 'subCategories', 'attributes'));
     }
 
@@ -1019,7 +1043,7 @@ class ProductController extends Controller
             'collection_ids'           => ['nullable', 'array'],
             'collection_ids.*'         => ['exists:collections,id'],
             'collection_id'            => ['nullable', 'exists:collections,id'],
-            'barcode'                  => ['required', 'string', 'max:100', 'unique:products,barcode,' . $product->id],
+            'barcode'                  => ['required', 'string', 'max:100', 'unique:products,barcode,' . $product->id, 'unique:product_variants,barcode'],
             'description'              => ['nullable', 'string'],
             'additional_information'   => ['nullable', 'string'],
             'product_highlights'        => ['nullable', 'string'],
@@ -1318,18 +1342,69 @@ class ProductController extends Controller
 
                     if ($existingVariant = $existingVariants->get($attributeValueId)) {
                         $existingVariant->update($variantData);
+                        $variant = $existingVariant;
                     } else {
-                        ProductVariant::create($variantData + [
+                        $variant = ProductVariant::create($variantData + [
                             'product_id'         => $product->id,
                             'attribute_value_id' => $attributeValueId,
                         ]);
                     }
+
+                    if (isset($item['images']) && is_array($item['images'])) {
+                        $keptImageIds = [];
+                        foreach ($item['images'] as $imgData) {
+                            if (!empty($imgData['id'])) {
+                                $keptImageIds[] = (int) $imgData['id'];
+                                ProductImage::where('id', $imgData['id'])
+                                    ->where('product_variant_id', $variant->id)
+                                    ->update(['is_primary' => !empty($imgData['is_primary'])]);
+                            } elseif (!empty($imgData['base64'])) {
+                                $imagePath = $this->saveBase64Image($imgData['base64'], 'products', $product->barcode, $variant->barcode);
+                                if ($imagePath) {
+                                    $newImg = ProductImage::create([
+                                        'product_id'         => $product->id,
+                                        'product_variant_id' => $variant->id,
+                                        'image_path'         => $imagePath,
+                                        'is_primary'         => !empty($imgData['is_primary']),
+                                        'created_by'         => auth()->id(),
+                                    ]);
+                                    $keptImageIds[] = $newImg->id;
+                                }
+                            }
+                        }
+
+                        $deletedImages = ProductImage::where('product_variant_id', $variant->id)
+                            ->whereNotIn('id', $keptImageIds)
+                            ->get();
+                        foreach ($deletedImages as $delImg) {
+                            $filePath = public_path('uploads/' . $delImg->image_path);
+                            if (file_exists($filePath)) {
+                                @unlink($filePath);
+                            }
+                            $delImg->delete();
+                        }
+                    }
                 }
 
-                $deletedVariantIds = $product->variants()
+                $deletedVariants = $product->variants()
                     ->whereNotIn('attribute_value_id', $keptAttributeValueIds)
-                    ->pluck('id')
-                    ->toArray();
+                    ->get();
+                $deletedVariantIds = $deletedVariants->pluck('id')->toArray();
+                foreach ($deletedVariants as $delVar) {
+                    $delImages = ProductImage::where('product_variant_id', $delVar->id)->get();
+                    foreach ($delImages as $delImg) {
+                        $filePath = public_path('uploads/' . $delImg->image_path);
+                        if (file_exists($filePath)) {
+                            @unlink($filePath);
+                        }
+                        $delImg->delete();
+                    }
+                    $varDir = public_path('uploads/products/' . trim($product->barcode) . '/' . trim($delVar->barcode));
+                    if (is_dir($varDir)) {
+                        @rmdir($varDir);
+                    }
+                    $delVar->delete();
+                }
 
                 $stockMigrationInput = array_filter($request->input('stock_migration', []), fn($q) => (int)$q > 0);
 
@@ -1580,21 +1655,45 @@ class ProductController extends Controller
     {
         $this->authorize('view products');
 
+        $search = $request->q;
+
         $query = Product::where('status', 1)
-            ->when($request->q, function ($q) use ($request) {
-                $q->where(function ($sub) use ($request) {
-                    $sub->where('name', 'like', '%' . $request->q . '%')
-                        ->orWhere('barcode', 'like', '%' . $request->q . '%');
+            ->when($search, function ($q) use ($search) {
+                $q->where(function ($sub) use ($search) {
+                    $sub->where('name', 'like', '%' . $search . '%')
+                        ->orWhere('barcode', 'like', '%' . $search . '%')
+                        ->orWhereHas('variants', function ($vq) use ($search) {
+                            $vq->where('barcode', 'like', '%' . $search . '%');
+                        });
                 });
             })
+            ->with(['variants' => function ($vq) {
+                $vq->select(['id', 'product_id', 'barcode', 'attribute_value_id'])->with('attributeValue:id,value');
+            }])
             ->orderBy('name')
             ->limit(50)
             ->get(['id', 'name', 'barcode']);
 
-        return response()->json($query->map(function ($product) {
+        return response()->json($query->map(function ($product) use ($search) {
+            $matchedVar = null;
+            if ($search !== '' && $search !== null && $product->variants && $product->variants->isNotEmpty()) {
+                $matchedVar = $product->variants->first(function ($v) use ($search) {
+                    return !empty($v->barcode) && stripos($v->barcode, $search) !== false;
+                });
+            }
+
+            if ($matchedVar) {
+                $varLabel = $matchedVar->attributeValue ? ' - ' . $matchedVar->attributeValue->value : '';
+                $text = $product->name . ' (' . $matchedVar->barcode . $varLabel . ')';
+            } elseif ($product->barcode) {
+                $text = $product->name . ' (' . $product->barcode . ')';
+            } else {
+                $text = $product->name;
+            }
+
             return [
                 'id' => $product->id,
-                'text' => $product->barcode ? $product->name . ' (' . $product->barcode . ')' : $product->name,
+                'text' => $text,
                 'name' => $product->name,
             ];
         }));
@@ -1803,7 +1902,7 @@ class ProductController extends Controller
         }
     }
 
-    private function saveBase64Image($base64Data, $subDir = 'products', $barcode = null)
+    private function saveBase64Image($base64Data, $subDir = 'products', $barcode = null, $variantBarcode = null)
     {
         if (preg_match('/^data:image\/(\w+);base64,/', $base64Data, $type)) {
             $dataString = substr($base64Data, strpos($base64Data, ',') + 1);
@@ -1825,6 +1924,9 @@ class ProductController extends Controller
             $targetPath = $subDir;
             if ($barcode) {
                 $targetPath .= '/' . trim($barcode);
+            }
+            if ($variantBarcode) {
+                $targetPath .= '/' . trim($variantBarcode);
             }
             
             $dir = public_path('uploads/' . $targetPath);
@@ -1869,14 +1971,16 @@ class ProductController extends Controller
         return null;
     }
 
-    public function generateBarcodeImage($id)
+    public function generateBarcodeImage(Request $request, $id)
     {
         $product = Product::withTrashed()->find($id);
         if (!$product) {
             return response('Product Not Found', 404);
         }
 
-        $barcodeText = $product->barcode;
+        $barcodeText = $request->filled('variant_id')
+            ? $product->variants()->whereKey($request->integer('variant_id'))->value('barcode')
+            : $product->barcode;
         if (empty($barcodeText)) {
             return response('No Barcode Found', 404);
         }

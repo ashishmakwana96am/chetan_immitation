@@ -53,6 +53,23 @@ class OrderItem extends Model
         return $this->belongsTo(ProductVariant::class, 'product_variant_id');
     }
 
+    public function getImageUrlAttribute(): string
+    {
+        if ($this->relationLoaded('variant') && $this->variant) {
+            $variantImg = $this->variant->primary_image_url;
+            if ($variantImg && !str_contains($variantImg, 'placeholder.png')) {
+                return $variantImg;
+            }
+        } elseif (!$this->relationLoaded('variant') && $this->product_variant_id) {
+            $variant = $this->variant;
+            if ($variant && $variant->primary_image_url && !str_contains($variant->primary_image_url, 'placeholder.png')) {
+                return $variant->primary_image_url;
+            }
+        }
+
+        return $this->product?->primary_image_url ?? asset('website/assets/images/no-image.svg');
+    }
+
     public function purchaseItem()
     {
         return $this->belongsTo(PurchaseItem::class, 'purchase_item_id');

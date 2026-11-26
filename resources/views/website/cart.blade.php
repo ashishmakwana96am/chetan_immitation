@@ -40,7 +40,9 @@
                     $price = $item->getPrice();
                     $mrp = $item->getMrp();
 
-                    $imgUrl   = $product->primaryImage?->image_url ?? asset('website/assets/images/no-image.svg');
+                    $imgUrl   = ($variant && $variant->primary_image_url && !str_contains($variant->primary_image_url, 'placeholder.png'))
+                        ? $variant->primary_image_url
+                        : ($product->primaryImage?->image_url ?? asset('website/assets/images/no-image.svg'));
                     $attrLabel = null;
                     if ($variant && $variant->attributeValue) {
                         $attrLabel = optional($variant->attributeValue->attribute)->name
@@ -66,7 +68,7 @@
                                 <span class="bg-[#16a34a] text-white text-[12px] font-semibold px-10 py-1 block tracking-wide">SALE</span>
                             </div>
                             @endif
-                            <a href="{{ route('product.detail', $product->slug) }}">
+                            <a href="{{ route('product.detail', $product->slug) . ($variant ? '?variant=' . $variant->id : '') }}">
                                 <img src="{{ $imgUrl }}" alt="{{ $product->name }}"
                                     class="sm:w-[190px] sm:h-[190px] object-cover transform transition-all duration-700 ease-in-out group-hover:scale-105">
                             </a>
@@ -89,7 +91,7 @@
                         {{-- Content --}}
                         <div class="flex-1 min-w-0 flex justify-between flex-col">
                             <div>
-                                <a href="{{ route('product.detail', $product->slug) }}">
+                                <a href="{{ route('product.detail', $product->slug) . ($variant ? '?variant=' . $variant->id : '') }}">
                                     <h3 class="block product-title text-base md:text-[22px] font-semibold text-[#131615] hover:text-[#B4771E] transition w-full min-w-0 overflow-hidden text-ellipsis whitespace-nowrap">
                                         {{ $product->name }}
                                     </h3>
@@ -289,8 +291,7 @@
     </div>
 </section>
 
-{{-- You May Also Like --}}
-@if($relatedProducts->isNotEmpty())
+@if(isset($relatedProducts) && $relatedProducts->isNotEmpty())
 <section class="section-space-bottom">
     <div class="container-1440">
         <div class="text-center mb-10">

@@ -794,7 +794,7 @@ class SaleController extends Controller
             abort(403);
         }
 
-        $sale->load(['customer', 'location', 'user', 'coupon', 'customerAddress', 'items.product.variants.attributeValue.attribute', 'items.product.primaryImage', 'payment', 'cancellationRequest']);
+        $sale->load(['customer', 'location', 'user', 'coupon', 'customerAddress', 'items.product.variants.attributeValue.attribute', 'items.product.primaryImage', 'items.variant' => fn ($q) => $q->withTrashed()->with('attributeValue.attribute'), 'payment', 'cancellationRequest']);
         return view('sales.show', ['order' => $sale]);
     }
 
@@ -1164,6 +1164,7 @@ class SaleController extends Controller
                     'custom_sizes' => $product->custom_sizes ?? [],
                     'variants' => $product->variants->map(fn($v) => [
                         'id' => $v->id,
+                        'barcode' => $v->barcode,
                         'attr_name' => $v->attributeValue->attribute->name ?? 'Attribute',
                         'value_name' => $v->attributeValue->value ?? '',
                         'sale_price' => (float) ($v->sale_price ?? $product->sale_price),
@@ -2857,6 +2858,7 @@ class SaleController extends Controller
         return Cache::store('file')->remember('all_mapped_products_sales', 1800, function () {
             $products = Product::with([
                 'variants.attributeValue.attribute',
+                'variants.primaryImage',
                 'primaryImage',
                 'inventories',
             ])->where('status', 1)->orderBy('name')->get();
@@ -2888,12 +2890,14 @@ class SaleController extends Controller
                         return [
                             'id'                 => $v->id,
                             'attribute_value_id' => $v->attribute_value_id,
+                            'barcode'            => $v->barcode,
                             'purchase_price'     => $v->purchase_price,
                             'sale_price'         => $v->sale_price,
                             'mrp'                => $v->mrp,
                             'custom_sizes'       => $v->custom_sizes ?? [],
                             'attr_name'          => $v->attributeValue->attribute->name ?? '',
                             'value_name'         => $v->attributeValue->value ?? '',
+                            'image'              => $v->primaryImage ? $v->primaryImage->image_url : null,
                         ];
                     })->all();
                 }

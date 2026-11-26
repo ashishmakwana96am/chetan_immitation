@@ -386,6 +386,7 @@
 @endsection
 
 @section('page-js')
+<script src="{{ asset('assets/js/product-barcode.js') }}"></script>
 <script>
 $(document).ready(function () {
 
@@ -415,9 +416,10 @@ $(document).ready(function () {
     function formatPriceNoDecimals(val) {
         return parseFloat(val).toLocaleString('en-IN', { minimumFractionDigits: 0, maximumFractionDigits: 0 });
     }
-    function setProductImage(container, product) {
-        if (product.image) {
-            container.html(`<img src="${product.image}" class="rounded product-thumbnail" style="width: 40px; height: 40px; object-fit: cover;" alt="${product.name || ''}" />`);
+    function setProductImage(container, product, imgUrl = null) {
+        const src = imgUrl || product?.image;
+        if (src) {
+            container.html(`<img src="${src}" class="rounded product-thumbnail" style="width: 40px; height: 40px; object-fit: cover;" alt="${product?.name || ''}" />`);
         } else {
             container.html(`<div class="rounded bg-label-secondary d-flex align-items-center justify-content-center" style="width: 40px; height: 40px;"><i class="ti ti-photo text-muted" style="font-size: 1.25rem;"></i></div>`);
         }
@@ -444,16 +446,6 @@ $(document).ready(function () {
     // -------------------------------------------------------
     const searchInput = $('#productSearchInput');
     const searchResults = $('#productSearchResults');
-
-    function findExactProductMatch(query) {
-        const q = query.toLowerCase().trim();
-        if (!q) return null;
-        const matches = allProducts.filter(p =>
-            p.name.toLowerCase() === q ||
-            (p.barcode && String(p.barcode).toLowerCase() === q)
-        );
-        return matches.length === 1 ? matches[0] : null;
-    }
 
     function hasUnselectedVariableProduct() {
         let unselected = false;
@@ -486,7 +478,7 @@ $(document).ready(function () {
         return updated;
     }
 
-    function selectSearchProduct(product) {
+    function selectSearchProduct(product, variantId = null) {
         if (hasUnselectedVariableProduct()) {
             toastr.warning('Please select a variant for the existing variable product before scanning or adding another product.');
             searchInput.val('');
@@ -511,7 +503,7 @@ $(document).ready(function () {
             searchInput.focus();
             return;
         }
-        addItemRow(product);
+        addItemRow(product, variantId);
         searchInput.val('');
         searchResults.hide().empty();
         searchInput.focus();
@@ -520,12 +512,13 @@ $(document).ready(function () {
     let scanMatchTimer = null;
 
     searchInput.on('keydown', function(e) {
-        if (e.key === 'Enter' || e.keyCode === 13) {
+        if (e.key === 'Enter' || e.keyCode === 13 || e.key === 'Tab') {
+            const exactMatch = findProductScanMatch(allProducts, $(this).val());
+            if (e.key === 'Tab' && !exactMatch?.variantId) return;
             e.preventDefault();
             if (scanMatchTimer) { clearTimeout(scanMatchTimer); scanMatchTimer = null; }
-            const exactMatch = findExactProductMatch($(this).val());
             if (exactMatch) {
-                selectSearchProduct(exactMatch);
+                selectSearchProduct(exactMatch.product, exactMatch.variantId);
                 return;
             }
             const firstItem = searchResults.find('.search-result-item').first();
@@ -550,15 +543,21 @@ $(document).ready(function () {
         // input event per character. Wait briefly for the burst to finish
         // before treating an exact match as a completed scan, so a shorter
         // barcode that is a prefix of the one being scanned isn't added by mistake.
+        const exactMatch = findProductScanMatch(allProducts, query);
         scanMatchTimer = setTimeout(function() {
             if (searchInput.val().toLowerCase().trim() !== query) return;
-            const exactMatch = findExactProductMatch(query);
-            if (exactMatch) selectSearchProduct(exactMatch);
+            if (exactMatch) selectSearchProduct(exactMatch.product, exactMatch.variantId);
         }, 100);
+
+        if (exactMatch?.variantId) {
+            searchResults.hide();
+            return;
+        }
 
         const matchedProducts = allProducts.filter(p =>
             p.name.toLowerCase().includes(query) ||
-            (p.barcode && p.barcode.toLowerCase().includes(query))
+            (p.barcode && p.barcode.toLowerCase().includes(query)) ||
+            (p.variants && p.variants.some(v => v.barcode && v.barcode.toLowerCase().includes(query)))
         );
 
         if (matchedProducts.length === 0) {
@@ -576,19 +575,23 @@ $(document).ready(function () {
                 ? `<img src="${p.image}" class="rounded me-3" style="width: 40px; height: 40px; object-fit: cover;" alt="${p.name}" />`
                 : `<div class="rounded me-3 bg-label-secondary d-flex align-items-center justify-content-center" style="width: 40px; height: 40px; flex-shrink: 0;"><i class="ti ti-photo text-secondary fs-4"></i></div>`;
 
+            const matchedVar = p.variants?.find(v => v.barcode && v.barcode.toLowerCase().includes(query));
+            const displayBarcode = matchedVar ? `${matchedVar.barcode} (${matchedVar.attr_name || ''}: ${matchedVar.value_name || ''})` : p.barcode;
+
             const item = $(`
                 <a href="javascript:void(0)" class="list-group-item list-group-item-action d-flex justify-content-between align-items-center search-result-item bg-white" style="background-color: #ffffff;" data-id="${p.id}">
                     <div class="d-flex align-items-center">
                         ${imgHtml}
                         <div>
                             <div class="fw-semibold">${p.name}</div>
-                            <small class="text-muted">Barcode: ${p.barcode}</small>
+                            <small class="text-muted">Barcode: ${displayBarcode}</small>
                         </div>
                     </div>
                     ${priceBadge}
                 </a>
             `);
             item.data('product', p);
+            item.data('variant-id', matchedVar ? matchedVar.id : null);
             searchResults.append(item);
         });
 
@@ -604,7 +607,7 @@ $(document).ready(function () {
 
     // Handle product selection
     $(document).on('click', '.search-result-item', function() {
-        selectSearchProduct($(this).data('product'));
+        selectSearchProduct($(this).data('product'), $(this).data('variant-id') || null);
     });
 
     // A variant with its own pack-size list overrides the product's shared list.
@@ -649,7 +652,7 @@ $(document).ready(function () {
             product.variants.forEach(v => {
                 const optPrice = v.purchase_price != null ? v.purchase_price : 0;
                 const selected = selectedVariantId && selectedVariantId == v.id ? 'selected' : '';
-                selectHtml += `<option value="${v.id}" data-price="${optPrice}" ${selected}>${v.attr_name}: ${v.value_name} (${symbol}${optPrice})</option>`;
+                selectHtml += `<option value="${v.id}" data-price="${optPrice}" data-barcode="${v.barcode || ''}" ${selected}>${v.attr_name}: ${v.value_name} (${symbol}${optPrice})</option>`;
             });
             selectHtml += `</select>`;
             row.find('.variant-select-container').html(selectHtml);
@@ -662,12 +665,15 @@ $(document).ready(function () {
             row.attr('data-variant-id', initialVariantId);
             row.data('variant-id', initialVariantId);
             row.find('.purchase-price').val(initialPrice);
-            row.find('.product-sku-display').text('Barcode: ' + product.barcode);
+            const initialBarcode = (initialVariantId ? (selectedOpt.data('barcode') || product.variants?.find(v => String(v.id) === String(initialVariantId))?.barcode) : '') || product.barcode || '';
+            row.find('.product-sku-display').text(initialBarcode ? 'Barcode: ' + initialBarcode : '');
+            const initialVar = product.variants?.find(v => String(v.id) === String(initialVariantId));
+            setProductImage(row.find('.product-image-container'), product, initialVar?.image || null);
 
             const variantText = selectedOpt.text().split(' (')[0];
             row.data('product-name', product.name + (initialVariantId ? ' (' + variantText + ')' : ''));
         } else {
-            row.find('.product-sku-display').text('Barcode: ' + product.barcode);
+            row.find('.product-sku-display').text(product.barcode ? 'Barcode: ' + product.barcode : '');
             row.find('.purchase-price').val(price != null ? price : (product.purchase_price != null ? product.purchase_price : 0));
             row.data('product-name', product.name);
         }
@@ -702,6 +708,11 @@ $(document).ready(function () {
         row.attr('data-variant-id', variantId);
         row.data('variant-id', variantId);
         row.find('.purchase-price').val(price);
+
+        const selectedBarcode = (variantId ? (selectedOpt.data('barcode') || product?.variants?.find(v => String(v.id) === String(variantId))?.barcode) : '') || product?.barcode || '';
+        row.find('.product-sku-display').text(selectedBarcode ? 'Barcode: ' + selectedBarcode : '');
+        const matchedVar = product?.variants?.find(v => String(v.id) === String(variantId));
+        setProductImage(row.find('.product-image-container'), product, matchedVar?.image || null);
 
         if (product && product.pair_product) {
             const effectiveSizes = getEffectiveCustomSizes(product, variantId);

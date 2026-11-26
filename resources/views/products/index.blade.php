@@ -678,7 +678,6 @@
                 setTimeout(updateSubCatSummary, 100);
             }
 
-            // Prevent Bootstrap dropdown from closing while Select2 dropdown is open
             $('#filterDropdownContainer').on('hide.bs.dropdown', function (e) {
                 if (isForceClosing) {
                     return true;
@@ -689,7 +688,6 @@
                 }
             });
 
-            // Prevent touch and click event propagation from closing dropdown when interacting inside Select2
             $(document).on('click mousedown touchstart pointerdown', '.select2-selection__clear, #filterDropdownContainer .select2-container, #filterDropdownContainer .select2-dropdown, .select2-results, .select2-search', function (e) {
                 e.stopPropagation();
             });
@@ -846,9 +844,6 @@
                 columns    : columns,
             });
 
-            // The bundled DataTables build doesn't reliably clear its own
-            // processing indicator on this table (it stays display:block after
-            // draw completes), so hide it explicitly once each draw is done.
             table.on('draw.dt', function () {
                 $('#productsTable_processing').css('display', 'none');
             });
@@ -928,8 +923,6 @@
             window.viewBarcode = function(barcode, productId) {
                 const barcodeUrl = '{{ route('admin.products.barcode', ':id') }}'.replace(':id', productId);
 
-                // The action button HTML comes from the server with only barcode + id,
-                // so pull the rest (mrp/product_code/name) from the already-loaded row data.
                 const rowData = table.rows().data().toArray().find(r => String(r.id) === String(productId)) || {};
                 const rowCategory = rowData.category ?? '';
                 const rowVariations = rowData.variations ?? '';
@@ -952,13 +945,13 @@
                 }
 
                 // Variant select for variable products
-                const variantsList = rowData.variants_list || [];
+                const variantsList = (rowData.variants_list || []).filter(v => v.barcode);
                 let variantSelectHtml = '';
                 if (variantsList.length > 0) {
                     variantSelectHtml += '<div class="form-group mb-3 text-start">';
                     variantSelectHtml += '  <label for="printVariantSelect" class="form-label fw-medium text-secondary small">Select Variant</label>';
                     variantSelectHtml += '  <select id="printVariantSelect" class="form-select">';
-                    variantSelectHtml += '  <option value="">-- Select Varient --</option>';
+                    variantSelectHtml += '  <option value="">Main Product Barcode</option>';
                     variantsList.forEach(function(v) {
                         variantSelectHtml += `<option value="${v.id}">${v.value}</option>`;
                     });
@@ -989,7 +982,7 @@
                                             <div class="mb-2">
                                                 <img id="barcodeImage" src="${barcodeUrl}" alt="Barcode" class="img-fluid" style="max-height: 80px;">
                                             </div>
-                                            <p class="fw-bold mb-0 text-dark font-monospace fs-5">${barcode}</p>
+                                            <p id="barcodePreviewCode" class="fw-bold mb-0 text-dark font-monospace fs-5">${barcode}</p>
                                         </div>
                                         
                                         ${customSizeSelectHtml}
@@ -1019,6 +1012,11 @@
                 const $img = $('#barcodeImage');
                 const $printBtn = $('#printBarcodeBtn');
                 const $printQty = $('#printQty');
+                $('#printVariantSelect').on('change', function () {
+                    const variant = variantsList.find(item => String(item.id) === this.value);
+                    $('#barcodePreviewCode').text(variant?.barcode || barcode);
+                    $img.attr('src', variant?.barcode ? `${barcodeUrl}?variant_id=${variant.id}` : barcodeUrl);
+                });
                 
                 // Show content when image loads
                 $img.on('load', function() {
@@ -1305,11 +1303,12 @@
                     }
 
                     let variantSelectBulkHtml = '';
-                    if (variantsList && variantsList.length > 0) {
+                    const printableVariants = (variantsList || []).filter(v => v.barcode);
+                    if (printableVariants.length > 0) {
                         variantSelectBulkHtml = '<div class="mt-1 d-flex align-items-center gap-1"><small class="text-secondary fw-medium">Variant:</small><select class="form-select form-select-sm bulk-item-variant-select" style="width: auto; min-width: 110px;">';
-                        variantSelectBulkHtml += '<option value="">-- All --</option>';
-                        variantsList.forEach(function(v) {
-                            variantSelectBulkHtml += `<option value="${v.id}">${v.value}</option>`;
+                        variantSelectBulkHtml += '<option value="">Main Product Barcode</option>';
+                        printableVariants.forEach(function(v) {
+                            variantSelectBulkHtml += $('<option>').attr({ value: v.id, 'data-barcode': v.barcode }).text(v.value).prop('outerHTML');
                         });
                         variantSelectBulkHtml += '</select></div>';
                     }
@@ -1321,7 +1320,7 @@
                                 ${customSizeSelectHtml}
                                 ${variantSelectBulkHtml}
                             </td>
-                            <td><code>${barcode}</code></td>
+                            <td><code class="bulk-item-barcode">${barcode}</code></td>
                             <td>
                                 <input type="number" class="form-control form-control-sm bulk-item-qty" value="1" min="1" max="100">
                             </td>
@@ -1378,6 +1377,12 @@
             $(document).on('click', '#applyBulkDefaultQty', function() {
                 const val = parseInt($('#bulkDefaultQty').val()) || 1;
                 $('.bulk-item-qty').val(val);
+            });
+
+            $(document).on('change', '.bulk-item-variant-select', function() {
+                const $row = $(this).closest('.bulk-item-row');
+                const variantBarcode = $(this).find(':selected').attr('data-barcode');
+                $row.find('.bulk-item-barcode').text(variantBarcode ?? $row.attr('data-barcode'));
             });
 
             // Start bulk printing

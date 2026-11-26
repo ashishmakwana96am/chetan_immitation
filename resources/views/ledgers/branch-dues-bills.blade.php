@@ -2,6 +2,11 @@
 
 @section('title', 'Due Bills History')
 
+@section('page-css')
+    <link rel="stylesheet" href="{{ asset('assets/vendor/libs/datatables-bs5/datatables.bootstrap5.css') }}" />
+    <link rel="stylesheet" href="{{ asset('assets/vendor/libs/datatables-responsive-bs5/responsive.bootstrap5.css') }}" />
+@endsection
+
 @section('content')
     <div class="d-flex justify-content-between align-items-center mb-4 flex-wrap gap-2">
         <div>
@@ -20,7 +25,7 @@
 
     <div class="card">
         <div class="card-datatable table-responsive">
-            <table class="table border-top mb-0">
+            <table id="branchDuesBillsTable" class="table border-top mb-0">
                 <thead>
                     <tr>
                         <th>#</th>
@@ -31,12 +36,12 @@
                     </tr>
                 </thead>
                 <tbody>
-                    @forelse($bills as $index => $bill)
+                    @foreach($bills as $index => $bill)
                         <tr>
                             <td>{{ $index + 1 }}</td>
                             <td><code>{{ $bill->transfer_no }}</code></td>
-                            <td>{{ format_date($bill->accepted_at) }}</td>
-                            <td class="text-end">
+                            <td data-order="{{ $bill->accepted_at?->getTimestamp() ?? 0 }}">{{ format_date($bill->accepted_at) }}</td>
+                            <td class="text-end" data-order="{{ $bill->computed_amount }}">
                                 <span class="fw-semibold">{{ format_price($bill->computed_amount) }}</span>
                                 <span class="text-muted small">({{ $bill->computed_qty_text }})</span>
                             </td>
@@ -53,11 +58,7 @@
                                 </div>
                             </td>
                         </tr>
-                    @empty
-                        <tr>
-                            <td colspan="5" class="text-center py-4 text-muted">No pending bills between these branches.</td>
-                        </tr>
-                    @endforelse
+                    @endforeach
                 </tbody>
                 @if($bills->count())
                     <tfoot>
@@ -71,4 +72,21 @@
             </table>
         </div>
     </div>
+@endsection
+
+@section('page-js')
+    <script src="{{ asset('assets/vendor/libs/datatables-bs5/datatables-bootstrap5.js') }}"></script>
+    <script>
+        $(document).ready(function () {
+            $('#branchDuesBillsTable').DataTable({
+                responsive: true,
+                order: [],
+                columnDefs: [{ targets: [0, 4], orderable: false, searchable: false }],
+                language: {
+                    emptyTable: 'No pending bills between these branches.',
+                    zeroRecords: 'No matching bills found.'
+                }
+            });
+        });
+    </script>
 @endsection

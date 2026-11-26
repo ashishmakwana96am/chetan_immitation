@@ -41,6 +41,10 @@
 
         <!-- SIDEBAR -->
         <aside id="sidebar" class="fixed lg:static top-0 left-0 w-[320px] lg:w-auto h-screen lg:h-fit bg-white z-[999] overflow-y-auto -translate-x-full lg:translate-x-0 transition-transform duration-300 col-span-12 lg:col-span-4 xl:col-span-3 shrink-0 border border-[#D5D5D5] rounded-none lg:rounded-[8px]">
+            <div class="flex lg:hidden items-center justify-between p-4 border-b border-[#D5D5D5]">
+                <h5 class="font-semibold text-lg text-[#131615]">Filters</h5>
+                <button type="button" id="closeSidebarBtn" class="text-2xl text-[#131615] leading-none" aria-label="Close filters">&times;</button>
+            </div>
             <!-- Shop By Category -->
             <div class="sidebar-section overflow-hidden">
 
@@ -294,7 +298,7 @@
         </aside>
 
         <!-- Overlay for mobile sidebar -->
-        <div id="sidebarOverlay" class="fixed inset-0 bg-black/50 z-40 hidden lg:hidden"></div>
+        <div id="sidebarOverlay" class="fixed inset-0 bg-black/50 z-[998] hidden lg:hidden"></div>
 
         <!-- PRODUCT GRID -->
         <div class="col-span-12 lg:col-span-8 xl:col-span-9 min-w-0">
@@ -1002,19 +1006,45 @@
             });
         }
 
-        const sidebar = document.querySelector('aside');
+        const sidebar = document.getElementById('sidebar');
         const filterBtn = document.getElementById('filterBtn');
         const sidebarOverlay = document.getElementById('sidebarOverlay');
-        if (filterBtn && sidebar && sidebarOverlay) {
-            filterBtn.addEventListener('click', function () {
-                sidebar.classList.remove('hidden');
-                sidebarOverlay.classList.remove('hidden');
-            });
-            sidebarOverlay.addEventListener('click', function () {
-                sidebar.classList.add('hidden');
-                sidebarOverlay.classList.add('hidden');
-            });
+        const closeSidebarBtn = document.getElementById('closeSidebarBtn');
+
+        function openSidebar() {
+            if (!sidebar) return;
+            sidebar.classList.remove('-translate-x-full');
+            if (sidebarOverlay) sidebarOverlay.classList.remove('hidden');
+            document.body.classList.add('overflow-hidden');
         }
+
+        function closeSidebar() {
+            if (!sidebar) return;
+            sidebar.classList.add('-translate-x-full');
+            if (sidebarOverlay) sidebarOverlay.classList.add('hidden');
+            document.body.classList.remove('overflow-hidden');
+        }
+
+        if (filterBtn) {
+            filterBtn.addEventListener('click', openSidebar);
+        }
+
+        if (sidebarOverlay) {
+            sidebarOverlay.addEventListener('click', closeSidebar);
+        }
+
+        if (closeSidebarBtn) {
+            closeSidebarBtn.addEventListener('click', closeSidebar);
+        }
+
+        window.addEventListener('resize', function () {
+            if (window.innerWidth >= 1024) {
+                if (sidebarOverlay) sidebarOverlay.classList.add('hidden');
+                document.body.classList.remove('overflow-hidden');
+            } else {
+                closeSidebar();
+            }
+        });
 
         // Infinite Scroll on Page Scroll
         window.addEventListener('scroll', function () {
@@ -1030,29 +1060,5 @@
             }
         }, { passive: true });
     });
-
-    document.addEventListener("DOMContentLoaded", function () {
-        const sidebar = document.getElementById("sidebar");
-        const filterBtn = document.getElementById("filterBtn");
-        const sidebarOverlay = document.getElementById("sidebarOverlay");
-        filterBtn.addEventListener("click", function () {
-            sidebar.classList.remove("-translate-x-full");
-            sidebarOverlay.classList.remove("hidden");
-            document.body.classList.add("overflow-hidden");
-        });
-        sidebarOverlay.addEventListener("click", function () {
-            sidebar.classList.add("-translate-x-full");
-            sidebarOverlay.classList.add("hidden");
-            document.body.classList.remove("overflow-hidden");
-        });
-    
-        window.addEventListener("resize", function () {
-            if (window.innerWidth >= 1024) {
-                sidebar.classList.remove("-translate-x-full");
-                sidebarOverlay.classList.add("hidden");
-                document.body.classList.remove("overflow-hidden");
-            }
-        });
-});
 </script>
 @endsection

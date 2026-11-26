@@ -66,8 +66,13 @@
                                 <span class="bg-[#16a34a] text-white text-[12px] font-semibold px-10 py-1 block tracking-wide">SALE</span>
                             </div>
                             @endif
-                            <a href="{{ route('product.detail', $prod->slug) }}">
-                                <img src="{{ $prod->primaryImage?->image_url ?? asset('website/assets/images/no-image.svg') }}"
+                            @php
+                                $wishlistImg = ($variant && $variant->primary_image_url && !str_contains($variant->primary_image_url, 'placeholder.png'))
+                                    ? $variant->primary_image_url
+                                    : ($prod->primaryImage?->image_url ?? asset('website/assets/images/no-image.svg'));
+                            @endphp
+                            <a href="{{ route('product.detail', $prod->slug) . ($variant ? '?variant=' . $variant->id : '') }}">
+                                <img src="{{ $wishlistImg }}"
                                     alt="{{ $prod->name }}"
                                     class="sm:w-[190px] sm:h-[190px] object-cover transform transition-all duration-700 ease-in-out group-hover:scale-105">
                             </a>

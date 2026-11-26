@@ -195,9 +195,11 @@
                 <!-- Product Card(s) -->
                 @foreach($order->items as $item)
                 @php
-                    $productImg = ($item->product && $item->product->primaryImage)
-                        ? $item->product->primaryImage->image_url
-                        : asset('website/assets/images/no-image.svg');
+                    $productImg = ($item->variant && $item->variant->primary_image_url && !str_contains($item->variant->primary_image_url, 'placeholder.png'))
+                        ? $item->variant->primary_image_url
+                        : (($item->product && $item->product->primaryImage)
+                            ? $item->product->primaryImage->image_url
+                            : asset('website/assets/images/no-image.svg'));
                 @endphp
                 <div class="border border-[#D5D5D5] p-3 md:p-4 bg-white group">
                     <div class="">

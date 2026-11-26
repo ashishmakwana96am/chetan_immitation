@@ -194,13 +194,22 @@
                     <h6 class="mb-0 fw-semibold">Images</h6>
                 </div>
                 <div class="card-body p-3">
-                    @if($product->images->count())
+                    @php
+                        $mainImages = $product->allImages->whereNull('product_variant_id')->sortByDesc('is_primary');
+                        $variantImages = $product->allImages->whereNotNull('product_variant_id');
+                        $displayImages = $mainImages->concat($variantImages);
+                    @endphp
+                    @if($displayImages->count())
                         <div class="swiper product-main-swiper rounded mb-2">
                             <div class="swiper-wrapper">
-                                @foreach($product->images->sortByDesc('is_primary') as $image)
+                                @foreach($displayImages as $image)
                                     <div class="swiper-slide position-relative">
                                         <img src="{{ $image->image_url }}" class="product-main-image rounded" />
-                                        @if($image->is_primary)
+                                        @if($image->variant)
+                                            <span class="badge bg-dark position-absolute top-0 start-0 m-2 shadow-sm" style="font-size:0.65rem;">
+                                                {{ $image->variant->attributeValue?->value ?? 'Variant' }}
+                                            </span>
+                                        @elseif($image->is_primary)
                                             <span class="badge bg-primary position-absolute top-0 start-0 m-2" style="font-size:0.65rem;">Primary</span>
                                         @endif
                                     </div>
@@ -209,12 +218,17 @@
                             <div class="swiper-button-next"></div>
                             <div class="swiper-button-prev"></div>
                         </div>
-                        @if($product->images->count() > 1)
+                        @if($displayImages->count() > 1)
                             <div class="swiper product-thumb-swiper">
                                 <div class="swiper-wrapper">
-                                    @foreach($product->images->sortByDesc('is_primary') as $image)
-                                        <div class="swiper-slide product-thumb-slide">
+                                    @foreach($displayImages as $image)
+                                        <div class="swiper-slide product-thumb-slide position-relative">
                                             <img src="{{ $image->image_url }}" class="product-thumb-image rounded border cursor-pointer" />
+                                            @if($image->variant)
+                                                <span class="badge bg-dark position-absolute bottom-0 start-50 translate-middle-x mb-1 shadow-sm px-1 py-0" style="font-size:0.55rem; white-space:nowrap; max-width:90%; overflow:hidden; text-overflow:ellipsis;">
+                                                    {{ $image->variant->attributeValue?->value }}
+                                                </span>
+                                            @endif
                                         </div>
                                     @endforeach
                                 </div>
@@ -748,6 +762,7 @@
                                 <tr>
                                     <th style="width:4%">#</th>
                                     <th>Attribute</th>
+                                    <th>Barcode</th>
                                     <th class="text-end">Purchase Price</th>
                                     <th class="text-end">Sale Price</th>
                                     <th class="text-end">MRP</th>
@@ -768,6 +783,7 @@
                                             <span class="fw-semibold">{{ $variant->attributeValue->value ?? '-' }}</span>
                                             <small class="text-muted">({{ $variant->attributeValue->attribute->name ?? '-' }})</small>
                                         </td>
+                                        <td class="text-nowrap"><code>{{ $variant->barcode ?? '-' }}</code></td>
                                         <td class="text-end text-nowrap small">{{ format_price($variant->purchase_price ?? $product->purchase_price) }}</td>
                                         
                                         @if($product->pair_product && !empty($vCustomSizes))
@@ -1132,7 +1148,7 @@
         window.viewBarcode = function(barcodeText, productId, category, variations, salePrice) {
             const barcodeUrl = '{{ route('admin.products.barcode', ':id') }}'.replace(':id', productId);
             const customSizes = @json($product->pair_product ? ($product->custom_sizes ?? []) : []);
-            const variantsList = @json($product->type === 'variable' ? $product->variants->filter(fn($v) => $v->attributeValue)->map(fn($v) => ['id' => $v->id, 'value' => $v->attributeValue->value])->values()->toArray() : []);
+            const variantsList = @json($product->type === 'variable' ? $product->variants->filter(fn($v) => $v->attributeValue && $v->barcode)->map(fn($v) => ['id' => $v->id, 'value' => $v->attributeValue->value, 'barcode' => $v->barcode])->values()->toArray() : []);
             
             let customSizeSelectHtml = '';
             if (customSizes && customSizes.length > 0) {
@@ -1153,7 +1169,7 @@
                 variantSelectHtml += '<div class="form-group mb-3 text-start">';
                 variantSelectHtml += '  <label for="printVariantSelect" class="form-label fw-medium text-secondary small">Select Variant</label>';
                 variantSelectHtml += '  <select id="printVariantSelect" class="form-select">';
-                variantSelectHtml += '  <option value="">-- Select Varient --</option>';
+                variantSelectHtml += '  <option value="">Main Product Barcode</option>';
                 variantsList.forEach(function(v) {
                     variantSelectHtml += `<option value="${v.id}">${v.value}</option>`;
                 });
@@ -1181,7 +1197,7 @@
                                         <div class="mb-2">
                                             <img id="barcodeImage" src="${barcodeUrl}" alt="Barcode" class="img-fluid" style="max-height: 80px;">
                                         </div>
-                                        <p class="fw-bold mb-0 text-dark font-monospace fs-5">${barcodeText}</p>
+                                        <p id="barcodePreviewCode" class="fw-bold mb-0 text-dark font-monospace fs-5">${barcodeText}</p>
                                     </div>
                                     
                                     ${customSizeSelectHtml}
@@ -1209,6 +1225,11 @@
             const $img     = $('#barcodeImage');
             const $printBtn = $('#printBarcodeBtn');
             const $printQty = $('#printQty');
+            $('#printVariantSelect').on('change', function () {
+                const variant = variantsList.find(item => String(item.id) === this.value);
+                $('#barcodePreviewCode').text(variant?.barcode || barcodeText);
+                $img.attr('src', variant ? `${barcodeUrl}?variant_id=${variant.id}` : barcodeUrl);
+            });
 
             $img.on('load', function() {
                 $loader.addClass('d-none');
@@ -1235,17 +1256,26 @@
         };
 
         function initProductSwiper() {
-            @if($product->images->count() > 1)
+            @if($product->allImages->count() > 1)
             const thumbSwiper = new Swiper('.product-thumb-swiper', {
-                spaceBetween: 6, slidesPerView: 'auto',
-                freeMode: true, watchSlidesProgress: true,
-                observer: true, observeParents: true,
+                spaceBetween: 6,
+                slidesPerView: 'auto',
+                centeredSlides: true,
+                centeredSlidesBounds: true,
+                slideToClickedSlide: true,
+                watchSlidesProgress: true,
+                observer: true,
+                observeParents: true,
             });
-            new Swiper('.product-main-swiper', {
+            const mainSwiper = new Swiper('.product-main-swiper', {
                 spaceBetween: 10,
                 navigation: { nextEl: '.swiper-button-next', prevEl: '.swiper-button-prev' },
                 thumbs: { swiper: thumbSwiper },
-                observer: true, observeParents: true,
+                observer: true,
+                observeParents: true,
+            });
+            mainSwiper.on('slideChange', function () {
+                thumbSwiper.slideTo(mainSwiper.activeIndex);
             });
             @else
             new Swiper('.product-main-swiper', {

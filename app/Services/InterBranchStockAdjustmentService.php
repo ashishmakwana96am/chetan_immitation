@@ -131,37 +131,6 @@ class InterBranchStockAdjustmentService
         return $adjustments;
     }
 
-    public static function revertAdjustments(PurchaseBill $bill): array
-    {
-        $affectedBillIds = [];
-
-        $linkedPayments = PurchaseBillPayment::where('stock_return_bill_id', $bill->id)->get();
-        foreach ($linkedPayments as $lp) {
-            $affectedBillIds[] = $lp->purchase_bill_id;
-            $otherBill = PurchaseBill::find($lp->purchase_bill_id);
-            $lp->delete();
-            if ($otherBill) {
-                self::recalculateBillPaymentStatus($otherBill);
-            }
-        }
-
-        $ownAutoPayments = PurchaseBillPayment::where('purchase_bill_id', $bill->id)
-            ->whereNotNull('stock_return_bill_id')
-            ->get();
-        foreach ($ownAutoPayments as $oap) {
-            $affectedBillIds[] = $oap->stock_return_bill_id;
-            $otherBill = PurchaseBill::find($oap->stock_return_bill_id);
-            $oap->delete();
-            if ($otherBill) {
-                self::recalculateBillPaymentStatus($otherBill);
-            }
-        }
-
-        self::recalculateBillPaymentStatus($bill);
-
-        return array_values(array_unique(array_filter($affectedBillIds)));
-    }
-
     public static function recalculateBillPaymentStatus(PurchaseBill $bill): void
     {
         $total = PurchaseStockService::calculatePurchaseBillTotal($bill);
@@ -178,34 +147,65 @@ class InterBranchStockAdjustmentService
 
     public static function reconcileBill(PurchaseBill $bill): void
     {
-        $affectedOtherBillIds = self::revertAdjustments($bill);
+        $offsets = PurchaseBillPayment::where('stock_return_bill_id', $bill->id)
+            ->orWhere(fn ($query) => $query->where('purchase_bill_id', $bill->id)->whereNotNull('stock_return_bill_id'))
+            ->orderBy('created_at')->orderBy('id')->get()
+            ->groupBy(fn ($payment) => (int) $payment->purchase_bill_id === $bill->id
+                ? $payment->stock_return_bill_id : $payment->purchase_bill_id);
 
-        $bill->refresh();
-        if ((int) $bill->status === PurchaseBill::STATUS_ACCEPTED && $bill->payment_status !== PurchaseBill::PAYMENT_STATUS_PAID) {
-            self::adjustPendingBalances($bill);
-        }
+        $billTotal = PurchaseStockService::calculatePurchaseBillTotal($bill);
+        $manualPaid = (float) $bill->payments()->whereNull('stock_return_bill_id')->sum('amount');
+        $available = max(0.0, round($billTotal - $manualPaid, 2));
 
-        foreach ($affectedOtherBillIds as $otherId) {
-            $otherBill = PurchaseBill::find($otherId);
-            if ($otherBill && (int) $otherBill->status === PurchaseBill::STATUS_ACCEPTED && $otherBill->payment_status !== PurchaseBill::PAYMENT_STATUS_PAID) {
-                self::adjustPendingBalances($otherBill);
+        foreach ($offsets as $otherId => $payments) {
+            $other = PurchaseBill::find($otherId);
+            $ownPayments = $payments->where('purchase_bill_id', $bill->id);
+            $otherPayments = $payments->where('purchase_bill_id', $otherId);
+            $amount = 0.0;
+
+            if ($other && $other->status === PurchaseBill::STATUS_ACCEPTED
+                && (int) $other->from_location_id === (int) $bill->to_location_id
+                && (int) $other->to_location_id === (int) $bill->from_location_id) {
+                $otherTotal = PurchaseStockService::calculatePurchaseBillTotal($other);
+                $otherPaid = (float) $other->payments()->sum('amount') - (float) $otherPayments->sum('amount');
+                $otherAvailable = max(0.0, round($otherTotal - $otherPaid, 2));
+                $amount = min($available, $otherAvailable, round((float) $ownPayments->sum('amount'), 2), round((float) $otherPayments->sum('amount'), 2));
+            }
+
+            // Keep existing payment IDs and dates on both bills, reducing the newest offsets first.
+            foreach ([$ownPayments, $otherPayments] as $side) {
+                $remaining = $amount;
+                foreach ($side as $payment) {
+                    $kept = min($remaining, (float) $payment->amount);
+                    $remaining = round($remaining - $kept, 2);
+                    if ($kept <= 0) {
+                        $payment->delete();
+                    } elseif ($kept < (float) $payment->amount) {
+                        $payment->update(['amount' => $kept]);
+                    }
+                }
+            }
+
+            $available = round($available - $amount, 2);
+            if ($other) {
+                self::recalculateBillPaymentStatus($other);
             }
         }
+
+        self::recalculateBillPaymentStatus($bill);
     }
 
     public static function handleBillDeletion(PurchaseBill $bill): void
     {
-        $affectedOtherBillIds = self::revertAdjustments($bill);
+        $incoming = $bill->returnAdjustments();
+        $linkedBillIds = $incoming->pluck('purchase_bill_id')
+            ->merge($bill->payments()->whereNotNull('stock_return_bill_id')->pluck('stock_return_bill_id'));
 
-        $bill->payments()->delete();
-        $bill->items()->delete();
+        $incoming->delete();
         $bill->delete();
 
-        foreach ($affectedOtherBillIds as $otherId) {
-            $otherBill = PurchaseBill::find($otherId);
-            if ($otherBill && (int) $otherBill->status === PurchaseBill::STATUS_ACCEPTED && $otherBill->payment_status !== PurchaseBill::PAYMENT_STATUS_PAID) {
-                self::adjustPendingBalances($otherBill);
-            }
+        foreach (PurchaseBill::whereKey($linkedBillIds->unique()->all())->get() as $linkedBill) {
+            self::recalculateBillPaymentStatus($linkedBill);
         }
     }
 

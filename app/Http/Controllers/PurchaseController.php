@@ -21,6 +21,7 @@ use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Cache;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Validator;
+use Illuminate\Validation\Rule;
 use App\Services\PurchaseStockService;
 
 class PurchaseController extends Controller
@@ -262,7 +263,7 @@ class PurchaseController extends Controller
             }
         }
 
-        $purchase->load(['supplier', 'createdBy', 'items.product.variants.attributeValue.attribute', 'items.product.primaryImage', 'items.allocations.location', 'payments.createdBy']);
+        $purchase->load(['supplier', 'createdBy', 'items.product.variants.attributeValue.attribute', 'items.product.primaryImage', 'items.variant' => fn ($q) => $q->withTrashed()->with('attributeValue.attribute'), 'items.allocations.location', 'payments.createdBy']);
         return view('purchases.show', compact('purchase', 'locationId', 'isRestricted'));
     }
 
@@ -495,10 +496,11 @@ class PurchaseController extends Controller
                 
                 $itemsSnapshot = collect($itemsData)->map(function ($item) {
                     $prod = \App\Models\Product::find($item['product_id']);
+                    $variant = !empty($item['product_variant_id']) ? \App\Models\ProductVariant::find($item['product_variant_id']) : null;
                     return [
                         'product_id'         => $item['product_id'],
                         'product_name'       => $prod?->name,
-                        'barcode'            => $prod?->barcode,
+                        'barcode'            => $variant?->barcode ?: $prod?->barcode,
                         'product_variant_id' => $item['product_variant_id'],
                         'quantity'           => $item['quantity'],
                         'price'              => (float) $item['purchase_price'],
@@ -565,11 +567,12 @@ class PurchaseController extends Controller
         $locations = Location::where('status', 1)->orderBy('name')->get(['id', 'name']);
         $soldMap = PurchaseStockService::getSoldQuantityForPurchase($purchase);
 
-        $existingItems = $purchase->items->map(function ($item) use ($soldMap) {
+        $existingItems = $purchase->items->sortBy('id')->map(function ($item) use (&$soldMap) {
             $product = $item->product;
             $priceKey = number_format((float)$item->purchase_price, 2, '.', '');
             $itemKey = $item->product_id . '_' . ($item->product_variant_id ?? 0) . '_' . $priceKey;
-            $soldQty = $soldMap[$itemKey] ?? 0;
+            $soldQty = min((int) $item->quantity, $soldMap[$itemKey] ?? 0);
+            $soldMap[$itemKey] = ($soldMap[$itemKey] ?? 0) - $soldQty;
 
             return [
                 'id'                 => $item->id,
@@ -595,11 +598,13 @@ class PurchaseController extends Controller
                     'custom_sizes' => $product->custom_sizes ?? [],
                     'variants' => $product->variants->map(fn($v) => [
                         'id' => $v->id,
+                        'barcode' => $v->barcode,
                         'attr_name' => $v->attributeValue->attribute->name ?? 'Attribute',
                         'value_name' => $v->attributeValue->value ?? '',
                         'sale_price' => (float) ($v->sale_price ?? $product->sale_price),
                         'purchase_price' => (float) ($v->purchase_price ?? $product->purchase_price),
                     ])->values()->toArray(),
+                    'stock_by_location' => $product->getVariantStock() ?: $product->inventories->pluck('quantity', 'location_id')->all(),
                 ] : null,
             ];
         })->values();
@@ -621,6 +626,7 @@ class PurchaseController extends Controller
         $validator = Validator::make($request->all(), [
             'supplier_id'            => ['required', 'exists:suppliers,id'],
             'items'                  => ['required', 'array', 'min:1'],
+            'items.*.purchase_item_id' => ['nullable', 'integer', 'distinct', Rule::exists('purchase_items', 'id')->where('purchase_id', $purchase->id)->whereNull('deleted_at')],
             'items.*.product_id'     => ['required', 'exists:products,id'],
             'items.*.product_variant_id' => ['nullable', 'exists:product_variants,id'],
             'items.*.purchase_price' => ['required', 'numeric', 'min:0.01'],
@@ -655,40 +661,6 @@ class PurchaseController extends Controller
             }
         }
 
-        $soldMap = PurchaseStockService::getSoldQuantityForPurchase($purchase);
-        $newItemsCollection = collect($request->items);
-        foreach ($purchase->items as $existingItem) {
-            $priceKey = number_format((float)$existingItem->purchase_price, 2, '.', '');
-            $itemKey = $existingItem->product_id . '_' . ($existingItem->product_variant_id ?? 0) . '_' . $priceKey;
-            $soldQty = $soldMap[$itemKey] ?? 0;
-
-            if ($soldQty > 0) {
-                $matchingReqItem = $newItemsCollection->first(function ($it) use ($existingItem) {
-                    $reqVarId = !empty($it['product_variant_id']) ? (int)$it['product_variant_id'] : null;
-                    $reqProdId = (int)$it['product_id'];
-                    $existVarId = $existingItem->product_variant_id ? (int)$existingItem->product_variant_id : null;
-                    return $reqProdId === (int)$existingItem->product_id && $reqVarId === $existVarId;
-                });
-
-                $prodName = $existingItem->product?->name ?? ('Product #' . $existingItem->product_id);
-
-                if (!$matchingReqItem) {
-                    return response()->json([
-                        'status'  => 'error',
-                        'message' => "Cannot remove '{$prodName}' because {$soldQty} item(s) have already been sold in sales orders.",
-                    ], 422);
-                }
-
-                $newQty = (int) ($matchingReqItem['quantity'] ?? 0);
-                if ($newQty < $soldQty) {
-                    return response()->json([
-                        'status'  => 'error',
-                        'message' => "Quantity for '{$prodName}' cannot be reduced below {$soldQty} because {$soldQty} item(s) have already been sold in sales orders.",
-                    ], 422);
-                }
-            }
-        }
-
         try {
             $defaultLocation = $this->defaultPurchaseLocation();
         } catch (\RuntimeException $e) {
@@ -697,11 +669,12 @@ class PurchaseController extends Controller
 
         try {
             DB::transaction(function () use ($request, $purchase, $defaultLocation) {
+            $purchase = Purchase::whereKey($purchase->id)->lockForUpdate()->firstOrFail();
             $oldItemsSnapshot = $purchase->items->map(function ($item) {
                 return [
                     'product_id'         => $item->product_id,
                     'product_name'       => $item->product?->name,
-                    'barcode'            => $item->product?->barcode,
+                    'barcode'            => $item->variant?->barcode ?: $item->product?->barcode,
                     'product_variant_id' => $item->product_variant_id,
                     'quantity'           => $item->quantity,
                     'price'              => (float) $item->purchase_price,
@@ -710,6 +683,8 @@ class PurchaseController extends Controller
 
             $itemsTotal = 0.0;
             $itemsData = [];
+            $newStock = [];
+            $newStatus = (int) ($request->status ?? Purchase::STATUS_APPROVE);
 
             foreach ($request->items as $itemData) {
                 $qty = (int)$itemData['quantity'];
@@ -735,8 +710,14 @@ class PurchaseController extends Controller
 
                 $product = Product::find($itemData['product_id']);
                 $customSizeValue = $this->resolveCustomSizeValue($product, $itemData);
+                $stockKey = $itemData['product_id'] . '_' . ((int) ($itemData['product_variant_id'] ?? 0));
+                $multiplier = PurchaseStockService::multiplierForProduct($product, null, $customSizeValue);
+                if ($newStatus === Purchase::STATUS_APPROVE) {
+                    $newStock[$stockKey] = ($newStock[$stockKey] ?? 0) + (int) round($qty * $multiplier);
+                }
 
                 $itemsData[] = [
+                    'purchase_item_id'   => $itemData['purchase_item_id'] ?? null,
                     'product_id'         => (int)$itemData['product_id'],
                     'product_variant_id' => !empty($itemData['product_variant_id']) ? (int)$itemData['product_variant_id'] : null,
                     'custom_size_value'  => $customSizeValue,
@@ -747,6 +728,28 @@ class PurchaseController extends Controller
                     'quantity'           => $qty,
                     'total'              => $itemTotal,
                 ];
+            }
+
+            if ((int) $purchase->status === Purchase::STATUS_APPROVE) {
+                $oldStock = [];
+                $productsByStockKey = [];
+                foreach ($purchase->items as $item) {
+                    $key = $item->product_id . '_' . ($item->product_variant_id ?? 0);
+                    $multiplier = PurchaseStockService::multiplierForProduct($item->product, $item->pair_type, $item->custom_size_value);
+                    $oldStock[$key] = ($oldStock[$key] ?? 0) + (int) round($item->quantity * $multiplier);
+                    $productsByStockKey[$key] = $item->product?->name ?? ('Product #' . $item->product_id);
+                }
+
+                $hasReduction = collect($oldStock)->contains(fn ($qty, $key) => ($newStock[$key] ?? 0) < $qty);
+                if ($hasReduction) {
+                    foreach (PurchaseStockService::getConsumedStockForPurchase($purchase) as $key => $usedQty) {
+                        $minimum = min($usedQty, $oldStock[$key] ?? 0);
+                        if (($newStock[$key] ?? 0) < $minimum) {
+                            $name = $productsByStockKey[$key];
+                            throw new \RuntimeException("Quantity for '{$name}' cannot be reduced below {$minimum} pcs because stock has already been transferred or sold.");
+                        }
+                    }
+                }
             }
 
             $orderDiscVal = (float)($request->discount_value ?? 0);
@@ -783,7 +786,6 @@ class PurchaseController extends Controller
             $grandTotal = round($finalAmount + $taxAmount);
 
             $oldStatus = (int) $purchase->status;
-            $newStatus = (int) ($request->status ?? 2);
             $oldPaidAmount = (float) $purchase->paid_amount;
             $oldSupplierId = (int) $purchase->supplier_id;
             $newSupplierId = (int) $request->supplier_id;
@@ -793,7 +795,7 @@ class PurchaseController extends Controller
             $oldInvoiceNo = $purchase->invoice_no;
 
             // Check if items changed
-            $oldItems = $purchase->items()->get();
+            $oldItems = $purchase->items()->with(['allocations' => fn ($query) => $query->orderBy('id')])->get();
             $itemsChanged = false;
             if ($oldItems->count() !== count($itemsData)) {
                 $itemsChanged = true;
@@ -830,14 +832,46 @@ class PurchaseController extends Controller
                 ?? $defaultLocation->id;
 
             $oldProductIds = $purchase->items->pluck('product_id')->unique()->all();
-            $allAffectedLocations = [$purchaseLocationId];
+            $transferPriceChanges = [];
+            $remainingAtOriginalPrice = [];
+            if ($itemsChanged && $oldStatus === Purchase::STATUS_APPROVE && $newStatus === Purchase::STATUS_APPROVE) {
+                $newItemsByVariant = collect($itemsData)->groupBy(fn ($item) => $item['product_id'] . '_' . ($item['product_variant_id'] ?? 0));
+                foreach ($oldItems as $item) {
+                    $key = $item->product_id . '_' . ($item->product_variant_id ?? 0);
+                    $prices = $newItemsByVariant->get($key, collect())->groupBy(fn ($row) => number_format($row['purchase_price'], 2, '.', ''));
+                    $originalPrice = number_format((float) $item->purchase_price, 2, '.', '');
+                    if ($prices->isEmpty() || ($prices->count() === 1 && $prices->has($originalPrice))) {
+                        continue;
+                    }
 
-            $transfers = PurchaseBill::where('from_location_id', $purchaseLocationId)
-                ->where('created_at', '>=', $purchase->created_at->subMinutes(5))
-                ->whereNull('deleted_at')
-                ->pluck('to_location_id')
-                ->all();
-            $allAffectedLocations = array_unique(array_merge($allAffectedLocations, $transfers));
+                    $batchKey = $key . '_' . $originalPrice;
+                    if ($prices->count() === 1) {
+                        $transferPriceChanges[$batchKey] = (float) $prices->keys()->first();
+                    } else {
+                        $remainingAtOriginalPrice[$batchKey] = $prices->get($originalPrice, collect())->sum('quantity');
+                    }
+                }
+            }
+            $allocatedTransfers = ($transferPriceChanges || $remainingAtOriginalPrice)
+                ? PurchaseStockService::getFifoAllocatedTransfersForPurchase($purchase) : [];
+            $transfersToReprice = [];
+            foreach ($allocatedTransfers as $link) {
+                $key = $link['key'];
+                $transfer = $link['transfer'];
+                if (isset($remainingAtOriginalPrice[$key])) {
+                    $remainingAtOriginalPrice[$key] -= $link['quantity'];
+                    if ($remainingAtOriginalPrice[$key] < 0) {
+                        throw new \RuntimeException("Keep enough quantity at the original purchase price for transfer '{$transfer->transfer_no}', or use one new price for the batch.");
+                    }
+                }
+                if (!isset($transferPriceChanges[$key])) {
+                    continue;
+                }
+                if ((float) $transfer->paid_amount > 0 || $transfer->payments()->exists()) {
+                    throw new \RuntimeException("Cannot change the purchase price because transfer '{$transfer->transfer_no}' already has payments.");
+                }
+                $transfersToReprice[] = $link;
+            }
 
             if ($itemsChanged && $oldStatus == Purchase::STATUS_APPROVE) {
                 $this->reverseInvoiceStock($purchase);
@@ -955,12 +989,12 @@ class PurchaseController extends Controller
             }
 
             if ($itemsChanged) {
-                $itemIds = $purchase->items()->pluck('id');
-                PurchaseAllocation::whereIn('purchase_item_id', $itemIds)->delete();
-                $purchase->items()->delete();
+                $oldItemsById = $oldItems->keyBy('id');
+                $retainedItemIds = [];
+                PurchaseAllocation::whereIn('purchase_item_id', $oldItemsById->keys())->delete();
 
                 foreach ($itemsData as $item) {
-                    $createdItem = PurchaseItem::create([
+                    $attributes = [
                         'purchase_id'        => $purchase->id,
                         'product_id'         => $item['product_id'],
                         'product_variant_id' => $item['product_variant_id'],
@@ -971,20 +1005,35 @@ class PurchaseController extends Controller
                         'discount_amount'    => $item['discount_amount'],
                         'quantity'           => $item['quantity'],
                         'total'              => $item['total'],
-                    ]);
+                    ];
 
-                    PurchaseAllocation::create([
-                        'purchase_item_id' => $createdItem->id,
-                        'location_id'      => $purchaseLocationId,
-                        'quantity'         => $item['quantity'],
-                    ]);
+                    $savedItem = $oldItemsById->get($item['purchase_item_id']);
+                    if ($savedItem && (int) $savedItem->product_id === $item['product_id']
+                        && (int) $savedItem->product_variant_id === (int) $item['product_variant_id']) {
+                        $savedItem->update($attributes);
+                        $retainedItemIds[] = $savedItem->id;
+                    } else {
+                        $savedItem = PurchaseItem::create($attributes);
+                    }
 
-                    $productObj = \App\Models\Product::find($item['product_id']);
-                    $itemMultiplier = \App\Services\PurchaseBatchService::multiplierForProduct($productObj, $item['pair_type'] ?? null, $item['custom_size_value'] ?? null);
-                    $batchStockQty = (float) $item['quantity'] * $itemMultiplier;
+                    $remaining = $item['quantity'];
+                    $quantitiesByLocation = [];
+                    foreach ($savedItem->allocations as $allocation) {
+                        $qty = min($remaining, (int) $allocation->quantity);
+                        $quantitiesByLocation[$allocation->location_id] = ($quantitiesByLocation[$allocation->location_id] ?? 0) + $qty;
+                        $remaining -= $qty;
+                    }
+                    $itemLocationId = $savedItem->allocations->first()?->location_id ?? $purchaseLocationId;
+                    $quantitiesByLocation[$itemLocationId] = ($quantitiesByLocation[$itemLocationId] ?? 0) + $remaining;
 
-                    \App\Services\PurchaseBatchService::addBatchStock((int)$purchaseLocationId, (int)$item['product_id'], !empty($item['product_variant_id']) ? (int)$item['product_variant_id'] : null, $createdItem->id, (float)$item['purchase_price'], (float)$batchStockQty);
+                    $multiplier = PurchaseBatchService::multiplierForProduct($savedItem->product, null, $item['custom_size_value']);
+                    foreach (array_filter($quantitiesByLocation) as $locationId => $qty) {
+                        PurchaseAllocation::create(['purchase_item_id' => $savedItem->id, 'location_id' => $locationId, 'quantity' => $qty]);
+                        PurchaseBatchService::addBatchStock((int) $locationId, $item['product_id'], $item['product_variant_id'], $savedItem->id, $item['purchase_price'], $qty * $multiplier);
+                    }
                 }
+
+                $purchase->items()->whereIn('id', $oldItemsById->keys()->diff($retainedItemIds))->delete();
 
                 if ($newStatus == Purchase::STATUS_APPROVE) {
                     $this->approveInvoice($purchase);
@@ -993,48 +1042,15 @@ class PurchaseController extends Controller
                 $this->approveInvoice($purchase);
             }
 
-            // Track price changes for updating linked transfers and sold items
-            $priceChanges = [];
-            foreach ($oldItems as $oldIt) {
-                $newIt = collect($itemsData)->first(function ($it) use ($oldIt) {
-                    $reqVarId = !empty($it['product_variant_id']) ? (int)$it['product_variant_id'] : null;
-                    $reqProdId = (int)$it['product_id'];
-                    $existVarId = $oldIt->product_variant_id ? (int)$oldIt->product_variant_id : null;
-                    return $reqProdId === (int)$oldIt->product_id && $reqVarId === $existVarId;
-                });
-                if ($newIt) {
-                    $oldP = (float) $oldIt->purchase_price;
-                    $newP = (float) $newIt['purchase_price'];
-                    if (abs($oldP - $newP) >= 0.01) {
-                        $priceChanges[] = [
-                            'product_id'         => (int) $oldIt->product_id,
-                            'product_variant_id' => $oldIt->product_variant_id ? (int) $oldIt->product_variant_id : null,
-                            'old_price'          => $oldP,
-                            'new_price'          => $newP,
-                        ];
-                    }
-                }
-            }
-
-            // Update linked transfer bills (purchase_bill_items) if purchase price was changed
-            if (!empty($priceChanges)) {
-                $transfersQuery = PurchaseBill::where('from_location_id', $purchaseLocationId)
-                    ->where('created_at', '>=', $purchase->created_at->subMinutes(5))
-                    ->whereNull('deleted_at')
-                    ->get();
-
-                foreach ($transfersQuery as $tr) {
-                    foreach ($tr->items as $tbItem) {
-                        foreach ($priceChanges as $pc) {
-                            $varMatch = $pc['product_variant_id']
-                                ? (int)$tbItem->product_variant_id === (int)$pc['product_variant_id']
-                                : empty($tbItem->product_variant_id);
-
-                            if ((int)$tbItem->product_id === (int)$pc['product_id'] && $varMatch && abs((float)$tbItem->purchase_price - $pc['old_price']) < 0.01) {
-                                $tbItem->update(['purchase_price' => $pc['new_price']]);
-                            }
-                        }
-                    }
+            foreach ($transfersToReprice as $link) {
+                $price = $transferPriceChanges[$link['key']];
+                $item = $link['transfer_item'];
+                $linkedQty = (int) $link['quantity'];
+                if ($linkedQty < $item->quantity) {
+                    $item->replicate()->fill(['quantity' => $linkedQty, 'purchase_price' => $price])->save();
+                    $item->decrement('quantity', $linkedQty);
+                } else {
+                    $item->update(['purchase_price' => $price]);
                 }
             }
 
@@ -1050,10 +1066,11 @@ class PurchaseController extends Controller
 
             $newItemsSnapshot = collect($itemsData)->map(function ($item) {
                 $prod = \App\Models\Product::find($item['product_id']);
+                $variant = !empty($item['product_variant_id']) ? \App\Models\ProductVariant::find($item['product_variant_id']) : null;
                 return [
                     'product_id'         => $item['product_id'],
                     'product_name'       => $prod?->name,
-                    'barcode'            => $prod?->barcode,
+                    'barcode'            => $variant?->barcode ?: $prod?->barcode,
                     'product_variant_id' => $item['product_variant_id'],
                     'quantity'           => $item['quantity'],
                     'price'              => (float) $item['purchase_price'],
@@ -1233,32 +1250,15 @@ class PurchaseController extends Controller
 
             if ($isCascade) {
                 PurchaseStockService::adjustOrDeleteSalesForPurchase($purchase);
+            }
 
-                if ($wasApproved) {
-                    PurchaseStockService::reversePurchaseWithTransfers($purchase, deleteSales: true, reason: 'deletion');
-                }
-            } else {
-                if ($wasApproved) {
-                    foreach ($purchase->items as $item) {
-                        $multiplier = PurchaseStockService::multiplierForProduct($item->product, $item->pair_type ?? null, $item->custom_size_value ?? null);
-                        $purchasedQty = (int) round($item->quantity * $multiplier);
-
-                        $sourceInv = Inventory::where('product_id', $item->product_id)->where('location_id', $purchaseLocationId)->first();
-                        if ($sourceInv) {
-                            $curQty = (int) $sourceInv->quantity;
-                            $deductQty = min($curQty, $purchasedQty);
-                            $sourceInv->update(['quantity' => max(0, $curQty - $deductQty)]);
-                        }
-
-                        PurchaseBatchService::deductBatchStock(
-                            $purchaseLocationId,
-                            (int) $item->product_id,
-                            !empty($item->product_variant_id) ? (int) $item->product_variant_id : null,
-                            (float) $item->purchase_price,
-                            (float) $purchasedQty
-                        );
-                    }
-                }
+            if ($wasApproved) {
+                PurchaseStockService::reversePurchaseWithTransfers(
+                    $purchase,
+                    deleteSales: $isCascade,
+                    reason: 'return',
+                    purchaseOnly: !$isCascade
+                );
             }
 
             foreach ($allAffectedLocations as $locId) {
@@ -1347,7 +1347,7 @@ class PurchaseController extends Controller
             return [
                 'product_id'         => $item->product_id,
                 'product_name'       => $item->product?->name,
-                'barcode'            => $item->product?->barcode,
+                'barcode'            => $item->variant?->barcode ?: $item->product?->barcode,
                 'product_variant_id' => $item->product_variant_id,
                 'quantity'           => $item->quantity,
                 'price'              => (float) $item->purchase_price,
@@ -1582,13 +1582,13 @@ class PurchaseController extends Controller
                 return [
                     'id'                  => $item->product->id,
                     'name'                => $item->product->name,
-                    'barcode'             => $item->product->barcode,
+                    'barcode'             => $item->variant?->barcode ?? $item->product->barcode,
                     'quantity'            => max(1, $qty),
                     'pair_product'        => (bool) $item->product->pair_product,
                     'pair_mode'           => $item->product->pair_mode ?? 'custom_size',
                     'custom_sizes'        => $item->product->custom_sizes ?? [],
                     'custom_size_value'   => $item->custom_size_value,
-                    'selected_variant_id' => $item->product_variant_id,
+                    'selected_variant_id' => $item->variant?->barcode ? $item->product_variant_id : null,
                     'variant_label'       => $item->variant?->attributeValue?->value,
                 ];
             })
@@ -1701,6 +1701,7 @@ class PurchaseController extends Controller
         return Cache::store('file')->remember('all_mapped_products_purchases', 1800, function () {
             $products = Product::with([
                 'variants.attributeValue.attribute',
+                'variants.primaryImage',
                 'primaryImage',
                 'inventories',
             ])->where('status', 1)->orderBy('name')->get();
@@ -1727,11 +1728,13 @@ class PurchaseController extends Controller
                         return [
                             'id'                 => $v->id,
                             'attribute_value_id' => $v->attribute_value_id,
+                            'barcode'            => $v->barcode,
                             'purchase_price'     => $v->purchase_price,
                             'sale_price'         => $v->sale_price,
                             'custom_sizes'       => $v->custom_sizes ?? [],
                             'attr_name'          => $v->attributeValue->attribute->name ?? '',
                             'value_name'         => $v->attributeValue->value ?? '',
+                            'image'              => $v->primaryImage ? $v->primaryImage->image_url : null,
                         ];
                     })->all();
                 }

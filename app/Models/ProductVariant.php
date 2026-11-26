@@ -2,6 +2,7 @@
 
 namespace App\Models;
 
+use App\Services\ProductBarcodes;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\SoftDeletes;
 
@@ -16,6 +17,21 @@ class ProductVariant extends Model
     {
         static::saved(fn () => Product::clearMappedCaches());
         static::deleted(fn () => Product::clearMappedCaches());
+    }
+
+    public function save(array $options = [])
+    {
+        if ($this->exists || !$this->product_id) {
+            return parent::save($options);
+        }
+
+        $connection = $this->getConnection();
+
+        return $connection->transaction(function () use ($connection, $options) {
+            $this->forceFill(ProductBarcodes::allocateVariant($connection, $this->product_id));
+
+            return parent::save($options);
+        });
     }
 
     protected $fillable = [
@@ -43,6 +59,28 @@ class ProductVariant extends Model
     public function attributeValue()
     {
         return $this->belongsTo(AttributeValue::class);
+    }
+
+    public function images()
+    {
+        return $this->hasMany(ProductImage::class, 'product_variant_id')->orderByDesc('is_primary')->orderBy('id');
+    }
+
+    public function primaryImage()
+    {
+        return $this->hasOne(ProductImage::class, 'product_variant_id')->where('is_primary', true);
+    }
+
+    public function getPrimaryImageUrlAttribute(): string
+    {
+        if ($this->relationLoaded('primaryImage') && $this->primaryImage) {
+            return $this->primaryImage->image_url;
+        }
+        if ($this->relationLoaded('images') && $this->images->isNotEmpty()) {
+            $first = $this->images->firstWhere('is_primary', true) ?: $this->images->first();
+            return $first?->image_url ?? ($this->product?->primary_image_url ?? asset('website/assets/images/placeholder.png'));
+        }
+        return $this->primaryImage?->image_url ?? ($this->product?->primary_image_url ?? asset('website/assets/images/placeholder.png'));
     }
 
     public function getCustomSizesAttribute($value)

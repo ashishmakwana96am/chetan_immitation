@@ -122,7 +122,12 @@
         // Handle Variant Relations
         if (in_array($key, ['product_variant_id', 'variant_id'])) {
             $v = \App\Models\ProductVariant::withTrashed()->find($val);
-            return $v ? $v->name : "Variant #$val";
+            if (!$v) {
+                return "Variant #$val";
+            }
+            $vLabel = trim((string)($v->name ?? $v->attributeValue?->value ?? ''));
+            $vBarcode = $v->barcode ? " ({$v->barcode})" : '';
+            return ($vLabel !== '' ? $vLabel : "Variant #$val") . $vBarcode;
         }
 
         // Handle Attribute & Attribute Value Relations
@@ -452,7 +457,23 @@
                         }
 
                         $productName = $item['product_name'] ?? $item['name'] ?? '-';
-                        $barcode = $item['barcode'] ?? '-';
+                        $variantId = $item['product_variant_id'] ?? ($item['variant_id'] ?? null);
+                        $variant = $variantId ? \App\Models\ProductVariant::withTrashed()->find($variantId) : null;
+                        if (!$variant && preg_match('/^(.*?)\s*\((.*?)\)$/', $productName, $nameMatches)) {
+                            $varLabel = trim($nameMatches[2]);
+                            $prodForVar = !empty($item['product_id']) ? \App\Models\Product::withTrashed()->find($item['product_id']) : null;
+                            if (!$prodForVar && !empty($item['barcode'])) {
+                                $prodForVar = \App\Models\Product::withTrashed()->where('barcode', $item['barcode'])->first();
+                            }
+                            if ($prodForVar) {
+                                $variant = \App\Models\ProductVariant::withTrashed()
+                                    ->where('product_id', $prodForVar->id)
+                                    ->whereHas('attributeValue', function ($aq) use ($varLabel) {
+                                        $aq->where('value', $varLabel);
+                                    })->first();
+                            }
+                        }
+                        $barcode = $variant?->barcode ?: ($item['barcode'] ?? '-');
                         $quantity = $item['quantity'] ?? $item['qty'] ?? '-';
                         $price = $item['price'] ?? $item['purchase_price'] ?? 0;
                         $itemTotal = $item['total'] ?? 0;
@@ -462,7 +483,10 @@
                         $html .= '<td class="fw-semibold text-dark">';
                         $html .= e($productName);
 
-                        if (!empty($item['variant_id'])) {
+                        $vLabel = trim((string)($variant?->name ?? $variant?->attributeValue?->value ?? ''));
+                        if ($vLabel !== '' && !str_contains($productName, '(' . $vLabel . ')')) {
+                            $html .= '<br><small class="text-muted">' . e($vLabel) . '</small>';
+                        } elseif (!empty($item['variant_id']) && !str_contains($productName, '(')) {
                             $html .= '<br><small class="text-muted">Variant #' . e($item['variant_id']) . '</small>';
                         }
 
@@ -824,11 +848,14 @@
                             <tr>
                                 <td>
                                     <span class="fw-semibold text-dark">{{ $item->product?->name ?? '-' }}</span>
-                                    @if($item->variant && trim((string)$item->variant->name) !== '')
-                                        <br><small class="text-muted">{{ trim($item->variant->name) }}</small>
+                                    @php
+                                        $vLabel = trim((string)($item->variant?->name ?? $item->variant?->attributeValue?->value ?? ''));
+                                    @endphp
+                                    @if($vLabel !== '')
+                                        <br><small class="text-muted">{{ $vLabel }}</small>
                                     @endif
                                 </td>
-                                <td class="text-muted">{{ $item->product?->barcode ?? '-' }}</td>
+                                <td class="text-muted">{{ $item->variant?->barcode ?: ($item->product?->barcode ?? '-') }}</td>
                                 <td class="text-center text-dark">{{ $item->quantity }}</td>
                                 <td class="text-end text-dark">{{ number_format($item->purchase_price, 2) }}</td>
                                 <td class="text-end fw-bold text-dark">{{ number_format($item->total, 2) }}</td>
@@ -924,11 +951,14 @@
                             <tr>
                                 <td>
                                     <span class="fw-semibold text-dark">{{ $item->product?->name ?? '-' }}</span>
-                                    @if($item->variant && trim((string)$item->variant->name) !== '')
-                                        <br><small class="text-muted">{{ trim($item->variant->name) }}</small>
+                                    @php
+                                        $vLabel = trim((string)($item->variant?->name ?? $item->variant?->attributeValue?->value ?? ''));
+                                    @endphp
+                                    @if($vLabel !== '')
+                                        <br><small class="text-muted">{{ $vLabel }}</small>
                                     @endif
                                 </td>
-                                <td class="text-muted">{{ $item->product?->barcode ?? '-' }}</td>
+                                <td class="text-muted">{{ $item->variant?->barcode ?: ($item->product?->barcode ?? '-') }}</td>
                                 <td class="text-center text-dark">{{ $item->quantity }}</td>
                                 <td class="text-end text-dark">{{ number_format($item->price, 2) }}</td>
                                 <td class="text-end text-dark">
@@ -1052,8 +1082,23 @@
                                                                     $productName = $item['product_name'] ?? ($product?->name ?? '-');
                                                                     $variantId = $item['variant_id'] ?? $item['product_variant_id'] ?? null;
                                                                     $variant = $variantId ? \App\Models\ProductVariant::withTrashed()->find($variantId) : null;
+                                                                    if (!$variant && $product && preg_match('/^(.*?)\s*\((.*?)\)$/', $productName, $nameMatches)) {
+                                                                        $varLabel = trim($nameMatches[2]);
+                                                                        $variant = \App\Models\ProductVariant::withTrashed()
+                                                                            ->where('product_id', $product->id)
+                                                                            ->whereHas('attributeValue', function ($aq) use ($varLabel) {
+                                                                                $aq->where('value', $varLabel);
+                                                                            })->first();
+                                                                    }
                                                                     $variantName = $variant?->name ?? $variant?->attributeValue?->value ?? null;
-                                                                    $barcode = $item['barcode'] ?? $product?->barcode ?? '-';
+                                                                    $rawBarcode = $item['barcode'] ?? null;
+                                                                    if (!$variant && $rawBarcode) {
+                                                                        $variant = \App\Models\ProductVariant::withTrashed()->where('barcode', $rawBarcode)->first();
+                                                                        if ($variant) {
+                                                                            $variantName = $variantName ?: ($variant->name ?? $variant->attributeValue?->value ?? null);
+                                                                        }
+                                                                    }
+                                                                    $barcode = $variant?->barcode ?: ($rawBarcode ?: ($product?->barcode ?? '-'));
                                                                     $quantity = $item['quantity'] ?? $item['qty'] ?? '-';
                                                                     $price = $item['price'] ?? $item['purchase_price'] ?? 0;
                                                                     $itemTotal = $item['total'] ?? 0;
@@ -1156,6 +1201,7 @@
                                     $oldItem = (array) $oldItem;
 
                                     $matchKey = ($oldItem['product_id'] ?? $oldItem['product_name'] ?? $oldItem['product'] ?? '') . '|' .
+                                                ($oldItem['product_variant_id'] ?? $oldItem['variant_id'] ?? '') . '|' .
                                                 ($oldItem['location_id'] ?? $oldItem['location'] ?? '');
 
                                     $stockRows[$matchKey]['old'] = $oldItem;
@@ -1165,6 +1211,7 @@
                                     $newItem = (array) $newItem;
 
                                     $matchKey = ($newItem['product_id'] ?? $newItem['product_name'] ?? $newItem['product'] ?? '') . '|' .
+                                                ($newItem['product_variant_id'] ?? $newItem['variant_id'] ?? '') . '|' .
                                                 ($newItem['location_id'] ?? $newItem['location'] ?? '');
 
                                     $stockRows[$matchKey]['new'] = $newItem;
@@ -1223,14 +1270,38 @@
                                                         }
 
                                                         $productId = $item['product_id'] ?? ($old['product_id'] ?? null);
+                                                        $variantId = $item['product_variant_id'] ?? ($old['product_variant_id'] ?? ($item['variant_id'] ?? ($old['variant_id'] ?? null)));
                                                         $product = $productId ? \App\Models\Product::withTrashed()->find($productId) : null;
                                                         $productName = $item['product_name'] ?? $item['product'] ?? $item['name'] ?? ($old['product_name'] ?? $old['product'] ?? ($product?->name ?? '-'));
+                                                        $variant = $variantId ? \App\Models\ProductVariant::withTrashed()->find($variantId) : null;
 
                                                         if (!$product && $productName !== '-') {
-                                                            $product = \App\Models\Product::withTrashed()->where('name', $productName)->first();
+                                                            $rawBarcode = $item['barcode'] ?? ($old['barcode'] ?? null);
+                                                            if ($rawBarcode) {
+                                                                $product = \App\Models\Product::withTrashed()->where('barcode', $rawBarcode)->first();
+                                                            }
+                                                            if (!$product) {
+                                                                $cleanName = trim(preg_replace('/\s*\(.*?\)$/', '', $productName));
+                                                                $product = \App\Models\Product::withTrashed()->where('name', $cleanName)->first()
+                                                                    ?: \App\Models\Product::withTrashed()->where('name', $productName)->first();
+                                                            }
                                                         }
 
-                                                        $barcode = $item['barcode'] ?? ($old['barcode'] ?? ($product?->barcode ?: '-'));
+                                                        if (!$variant && $product && preg_match('/^(.*?)\s*\((.*?)\)$/', $productName, $nameMatches)) {
+                                                            $varLabel = trim($nameMatches[2]);
+                                                            $variant = \App\Models\ProductVariant::withTrashed()
+                                                                ->where('product_id', $product->id)
+                                                                ->whereHas('attributeValue', function ($aq) use ($varLabel) {
+                                                                    $aq->where('value', $varLabel);
+                                                                })->first();
+                                                        }
+
+                                                        $rawBarcode = $item['barcode'] ?? ($old['barcode'] ?? null);
+                                                        if (!$variant && $rawBarcode) {
+                                                            $variant = \App\Models\ProductVariant::withTrashed()->where('barcode', $rawBarcode)->first();
+                                                        }
+
+                                                        $barcode = $variant?->barcode ?: ($rawBarcode ?: ($product?->barcode ?: '-'));
                                                         $location = $item['location'] ?? ($old['location'] ?? ($item['location_name'] ?? '-'));
                                                     @endphp
                                                     <tr>
@@ -1295,28 +1366,41 @@
                                     return array_map(function($item) {
                                         $item = (array) $item;
                                         $productId = $item['product_id'] ?? null;
+                                        $variantId = $item['product_variant_id'] ?? ($item['variant_id'] ?? null);
                                         $prod = $productId ? \App\Models\Product::withTrashed()->find($productId) : null;
+                                        $variant = $variantId ? \App\Models\ProductVariant::withTrashed()->find($variantId) : null;
                                         $rawName = $item['product_name'] ?? $item['name'] ?? ($prod ? $prod->name : '-');
-                                        $barcode = $item['barcode'] ?? ($prod ? $prod->barcode : null);
+
+                                        if (!$variant && $prod && preg_match('/^(.*?)\s*\((.*?)\)$/', $rawName, $nameMatches)) {
+                                            $varLabel = trim($nameMatches[2]);
+                                            $variant = \App\Models\ProductVariant::withTrashed()
+                                                ->where('product_id', $prod->id)
+                                                ->whereHas('attributeValue', function ($aq) use ($varLabel) {
+                                                    $aq->where('value', $varLabel);
+                                                })->first();
+                                        }
+
+                                        $rawBarcode = $item['barcode'] ?? null;
+                                        if (!$variant && $rawBarcode) {
+                                            $variant = \App\Models\ProductVariant::withTrashed()->where('barcode', $rawBarcode)->first();
+                                        }
+
+                                        $barcode = $variant?->barcode ?: ($rawBarcode ?: ($prod ? $prod->barcode : null));
                                         $productName = $rawName;
                                         if (!empty($barcode) && !str_contains($productName, $barcode)) {
                                             $productName .= ' (' . $barcode . ')';
                                         }
-                                        if (!empty($item['product_variant_id'])) {
-                                            $variant = \App\Models\ProductVariant::withTrashed()->find($item['product_variant_id']);
-                                            if ($variant) {
+                                        if ($variant) {
+                                            $variantLabel = trim(
+                                                (string) (
+                                                    $variant->name
+                                                    ?? $variant->attributeValue?->value
+                                                    ?? ''
+                                                )
+                                            );
 
-                                                $variantLabel = trim(
-                                                    (string) (
-                                                        $variant->name
-                                                        ?? $variant->attributeValue?->value
-                                                        ?? ''
-                                                    )
-                                                );
-
-                                                if ($variantLabel !== '') {
-                                                    $productName .= ' (' . $variantLabel . ')';
-                                                }
+                                            if ($variantLabel !== '' && !str_contains($productName, '(' . $variantLabel . ')')) {
+                                                $productName .= ' (' . $variantLabel . ')';
                                             }
                                         }
 

@@ -524,9 +524,11 @@ const orders = [
     @php
       $firstItem = $o->items->first();
       $productName = $firstItem && $firstItem->product ? $firstItem->product->name : 'Order #' . $o->order_no;
-      $productImg = ($firstItem && $firstItem->product && $firstItem->product->primaryImage) 
-          ? $firstItem->product->primaryImage->image_url 
-          : asset('website/assets/images/no-image.svg');
+      $productImg = ($firstItem && $firstItem->variant && $firstItem->variant->primary_image_url && !str_contains($firstItem->variant->primary_image_url, 'placeholder.png'))
+          ? $firstItem->variant->primary_image_url
+          : (($firstItem && $firstItem->product && $firstItem->product->primaryImage) 
+              ? $firstItem->product->primaryImage->image_url 
+              : asset('website/assets/images/no-image.svg'));
       
       if ($o->items->count() > 1) {
           $productName .= ' + ' . ($o->items->count() - 1) . ' more item(s)';

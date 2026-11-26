@@ -326,12 +326,13 @@
             } else if (rowData && rowData.variants && rowData.variants.length > 0) {
                 let html = '<div class="table-responsive" style="max-height: 300px; overflow-y: auto;">';
                 html += '<table class="table table-sm mb-0 variant-table">';
-                html += '<thead class="table-light"><tr><th style="width: 40px;">#</th><th>Variant</th><th class="text-end">Purchase Price</th><th class="text-end">Sale Price</th><th class="text-end">Margin</th><th class="text-end">Stock</th><th>Status</th></tr></thead>';
+                html += '<thead class="table-light"><tr><th style="width: 40px;">#</th><th>Variant</th><th>Barcode</th><th class="text-end">Purchase Price</th><th class="text-end">Sale Price</th><th class="text-end">Margin</th><th class="text-end">Stock</th><th>Status</th></tr></thead>';
                 html += '<tbody>';
                 rowData.variants.forEach(function(v) {
                     html += '<tr>';
                     html += '<td>' + v.index + '</td>';
-                    html += '<td class="ps-5">' + v.name + '</td>';
+                    html += '<td class="ps-5 fw-semibold">' + v.name + '</td>';
+                    html += '<td>' + (v.barcode ? '<code>' + v.barcode + '</code>' : '<span class="text-muted">-</span>') + '</td>';
                     html += '<td class="text-end">' + v.purchase_price + '</td>';
                     html += '<td class="text-end">' + v.sale_price + '</td>';
                     html += '<td class="text-end">' + v.margin_badge + '</td>';

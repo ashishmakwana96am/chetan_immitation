@@ -32,6 +32,19 @@
             overflow-x: hidden;
             width: 100%;
         }
+        .category-menu-thumbnail {
+            width: 44px;
+            height: 44px;
+        }
+        .category-menu-label {
+            overflow-wrap: anywhere;
+        }
+        @media (max-width: 639px) {
+            .category-menu-thumbnail {
+                width: 40px;
+                height: 40px;
+            }
+        }
         @keyframes marquee {
             0% {
                 transform: translateX(100vw);
@@ -182,6 +195,9 @@
 
                         <!-- Mega Menu -->
                         @if(isset($sharedCategories) && count($sharedCategories) > 0)
+                        @php
+                            $sharedCategories = $sharedCategories->sortBy(fn ($cat) => empty($cat->image) ? 1 : 0)->values();
+                        @endphp
                         <div class="group relative" onmouseenter="setHeaderCategoryArrow(true)" onmouseleave="resetSubmenus(); setHeaderCategoryArrow(false)" onfocusin="setHeaderCategoryArrow(true)" onfocusout="setHeaderCategoryArrow(false)">
                             <a href="{{ route('shop-by-category') }}" class="flex items-center gap-2 text-white hover:text-[#B4771E] text-base 2xl:text-lg pb-1 transition-colors duration-300">
                                 Shop By Categories
@@ -190,12 +206,15 @@
                             <!-- Dropdown -->
                             <div class="absolute top-full left-0 opacity-0 invisible group-hover:opacity-100 group-hover:visible transition duration-300">
                                 <div class="w-[270px] border border-[#D5D5D5] p-4 bg-white">
-                                    @foreach($sharedCategories as $index => $cat)
+                                    @foreach($sharedCategories as $cat)
                                     <div class="relative">
-                                        <a href="{{ route('shop-by-category', $cat->slug) }}" onmouseenter="showSubmenu('submenu-{{ $cat->id }}',this)" class="menu-btn w-full flex justify-between items-center {{ $index === 0 ? 'pb-[15px] border-b' : ($index === count($sharedCategories) - 1 ? 'pt-[15px]' : 'py-[10px] border-b') }} text-base text-[#131615] hover:text-[#B4771E] transition-colors duration-300">
-                                            <span>{{ $cat->name }}</span>
+                                        <a href="{{ route('shop-by-category', $cat->slug) }}" onmouseenter="showSubmenu('submenu-{{ $cat->id }}',this)" class="menu-btn w-full flex justify-between items-center gap-2 {{ $loop->last ? ($loop->first ? '' : 'pt-[15px]') : ($loop->first ? 'pb-[15px] border-b' : 'py-[10px] border-b') }} text-base text-[#131615] hover:text-[#B4771E] transition-colors duration-300">
+                                            @if($cat->image_url)
+                                                <img src="{{ $cat->image_url }}" alt="" width="44" height="44" class="category-menu-thumbnail shrink-0 rounded object-cover">
+                                            @endif
+                                            <span class="category-menu-label min-w-0 flex-1">{{ $cat->name }}</span>
                                             @if($cat->subCategories->isNotEmpty())
-                                                <i class="fa-solid fa-plus text-sm"></i>
+                                                <i class="fa-solid fa-plus shrink-0 text-sm"></i>
                                             @endif
                                         </a>
 
@@ -271,14 +290,6 @@
 
                     <!-- Right Side -->
                     <div class="flex items-center gap-2 sm:gap-5">
-                        <a href="https://calendar.app.google/eL5YRZTf9qiET7kA9" target="_blank" rel="noopener noreferrer" class="hidden sm:inline-flex items-center gap-2 px-3.5 h-[34px] lg:h-[40px] text-xs xl:text-sm font-medium bg-[#B4771E] text-white border border-[#B4771E] hover:bg-transparent hover:text-[#B4771E] hover:border-[#B4771E] transition-all duration-300 rounded-sm shadow-sm">
-                            <i class="fa-solid fa-video text-xs"></i>
-                            <span class="whitespace-nowrap">Book a Video Call</span>
-                        </a>
-
-                        <a href="https://calendar.app.google/eL5YRZTf9qiET7kA9" target="_blank" rel="noopener noreferrer" class="sm:hidden text-white hover:text-[#B4771E] p-1 flex items-center" title="Book a Video Call">
-                            <i class="fa-solid fa-video text-lg"></i>
-                        </a>
                         <!-- Mobile Search Icon -->
 
                         <div class="search-container items-center w-[130px] min-[400px]:w-[150px] sm:w-[170px] xl:w-[200px] 2xl:w-[240px] rounded-sm h-[34px] lg:h-[40px] border border-[#D5D5D533] pl-2 sm:pl-4 pr-2 sm:pr-3 bg-[#FFFFFF08] focus-within:border-[#B4771E] transition-all duration-300 flex">
@@ -436,13 +447,6 @@
         </div>
 
         <div class="px-[15px] py-[30px]">
-            <div class="mb-4">
-                <a href="https://calendar.app.google/eL5YRZTf9qiET7kA9" target="_blank" rel="noopener noreferrer" class="w-full flex items-center justify-center gap-2 py-3 px-4 rounded-sm text-sm font-semibold bg-[#B4771E] text-white border border-[#B4771E] hover:bg-[#966113] active:bg-[#966113] transition-all duration-300 shadow-sm">
-                    <i class="fa-solid fa-video"></i>
-                    <span>Book a Video Call</span>
-                </a>
-            </div>
-            
         @auth('customer')
     <div class="border-b">
 
@@ -633,10 +637,13 @@
                     <div class="border-b">
                         @if($cat->subCategories->isNotEmpty())
                             <div class="w-full flex justify-between items-center pl-4 transition-colors duration-300">
-                                <a href="{{ route('shop-by-category', $cat->slug) }}" class="flex-1 py-3 md:py-5 text-[#131615] hover:text-[#B4771E] text-base md:text-lg leading-[18px] transition-colors duration-300">
-                                    {{ $cat->name }}
+                                <a href="{{ route('shop-by-category', $cat->slug) }}" class="flex min-w-0 flex-1 items-center gap-2 py-3 md:py-5 text-[#131615] hover:text-[#B4771E] text-base md:text-lg leading-[18px] transition-colors duration-300">
+                                    @if($cat->image_url)
+                                        <img src="{{ $cat->image_url }}" alt="" width="44" height="44" class="category-menu-thumbnail shrink-0 rounded object-cover">
+                                    @endif
+                                    <span class="category-menu-label min-w-0">{{ $cat->name }}</span>
                                 </a>
-                                <button onclick="toggleMenu('mobile-submenu-{{ $cat->id }}','mobile-icon-{{ $cat->id }}')" class="py-3 md:py-5 px-4 md:px-5 text-base md:text-lg text-[#131615] hover:text-[#B4771E] focus:outline-none transition-colors duration-300" type="button">
+                                <button onclick="toggleMenu('mobile-submenu-{{ $cat->id }}','mobile-icon-{{ $cat->id }}')" class="shrink-0 py-3 md:py-5 px-4 md:px-5 text-base md:text-lg text-[#131615] hover:text-[#B4771E] focus:outline-none transition-colors duration-300" type="button">
                                     <span id="mobile-icon-{{ $cat->id }}"><i class="fa-solid fa-plus"></i></span>
                                 </button>
                             </div>
@@ -647,8 +654,11 @@
                                 @endforeach
                             </ul>
                         @else
-                            <a href="{{ route('shop-by-category', $cat->slug) }}" class="block w-full py-5 text-[#131615] hover:text-[#B4771E] text-lg leading-[18px] pl-4 transition-colors duration-300">
-                                {{ $cat->name }}
+                            <a href="{{ route('shop-by-category', $cat->slug) }}" class="flex w-full items-center gap-2 py-5 text-[#131615] hover:text-[#B4771E] text-lg leading-[18px] pl-4 pr-4 transition-colors duration-300">
+                                @if($cat->image_url)
+                                    <img src="{{ $cat->image_url }}" alt="" width="44" height="44" class="category-menu-thumbnail shrink-0 rounded object-cover">
+                                @endif
+                                <span class="category-menu-label min-w-0">{{ $cat->name }}</span>
                             </a>
                         @endif
                     </div>
@@ -1409,6 +1419,19 @@ window.addEventListener('resize', function () {
             @endauth
         </div>
     </div>
+
+    <a href="https://calendar.app.google/eL5YRZTf9qiET7kA9" target="_blank" rel="noopener noreferrer"
+        class="fixed bottom-[162px] lg:bottom-[102px] right-4 sm:right-5 z-[999] w-[56px] h-[56px] rounded-full bg-[#B4771E] flex items-center justify-center shadow-lg hover:scale-110 transition group"
+        aria-label="Book a call">
+        <span class="absolute inline-flex h-full w-full rounded-full bg-[#B4771E] opacity-75 animate-ping"></span>
+        <i class="fa-solid fa-video text-white text-[24px] relative"></i>
+        <span class="absolute whitespace-nowrap bg-[#131615] text-[#F5C06A] text-[11px] font-semibold px-2.5 py-0.5 rounded-full shadow-lg border border-[#B4771E] pointer-events-none text-center"
+            style="bottom: calc(100% + 4px); left: 50%; transform: translateX(-50%); line-height: 1.4;">
+            Book a call
+            <span class="absolute w-2 h-2 bg-[#131615] border-r border-b border-[#B4771E]"
+                style="bottom: -4px; left: 50%; margin-left: -4px; transform: rotate(45deg);"></span>
+        </span>
+    </a>
 
     <!-- Floating WhatsApp Chat Button -->
     <a href="https://wa.me/917725978871" target="_blank" rel="noopener"

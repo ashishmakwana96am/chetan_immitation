@@ -319,6 +319,7 @@
                         @foreach($order->items as $index => $item)
                             @php
                                 $displayName = $item->product->name ?? '-';
+                                $displayBarcode = $item->product_variant_id ? $item->variant?->barcode : $item->product?->barcode;
                                 if ($item->variant) {
                                     $v = $item->variant;
                                     if ($v->attributeValue) {
@@ -344,11 +345,11 @@
                                 <td class="text-muted small">{{ $index + 1 }}</td>
                                 <td>
                                     <div class="d-flex align-items-center">
-                                        <img src="{{ $item->product?->primary_image_url ?? asset('website/assets/images/no-image.svg') }}" alt="{{ $displayName }}" class="rounded me-3 product-thumbnail" style="width: 40px; height: 40px; object-fit: cover;">
+                                        <img src="{{ $item->image_url }}" alt="{{ $displayName }}" class="rounded me-3 product-thumbnail" style="width: 40px; height: 40px; object-fit: cover;">
                                         <div class="min-w-0">
                                             <span class="fw-semibold product-name">{{ $displayName }}</span>
-                                            @if($item->product?->barcode)
-                                                <small class="text-muted product-code">{{ $item->product->barcode }}</small>
+                                            @if($displayBarcode)
+                                                <small class="text-muted product-code">{{ $displayBarcode }}</small>
                                             @endif
                                         </div>
                                     </div>

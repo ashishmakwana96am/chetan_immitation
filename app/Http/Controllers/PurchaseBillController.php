@@ -8,10 +8,9 @@ use App\Models\Product;
 use App\Models\ProductVariant;
 use App\Models\PurchaseBill;
 use App\Models\PurchaseBillItem;
-use App\Models\LocationBalance;
-use App\Models\LocationBalanceTransaction;
 use App\Services\ActivityLogger;
 use App\Services\InterBranchStockAdjustmentService;
+use App\Services\PurchaseBillLedgerService;
 use App\Services\PurchaseBatchService;
 use App\Services\PurchaseStockService;
 use App\Services\ReportExportService;
@@ -488,11 +487,13 @@ class PurchaseBillController extends Controller
                     'custom_sizes' => $product->custom_sizes ?? [],
                     'variants' => $product->variants->map(fn($v) => [
                         'id' => $v->id,
+                        'barcode' => $v->barcode,
                         'attr_name' => $v->attributeValue->attribute->name ?? 'Attribute',
                         'value_name' => $v->attributeValue->value ?? '',
                         'sale_price' => (float) ($v->sale_price ?? $product->sale_price),
                         'purchase_price' => (float) ($v->purchase_price ?? $product->purchase_price),
                     ])->values()->toArray(),
+                    'stock_by_location' => $product->getVariantStock() ?: $product->inventories->pluck('quantity', 'location_id')->all(),
                 ] : null,
             ];
         })->values();
@@ -563,6 +564,8 @@ class PurchaseBillController extends Controller
         }
 
         DB::transaction(function () use ($request, $fromLocation, $purchaseBill, $isAccepted) {
+            PurchaseBill::whereKey($purchaseBill->id)->lockForUpdate()->firstOrFail();
+            $purchaseBill->refresh();
             $oldItems = $purchaseBill->items()->get();
             $oldItemsSnapshot = $oldItems->map(function ($item) {
                 return [
@@ -670,10 +673,6 @@ class PurchaseBillController extends Controller
                         PurchaseBatchService::addBatchStock($oldFromLocId, $pId, $vId, null, $price, (float) $qty);
                         PurchaseBatchService::syncProductBatchStocks($oldToLocId, $pId, $vId);
                         PurchaseBatchService::syncProductBatchStocks($oldFromLocId, $pId, $vId);
-                    }
-
-                    if ((float) ($purchaseBill->paid_amount ?? 0) > 0) {
-                        $this->applyLocationBalanceTransfer($purchaseBill, (float) $purchaseBill->paid_amount, true);
                     }
 
                     foreach ($normalizedNewItems as $ni) {
@@ -823,7 +822,7 @@ class PurchaseBillController extends Controller
                 'from_location_id' => $fromLocation->id,
                 'to_location_id' => $request->to_location_id,
                 'payment_method' => $request->payment_method,
-                'payment_status' => $request->payment_status ?? PurchaseBill::PAYMENT_STATUS_PENDING,
+                'payment_status' => $isAccepted ? $purchaseBill->payment_status : ($request->payment_status ?? PurchaseBill::PAYMENT_STATUS_PENDING),
                 'remarks' => $request->remarks,
             ];
             $oldFieldsSnapshot = $purchaseBill->only(array_keys($updateData));
@@ -891,54 +890,26 @@ class PurchaseBillController extends Controller
                 }
             }
 
-            if ($isAccepted) {
+            if ($isAccepted && ($itemsChanged || $branchChanged)) {
+                if ($branchChanged) {
+                    PurchaseBillLedgerService::moveToUpdatedBranches($purchaseBill);
+                }
                 $purchaseBill->load(['items.product', 'items.variant']);
                 [$newTotalAmount] = $this->purchaseBillTotals($purchaseBill);
                 $oldPaidAmount = (float) ($purchaseBill->paid_amount ?? 0);
 
-                $hasAutoAdjustments = \App\Models\PurchaseBillPayment::where('stock_return_bill_id', $purchaseBill->id)
-                    ->orWhere(function($q) use ($purchaseBill) {
-                        $q->where('purchase_bill_id', $purchaseBill->id)->whereNotNull('stock_return_bill_id');
-                    })
-                    ->exists();
-
-                if ($hasAutoAdjustments || $purchaseBill->payment_status != PurchaseBill::PAYMENT_STATUS_PAID) {
+                $hasPayments = $purchaseBill->payments()->exists()
+                    || \App\Models\PurchaseBillPayment::where('stock_return_bill_id', $purchaseBill->id)->exists();
+                if ($hasPayments || $purchaseBill->payment_status != PurchaseBill::PAYMENT_STATUS_PAID) {
                     InterBranchStockAdjustmentService::reconcileBill($purchaseBill);
                 } else {
-                    if ($branchChanged) {
-                        if ($purchaseBill->payment_status == PurchaseBill::PAYMENT_STATUS_PAID) {
-                            $this->applyLocationBalanceTransfer($purchaseBill, $newTotalAmount);
-                            $purchaseBill->update(['paid_amount' => $newTotalAmount]);
-                        } elseif ($purchaseBill->payment_status == PurchaseBill::PAYMENT_STATUS_PARTIAL) {
-                            $paid = min($oldPaidAmount, $newTotalAmount);
-                            if ($paid > 0) {
-                                $this->applyLocationBalanceTransfer($purchaseBill, $paid);
-                            }
-                            $purchaseBill->update([
-                                'paid_amount'    => $paid,
-                                'payment_status' => ($paid >= $newTotalAmount && $newTotalAmount > 0) ? PurchaseBill::PAYMENT_STATUS_PAID : PurchaseBill::PAYMENT_STATUS_PARTIAL,
-                            ]);
-                        }
-                    } else {
-                        if ($purchaseBill->payment_status == PurchaseBill::PAYMENT_STATUS_PAID) {
-                            $diffAmount = round($newTotalAmount - $oldPaidAmount, 2);
-                            if ($diffAmount > 0) {
-                                $this->applyLocationBalanceTransfer($purchaseBill, $diffAmount);
-                            } elseif ($diffAmount < 0) {
-                                $this->applyLocationBalanceTransfer($purchaseBill, abs($diffAmount), true);
-                            }
-                            $purchaseBill->update(['paid_amount' => $newTotalAmount]);
-                        } elseif ($purchaseBill->payment_status == PurchaseBill::PAYMENT_STATUS_PARTIAL) {
-                            if ($oldPaidAmount > $newTotalAmount) {
-                                $excess = round($oldPaidAmount - $newTotalAmount, 2);
-                                $this->applyLocationBalanceTransfer($purchaseBill, $excess, true);
-                                $purchaseBill->update([
-                                    'paid_amount'    => $newTotalAmount,
-                                    'payment_status' => PurchaseBill::PAYMENT_STATUS_PAID,
-                                ]);
-                            }
-                        }
+                    $diffAmount = round($newTotalAmount - $oldPaidAmount, 2);
+                    if ($diffAmount > 0) {
+                        PurchaseBillLedgerService::post($purchaseBill, $diffAmount);
+                    } elseif ($diffAmount < 0) {
+                        PurchaseBillLedgerService::reverse($purchaseBill, abs($diffAmount));
                     }
+                    $purchaseBill->update(['paid_amount' => $newTotalAmount]);
                 }
             }
 
@@ -1028,10 +999,7 @@ class PurchaseBillController extends Controller
                     PurchaseBatchService::syncProductBatchStocks($fromLocId, (int)$item->product_id, !empty($item->product_variant_id) ? (int)$item->product_variant_id : null);
                 }
 
-                $manualPaid = (float) $purchaseBill->payments()->whereNull('stock_return_bill_id')->sum('amount');
-                if ($manualPaid > 0) {
-                    $this->applyLocationBalanceTransfer($purchaseBill, $manualPaid, true);
-                }
+                PurchaseBillLedgerService::reverse($purchaseBill);
             }
 
             InterBranchStockAdjustmentService::handleBillDeletion($purchaseBill);
@@ -1207,7 +1175,7 @@ class PurchaseBillController extends Controller
             'payments.createdBy',
             'items.product.primaryImage',
             'items.product.variants.attributeValue.attribute',
-            'items.variant.attributeValue.attribute',
+            'items.variant' => fn ($q) => $q->withTrashed()->with('attributeValue.attribute'),
         ]);
 
         foreach ($purchaseBill->items as $item) {
@@ -1328,8 +1296,14 @@ class PurchaseBillController extends Controller
             }
 
             $adjustments = InterBranchStockAdjustmentService::adjustPendingBalances($purchaseBill);
-            if ($purchaseBill->payment_status == PurchaseBill::PAYMENT_STATUS_PAID && empty($adjustments)) {
-                $this->applyLocationBalanceTransfer($purchaseBill, $totalAmount);
+            if ($purchaseBill->payment_status == PurchaseBill::PAYMENT_STATUS_PAID && empty($adjustments) && $totalAmount > 0) {
+                $payment = $purchaseBill->payments()->create([
+                    'amount' => $totalAmount,
+                    'notes' => 'Manual Payment (Paid on Acceptance)',
+                    'created_by' => auth()->id(),
+                ]);
+                PurchaseBillLedgerService::post($purchaseBill, $totalAmount, $payment);
+                InterBranchStockAdjustmentService::recalculateBillPaymentStatus($purchaseBill);
             }
         });
 
@@ -1409,31 +1383,35 @@ class PurchaseBillController extends Controller
             return response()->json(['status' => 'error', 'message' => 'Only accepted purchase bills can have their payment status updated.'], 422);
         }
 
-        $purchaseBill->load(['items.product', 'items.variant']);
-        [$totalAmount] = $this->purchaseBillTotals($purchaseBill);
         $currentPaidAmount = (float) ($purchaseBill->paid_amount ?? 0);
-        $balanceDue = round($totalAmount - $currentPaidAmount, 2);
-
         $newStatus = (int) $request->payment_status;
         $currentStatus = (int) ($purchaseBill->payment_status ?? PurchaseBill::PAYMENT_STATUS_PENDING);
 
-        if ($newStatus === PurchaseBill::PAYMENT_STATUS_PARTIAL && round((float) $request->amount, 2) > $balanceDue) {
-            return response()->json([
-                'status'  => 'error',
-                'message' => 'Paid amount cannot be greater than the remaining balance due (' . format_price($balanceDue) . ').',
-            ], 422);
-        }
+        $paymentError = DB::transaction(function () use ($purchaseBill, $newStatus, $request) {
+            PurchaseBill::whereKey($purchaseBill->id)->lockForUpdate()->firstOrFail();
+            $purchaseBill->refresh()->load(['items.product', 'items.variant']);
+            if ((int) $purchaseBill->status !== PurchaseBill::STATUS_ACCEPTED) {
+                return 'Only accepted purchase bills can have their payment status updated.';
+            }
+            [$totalAmount] = $this->purchaseBillTotals($purchaseBill);
+            $currentPaidAmount = (float) $purchaseBill->paid_amount;
+            $balanceDue = round($totalAmount - $currentPaidAmount, 2);
+            if ($newStatus === PurchaseBill::PAYMENT_STATUS_PARTIAL && round((float) $request->amount, 2) > $balanceDue) {
+                return 'Paid amount cannot be greater than the remaining balance due (' . format_price($balanceDue) . ').';
+            }
 
-        DB::transaction(function () use ($purchaseBill, $newStatus, $request, $totalAmount, $balanceDue, $currentPaidAmount) {
             if ($newStatus === PurchaseBill::PAYMENT_STATUS_PAID) {
-                \App\Models\PurchaseBillPayment::create([
+                if ($balanceDue <= 0) {
+                    return null;
+                }
+                $payment = \App\Models\PurchaseBillPayment::create([
                     'purchase_bill_id' => $purchaseBill->id,
                     'amount'           => $balanceDue,
                     'notes'            => 'Manual Payment (Paid in Full)',
                     'created_by'       => auth()->id(),
                 ]);
 
-                $this->applyLocationBalanceTransfer($purchaseBill, $balanceDue, false);
+                PurchaseBillLedgerService::post($purchaseBill, $balanceDue, $payment);
 
                 PurchaseBill::withoutActivityLogging(fn () => $purchaseBill->update([
                     'payment_status' => PurchaseBill::PAYMENT_STATUS_PAID,
@@ -1444,25 +1422,22 @@ class PurchaseBillController extends Controller
                 $newPaidAmount = round($currentPaidAmount + $amount, 2);
                 $finalStatus = $newPaidAmount >= $totalAmount ? PurchaseBill::PAYMENT_STATUS_PAID : PurchaseBill::PAYMENT_STATUS_PARTIAL;
 
-                \App\Models\PurchaseBillPayment::create([
+                $payment = \App\Models\PurchaseBillPayment::create([
                     'purchase_bill_id' => $purchaseBill->id,
                     'amount'           => $amount,
                     'notes'            => 'Manual Payment (Partial)',
                     'created_by'       => auth()->id(),
                 ]);
 
-                $this->applyLocationBalanceTransfer($purchaseBill, $amount, false);
+                PurchaseBillLedgerService::post($purchaseBill, $amount, $payment);
 
                 PurchaseBill::withoutActivityLogging(fn () => $purchaseBill->update([
                     'payment_status' => $finalStatus,
                     'paid_amount'    => min($newPaidAmount, $totalAmount),
                 ]));
             } else {
-                $manualPaid = (float) $purchaseBill->payments()->whereNull('stock_return_bill_id')->sum('amount');
                 $purchaseBill->payments()->whereNull('stock_return_bill_id')->delete();
-                if ($manualPaid > 0) {
-                    $this->applyLocationBalanceTransfer($purchaseBill, $manualPaid, true);
-                }
+                PurchaseBillLedgerService::reverse($purchaseBill);
 
                 $remainingOffset = (float) $purchaseBill->payments()->whereNotNull('stock_return_bill_id')->sum('amount');
                 PurchaseBill::withoutActivityLogging(fn () => $purchaseBill->update([
@@ -1470,7 +1445,12 @@ class PurchaseBillController extends Controller
                     'paid_amount'    => $remainingOffset,
                 ]));
             }
+
+            return null;
         });
+        if ($paymentError) {
+            return response()->json(['status' => 'error', 'message' => $paymentError], 422);
+        }
 
         $label = $newStatus === PurchaseBill::PAYMENT_STATUS_PAID ? 'Paid' : ($newStatus === PurchaseBill::PAYMENT_STATUS_PARTIAL ? 'Partially Paid' : 'Pending');
 
@@ -1673,100 +1653,6 @@ class PurchaseBillController extends Controller
         return '<span class="badge ' . ($colors[$status] ?? 'bg-label-warning') . '">' . ($labels[$status] ?? 'Pending') . '</span>';
     }
 
-    private function applyLocationBalanceTransfer(PurchaseBill $purchaseBill, float $totalAmount, bool $reverse = false): void
-    {
-        [$billTotal] = $this->purchaseBillTotals($purchaseBill);
-        if (round($totalAmount, 2) >= round($billTotal, 2)) {
-            $stockReturnOffset = (float) $purchaseBill->payments()->whereNotNull('stock_return_bill_id')->sum('amount');
-            if ($stockReturnOffset > 0) {
-                $totalAmount = max(0.0, round($totalAmount - $stockReturnOffset, 2));
-            }
-        }
-
-        if ($totalAmount <= 0) {
-            return;
-        }
-
-        $balanceType = strtolower($purchaseBill->payment_method ?? 'cash') === 'online'
-            ? LocationBalanceTransaction::BALANCE_TYPE_BANK
-            : LocationBalanceTransaction::BALANCE_TYPE_CASH;
-
-        $balanceCol = $balanceType === LocationBalanceTransaction::BALANCE_TYPE_BANK
-            ? 'bank_balance'
-            : 'cash_balance';
-
-        $outNote = 'Purchase Bill Out #' . $purchaseBill->transfer_no;
-        $inNote  = 'Purchase Bill In #' . $purchaseBill->transfer_no;
-
-        if ($reverse) {
-            $fromBalance = LocationBalance::where('location_id', $purchaseBill->from_location_id)->lockForUpdate()->first();
-            if ($fromBalance) {
-                $fromBalance->update([$balanceCol => (float) $fromBalance->{$balanceCol} - $totalAmount]);
-            }
-            $toBalance = LocationBalance::where('location_id', $purchaseBill->to_location_id)->lockForUpdate()->first();
-            if ($toBalance) {
-                $toBalance->update([$balanceCol => (float) $toBalance->{$balanceCol} + $totalAmount]);
-            }
-
-            LocationBalanceTransaction::whereIn('notes', [$outNote, $inNote])
-                ->orWhere('notes', 'LIKE', '%#' . $purchaseBill->transfer_no)
-                ->delete();
-            return;
-        }
-
-        $fromBalance = LocationBalance::where('location_id', $purchaseBill->from_location_id)->lockForUpdate()->firstOrFail();
-        $newFromBalance = (float) $fromBalance->{$balanceCol} + $totalAmount;
-        $fromBalance->update([$balanceCol => $newFromBalance]);
-
-        $existingOut = LocationBalanceTransaction::where('notes', 'LIKE', '%' . $purchaseBill->transfer_no)->where('location_id', $purchaseBill->from_location_id)->first();
-        if ($existingOut) {
-            $existingOut->update([
-                'location_id'   => $purchaseBill->from_location_id,
-                'balance_type'  => $balanceType,
-                'type'          => LocationBalanceTransaction::TYPE_CREDIT,
-                'amount'        => $totalAmount,
-                'balance_after' => $newFromBalance,
-                'notes'         => $outNote,
-            ]);
-        } else {
-            LocationBalanceTransaction::create([
-                'location_id'   => $purchaseBill->from_location_id,
-                'balance_type'  => $balanceType,
-                'type'          => LocationBalanceTransaction::TYPE_CREDIT,
-                'amount'        => $totalAmount,
-                'balance_after' => $newFromBalance,
-                'notes'         => $outNote,
-                'created_by'    => auth()->id(),
-            ]);
-        }
-
-        $toBalance = LocationBalance::where('location_id', $purchaseBill->to_location_id)->lockForUpdate()->firstOrFail();
-        $newToBalance = (float) $toBalance->{$balanceCol} - $totalAmount;
-        $toBalance->update([$balanceCol => $newToBalance]);
-
-        $existingIn = LocationBalanceTransaction::where('notes', 'LIKE', '%' . $purchaseBill->transfer_no)->where('location_id', $purchaseBill->to_location_id)->first();
-        if ($existingIn) {
-            $existingIn->update([
-                'location_id'   => $purchaseBill->to_location_id,
-                'balance_type'  => $balanceType,
-                'type'          => LocationBalanceTransaction::TYPE_DEBIT,
-                'amount'        => $totalAmount,
-                'balance_after' => $newToBalance,
-                'notes'         => $inNote,
-            ]);
-        } else {
-            LocationBalanceTransaction::create([
-                'location_id'   => $purchaseBill->to_location_id,
-                'balance_type'  => $balanceType,
-                'type'          => LocationBalanceTransaction::TYPE_DEBIT,
-                'amount'        => $totalAmount,
-                'balance_after' => $newToBalance,
-                'notes'         => $inNote,
-                'created_by'    => auth()->id(),
-            ]);
-        }
-    }
-
     private function resolveCustomSizeValue(?Product $product, array $itemData): ?float
     {
         if (!$product || !$product->pair_product) {
@@ -1904,6 +1790,7 @@ class PurchaseBillController extends Controller
         return Cache::store('file')->remember('all_mapped_products_bills', 1800, function () {
             $products = Product::with([
                 'variants.attributeValue.attribute',
+                'variants.primaryImage',
                 'primaryImage',
                 'inventories',
             ])->where('status', 1)->orderBy('name')->get();
@@ -1933,10 +1820,12 @@ class PurchaseBillController extends Controller
                         }
                         return [
                             'id'             => $v->id,
+                            'barcode'        => $v->barcode,
                             'purchase_price' => $resolvedVarPrice > 0 ? $resolvedVarPrice : $v->purchase_price,
                             'custom_sizes'   => $v->custom_sizes ?? [],
                             'attr_name'      => $v->attributeValue->attribute->name ?? '',
                             'value_name'     => $v->attributeValue->value ?? '',
+                            'image'          => $v->primaryImage ? $v->primaryImage->image_url : null,
                         ];
                     })->all();
                 }

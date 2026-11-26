@@ -433,6 +433,61 @@
             background: #fcf6ed; color: #8a5a15; font-weight: 600; text-transform: uppercase; letter-spacing: .03em; font-size: .74rem;
         }
         .variants-table-wrap table#variantsTable .size-group-start { border-left: 2px solid #e7c98d !important; }
+        .variant-upload-empty-btn {
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+            width: 38px;
+            height: 38px;
+            border-radius: 6px;
+            border: 1.5px dashed #B4771E;
+            background: #fdfaf6;
+            color: #B4771E;
+            cursor: pointer;
+            transition: all 0.2s ease;
+        }
+        .variant-upload-empty-btn:hover {
+            background: #f7efe4;
+            border-color: #925f15;
+            color: #925f15;
+            box-shadow: 0 2px 6px rgba(180, 119, 30, 0.2);
+            transform: translateY(-1px);
+        }
+        .variant-upload-add-btn {
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+            width: 38px;
+            height: 38px;
+            border-radius: 6px;
+            border: 1.5px dashed #B4771E;
+            background: #fdfaf6;
+            color: #B4771E;
+            cursor: pointer;
+            transition: all 0.2s ease;
+        }
+        .variant-upload-add-btn:hover {
+            background: #f7efe4;
+            border-color: #925f15;
+            color: #925f15;
+            box-shadow: 0 2px 6px rgba(180, 119, 30, 0.2);
+            transform: translateY(-1px);
+        }
+        .variant-img-thumb {
+            width: 38px;
+            height: 38px;
+            position: relative;
+            display: inline-block;
+            transition: transform 0.15s ease;
+        }
+        .variant-img-thumb:hover {
+            transform: scale(1.05);
+        }
+        .variant-img-thumb img {
+            border-radius: 6px;
+            border: 1px solid #e2e8f0;
+            box-shadow: 0 1px 3px rgba(0,0,0,0.08);
+        }
     </style>
 @endsection
 
@@ -577,6 +632,8 @@
             let cropper = null;
             let currentCroppingField = null;
             let additionalFilesQueue = [];
+            let variantFilesQueue = [];
+            let targetVariantIdx = null;
             let cropSaved = false;
 
             const $cropModal = $('#cropImageModal');
@@ -670,6 +727,20 @@
                 reader.readAsDataURL(file);
             }
 
+            function processNextVariantFile() {
+                if (variantFilesQueue.length === 0) {
+                    return;
+                }
+                const file = variantFilesQueue.shift();
+                cropSaved = false;
+
+                const reader = new FileReader();
+                reader.onload = function (e) {
+                    openCropModal(e.target.result, `Crop Variant Image (${variantFilesQueue.length + 1} remaining)`);
+                };
+                reader.readAsDataURL(file);
+            }
+
             function openCropModal(imgSrc, title) {
                 if (cropper) {
                     cropper.destroy();
@@ -679,8 +750,8 @@
                 $cropImage.attr('src', imgSrc);
                 $('#cropModalTitle').text(title);
 
-                // Set button text based on queue
-                if (currentCroppingField === 'additional' && additionalFilesQueue.length > 0) {
+                if ((currentCroppingField === 'additional' && additionalFilesQueue.length > 0) ||
+                    (currentCroppingField === 'variant' && variantFilesQueue.length > 0)) {
                     $cropSaveBtn.text('Save & Next');
                 } else {
                     $cropSaveBtn.text('Crop & Save');
@@ -753,6 +824,9 @@
                 if (!cropSaved && currentCroppingField === 'additional') {
                     additionalFilesQueue = [];
                 }
+                if (!cropSaved && currentCroppingField === 'variant') {
+                    variantFilesQueue = [];
+                }
             });
 
             $cropSaveBtn.on('click', function () {
@@ -792,8 +866,25 @@
                         $('#additionalImagesError').text('');
 
                         if (additionalFilesQueue.length > 0) {
-                            // Process the next image in the queue without closing the modal
                             processNextAdditionalFile();
+                        } else {
+                            bootstrap.Modal.getInstance($cropModal[0]).hide();
+                        }
+                    } else if (currentCroppingField === 'variant') {
+                        if (targetVariantIdx !== null && variantsData[targetVariantIdx]) {
+                            if (!variantsData[targetVariantIdx].images) {
+                                variantsData[targetVariantIdx].images = [];
+                            }
+                            const isFirst = variantsData[targetVariantIdx].images.length === 0;
+                            variantsData[targetVariantIdx].images.push({
+                                base64: dataUrl,
+                                is_primary: isFirst,
+                            });
+                            renderVariantsTable();
+                        }
+
+                        if (variantFilesQueue.length > 0) {
+                            processNextVariantFile();
                         } else {
                             bootstrap.Modal.getInstance($cropModal[0]).hide();
                         }
@@ -1029,7 +1120,10 @@
                     const savedSizes = (v.custom_sizes || []).map(function (cs) {
                         return { size: cs.size, sale_price: cs.sale_price, mrp: cs.mrp, manual: true };
                     });
-                    map[v.attribute_value_id] = { purchase_price: v.purchase_price, sale_price: v.sale_price, status: v.status, custom_sizes: savedSizes };
+                    const savedImages = (v.images || []).map(function (img) {
+                        return { id: img.id, url: img.image_url, is_primary: !!img.is_primary };
+                    });
+                    map[v.attribute_value_id] = { purchase_price: v.purchase_price, sale_price: v.sale_price, status: v.status, custom_sizes: savedSizes, images: savedImages };
                 });
                 return map;
             }
@@ -1126,11 +1220,13 @@
                         subHeaderHtml += '<th style="width:110px" class="text-center' + startCls + '">Sale <span class="text-danger">*</span></th>';
                         subHeaderHtml += '<th style="width:110px" class="text-center">MRP <span class="text-danger">*</span></th>';
                     });
+                    groupHtml += '<th rowspan="2" style="min-width:180px">Images</th>';
                     groupHtml += '<th rowspan="2" style="width:55px">Action</th>';
                 } else {
                     groupHtml += '<th style="width:40px">#</th><th>Attribute</th><th>Value</th>';
                     groupHtml += '<th style="width:180px">Purchase Price <span class="text-danger">*</span></th>';
                     groupHtml += '<th style="width:200px">Sale Price <span class="text-danger">*</span></th>';
+                    groupHtml += '<th style="min-width:180px">Images</th>';
                     groupHtml += '<th style="width:60px">Action</th>';
                 }
 
@@ -1173,6 +1269,33 @@
                 let bodyHtml = '';
                 variantsData.forEach(function (v, idx) {
                     const info = findAttrValue(v.attribute_value_id);
+                    const vImages = v.images || [];
+                    let imagesHtml = '';
+                    if (vImages.length > 0) {
+                        vImages.forEach(function (img, imgIdx) {
+                            const src = img.url || img.base64;
+                            imagesHtml += `
+                                <div class="variant-img-thumb me-1 mb-1" data-variant-index="${idx}" data-img-index="${imgIdx}">
+                                    <img src="${src}" class="w-100 h-100 object-fit-cover" />
+                                    <button type="button" class="position-absolute top-0 start-100 translate-middle btn btn-icon btn-xs rounded-circle bg-danger text-white p-0 remove-variant-image" style="width: 16px; height: 16px; line-height: 14px; font-size: 10px;" data-variant-index="${idx}" data-img-index="${imgIdx}" title="Remove image">&times;</button>
+                                </div>
+                            `;
+                        });
+                        imagesHtml += `
+                            <label class="variant-upload-add-btn mb-1" title="Add More Images">
+                                <i class="ti ti-plus fs-5"></i>
+                                <input type="file" class="d-none variant-image-input" data-index="${idx}" accept="image/*" multiple />
+                            </label>
+                        `;
+                    } else {
+                        imagesHtml = `
+                            <label class="variant-upload-empty-btn mb-1" title="Upload Images">
+                                <i class="ti ti-upload fs-5"></i>
+                                <input type="file" class="d-none variant-image-input" data-index="${idx}" accept="image/*" multiple />
+                            </label>
+                        `;
+                    }
+
                     bodyHtml += '<tr>' +
                         '<td>' + (idx + 1) + '</td>' +
                         '<td>' + info.attrName + '</td>' +
@@ -1187,6 +1310,9 @@
                     } else {
                         bodyHtml += '<td><div class="input-group input-group-sm"><span class="input-group-text">{{ currency_symbol() }}</span><input type="number" class="form-control form-control-sm variant-sale" value="' + v.sale_price + '" placeholder="0.00" step="0.01" min="0" data-index="' + idx + '" /></div></td>';
                     }
+                    bodyHtml += '<td><div class="d-flex align-items-center gap-1 flex-wrap variant-images-container" data-index="' + idx + '">' +
+                        imagesHtml +
+                    '</div></td>';
                     bodyHtml += '<td><button type="button" class="btn btn-sm btn-icon text-danger remove-variant" data-index="' + idx + '"><i class="ti ti-trash"></i></button></td>' +
                         '</tr>';
                 });
@@ -1223,7 +1349,8 @@
                                     attribute_value_id: val.id,
                                     purchase_price: defaultPurchase,
                                     sale_price: defaultSale,
-                                    status: 1
+                                    status: 1,
+                                    images: []
                                 });
                             }
                         });
@@ -1280,6 +1407,45 @@
                 const removed = variantsData.splice(idx, 1);
                 if (removed[0]) removedValueIds[removed[0].attribute_value_id] = true;
                 renderVariantsTable();
+            });
+
+            $(document).on('change', '.variant-image-input', function (e) {
+                const idx = $(this).data('index');
+                const files = this.files;
+                if (!files || files.length === 0 || !variantsData[idx]) return;
+
+                variantFilesQueue = Array.from(files).filter(file => {
+                    if (file.size > 50 * 1024 * 1024) {
+                        toastr.error(`File ${file.name} exceeds 50 MB limit and was skipped.`);
+                        return false;
+                    }
+                    return true;
+                });
+
+                if (variantFilesQueue.length === 0) {
+                    this.value = '';
+                    return;
+                }
+
+                targetVariantIdx = idx;
+                currentCroppingField = 'variant';
+                cropSaved = false;
+                this.value = '';
+                processNextVariantFile();
+            });
+
+            $(document).on('click', '.remove-variant-image', function (e) {
+                e.stopPropagation();
+                const vIdx = $(this).data('variant-index');
+                const imgIdx = $(this).data('img-index');
+                if (variantsData[vIdx] && variantsData[vIdx].images) {
+                    const wasPrimary = variantsData[vIdx].images[imgIdx].is_primary;
+                    variantsData[vIdx].images.splice(imgIdx, 1);
+                    if (wasPrimary && variantsData[vIdx].images.length > 0) {
+                        variantsData[vIdx].images[0].is_primary = true;
+                    }
+                    renderVariantsTable();
+                }
             });
 
             $(document).on('change', '.attribute-select', function () {
@@ -1666,7 +1832,7 @@
             window.viewBarcode = function(barcodeText, productId, category, variations, salePrice) {
                 const barcodeUrl = '{{ route('admin.products.barcode', ':id') }}'.replace(':id', productId);
                 const customSizes = @json($product->pair_product ? ($product->custom_sizes ?? []) : []);
-                const variantsList = @json($product->type === 'variable' ? $product->variants->filter(fn($v) => $v->attributeValue)->map(fn($v) => ['id' => $v->id, 'value' => $v->attributeValue->value])->values()->toArray() : []);
+                const variantsList = @json($product->type === 'variable' ? $product->variants->filter(fn($v) => $v->attributeValue && $v->barcode)->map(fn($v) => ['id' => $v->id, 'value' => $v->attributeValue->value, 'barcode' => $v->barcode])->values()->toArray() : []);
                 
                 let customSizeSelectHtml = '';
                 if (customSizes && customSizes.length > 0) {
@@ -1687,7 +1853,7 @@
                     variantSelectHtml += '<div class="form-group mb-3 text-start">';
                     variantSelectHtml += '  <label for="printVariantSelect" class="form-label fw-medium text-secondary small">Select Variant</label>';
                     variantSelectHtml += '  <select id="printVariantSelect" class="form-select">';
-                    variantSelectHtml += '  <option value="">-- Select Varient --</option>';
+                    variantSelectHtml += '  <option value="">Main Product Barcode</option>';
                     variantsList.forEach(function(v) {
                         variantSelectHtml += `<option value="${v.id}">${v.value}</option>`;
                     });
@@ -1718,7 +1884,7 @@
                                             <div class="mb-2">
                                                 <img id="barcodeImage" src="${barcodeUrl}" alt="Barcode" class="img-fluid" style="max-height: 80px;">
                                             </div>
-                                            <p class="fw-bold mb-0 text-dark font-monospace fs-5">${barcodeText}</p>
+                                            <p id="barcodePreviewCode" class="fw-bold mb-0 text-dark font-monospace fs-5">${barcodeText}</p>
                                         </div>
                                         
                                         ${customSizeSelectHtml}
@@ -1748,6 +1914,11 @@
                 const $img = $('#barcodeImage');
                 const $printBtn = $('#printBarcodeBtn');
                 const $printQty = $('#printQty');
+                $('#printVariantSelect').on('change', function () {
+                    const variant = variantsList.find(item => String(item.id) === this.value);
+                    $('#barcodePreviewCode').text(variant?.barcode || barcodeText);
+                    $img.attr('src', variant?.barcode ? `${barcodeUrl}?variant_id=${variant.id}` : barcodeUrl);
+                });
                 
                 // Show content when image loads
                 $img.on('load', function() {

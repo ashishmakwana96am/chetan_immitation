@@ -27,6 +27,8 @@ class WishlistController extends Controller
                 'product.category',
                 'product.variants.attributeValue.attribute',
                 'productVariant.attributeValue.attribute',
+                'productVariant.primaryImage',
+                'productVariant.images',
             ])
             ->latest()
             ->get();

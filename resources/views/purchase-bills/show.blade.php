@@ -245,7 +245,7 @@
                             <tbody>
                                 @foreach($transfer->payments->sortByDesc('created_at') as $payment)
                                     <tr>
-                                        <td class="small text-nowrap" data-order="{{ $payment->created_at?->format('YmdHis') }}">{{ format_date($payment->created_at, 'd-m-Y H:i A') }}</td>
+                                        <td class="small text-nowrap" data-order="{{ $payment->created_at?->format('YmdHis') }}">{{ format_date($payment->created_at, 'd-m-Y h:i A') }}</td>
                                         <td class="text-end small fw-semibold text-success" data-order="{{ (float)$payment->amount }}">{{ format_price($payment->amount) }}</td>
                                     </tr>
                                 @endforeach
@@ -288,6 +288,7 @@
                             @foreach($transfer->items as $index => $item)
                                 @php
                                     $displayName = $item->product->name ?? '-';
+                                    $displayBarcode = $item->product_variant_id ? $item->variant?->barcode : $item->product?->barcode;
                                     if ($item->variant && $item->variant->attributeValue) {
                                         $displayName .= ' (' . ($item->variant->attributeValue->attribute->name ?? 'Variant') . ': ' . ($item->variant->attributeValue->value ?? '') . ')';
                                     }
@@ -300,11 +301,16 @@
                                     <td class="text-muted small">{{ $index + 1 }}</td>
                                      <td>
                                          <div class="d-flex align-items-center">
-                                             <img src="{{ $item->product?->primary_image_url ?? asset('website/assets/images/no-image.svg') }}" alt="{{ $displayName }}" class="rounded me-3 product-thumbnail" style="width: 40px; height: 40px; object-fit: cover;">
+                                             @php
+                                                 $itemImg = ($item->variant && $item->variant->primary_image_url && !str_contains($item->variant->primary_image_url, 'placeholder.png'))
+                                                     ? $item->variant->primary_image_url
+                                                     : ($item->product?->primary_image_url ?? asset('website/assets/images/no-image.svg'));
+                                             @endphp
+                                             <img src="{{ $itemImg }}" alt="{{ $displayName }}" class="rounded me-3 product-thumbnail" style="width: 40px; height: 40px; object-fit: cover;">
                                              <div class="min-w-0">
                                                  <span class="fw-semibold product-name">{{ $displayName }}</span>
-                                                 @if($item->product?->barcode)
-                                                     <small class="text-muted product-code">{{ $item->product->barcode }}</small>
+                                                 @if($displayBarcode)
+                                                     <small class="text-muted product-code">{{ $displayBarcode }}</small>
                                                  @endif
                                              </div>
                                          </div>

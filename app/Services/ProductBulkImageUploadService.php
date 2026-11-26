@@ -4,6 +4,7 @@ namespace App\Services;
 
 use App\Models\Product;
 use App\Models\ProductImage;
+use App\Models\ProductVariant;
 use Illuminate\Http\UploadedFile;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Log;
@@ -57,8 +58,9 @@ class ProductBulkImageUploadService
             throw new \RuntimeException('The ZIP file does not contain any barcode folders.');
         }
 
-        $productsByBarcode = $this->lookupProducts($allBarcodes);
+        [$productsByBarcode, $variantsByBarcode] = $this->lookupProductsAndVariants($allBarcodes);
         $hasPrimary = $this->lookupExistingPrimaryFlags($productsByBarcode);
+        $hasVariantPrimary = $this->lookupExistingVariantPrimaryFlags($variantsByBarcode);
 
         $destDir = public_path('uploads/products');
         if (!file_exists($destDir)) {
@@ -68,16 +70,17 @@ class ProductBulkImageUploadService
         $history = [];
         foreach ($allBarcodes as $barcode) {
             $entries = $folders[$barcode] ?? [];
+            $variant = $variantsByBarcode[$barcode] ?? null;
             $product = $productsByBarcode[$barcode] ?? null;
 
-            if (!$product) {
+            if (!$product && !$variant) {
                 $summary['not_found']++;
-                $failures[] = ['barcode' => $barcode, 'status' => 'Failed', 'reason' => 'Product Not Found'];
+                $failures[] = ['barcode' => $barcode, 'status' => 'Failed', 'reason' => 'Product/Variant Not Found'];
                 $history[] = [
                     'barcode' => $barcode,
                     'status'  => 'Failed',
-                    'reason'  => 'Product Not Found',
-                    'details' => 'No product exists with this barcode.'
+                    'reason'  => 'Product/Variant Not Found',
+                    'details' => 'No product or variant exists with this barcode.'
                 ];
                 continue;
             }
@@ -97,7 +100,12 @@ class ProductBulkImageUploadService
 
             natsort($entries);
 
-            $result = $this->processFolder($zip, $entries, $product, $destDir, $userId, !isset($hasPrimary[$product->id]));
+            if ($variant) {
+                $parentProduct = $variant->product;
+                $result = $this->processFolderForVariant($zip, $entries, $variant, $parentProduct, $destDir, $userId, !isset($hasVariantPrimary[$variant->id]));
+            } else {
+                $result = $this->processFolder($zip, $entries, $product, $destDir, $userId, !isset($hasPrimary[$product->id]));
+            }
 
             if ($result === null) {
                 // Whole folder failed with an unexpected error; already logged inside processFolder.
@@ -260,18 +268,99 @@ class ProductBulkImageUploadService
     /**
      * @return array<string, Product> barcode => Product (id, barcode only)
      */
-    private function lookupProducts(array $barcodes): array
+    private function lookupProductsAndVariants(array $barcodes): array
     {
         $productsByBarcode = [];
+        $variantsByBarcode = [];
 
         foreach (array_chunk($barcodes, self::CHUNK_SIZE) as $chunk) {
             Product::whereIn('barcode', $chunk)->get(['id', 'barcode'])
                 ->each(function (Product $product) use (&$productsByBarcode) {
                     $productsByBarcode[$product->barcode] = $product;
                 });
+
+            ProductVariant::whereIn('barcode', $chunk)->with('product:id,barcode')->get(['id', 'product_id', 'barcode'])
+                ->each(function (ProductVariant $variant) use (&$variantsByBarcode) {
+                    if ($variant->product) {
+                        $variantsByBarcode[$variant->barcode] = $variant;
+                    }
+                });
         }
 
-        return $productsByBarcode;
+        return [$productsByBarcode, $variantsByBarcode];
+    }
+
+    private function lookupExistingVariantPrimaryFlags(array $variantsByBarcode): array
+    {
+        $hasPrimary = [];
+        $variantIds = array_map(fn (ProductVariant $v) => $v->id, $variantsByBarcode);
+
+        foreach (array_chunk($variantIds, self::CHUNK_SIZE) as $chunk) {
+            ProductImage::whereIn('product_variant_id', $chunk)->where('is_primary', true)->pluck('product_variant_id')
+                ->each(function ($id) use (&$hasPrimary) {
+                    $hasPrimary[$id] = true;
+                });
+        }
+
+        return $hasPrimary;
+    }
+
+    private function processFolderForVariant(ZipArchive $zip, array $entries, ProductVariant $variant, Product $product, string $destDir, ?int $userId, bool $needsPrimary): ?array
+    {
+        $primaryAdded = 0;
+        $additionalAdded = 0;
+        $failedImages = 0;
+        $savedAny = false;
+
+        $variantDir = $destDir . '/' . trim($product->barcode) . '/' . trim($variant->barcode);
+        if (!file_exists($variantDir)) {
+            mkdir($variantDir, 0755, true);
+        }
+
+        try {
+            DB::transaction(function () use ($zip, $entries, $variant, $product, $variantDir, $userId, &$needsPrimary, &$primaryAdded, &$additionalAdded, &$failedImages, &$savedAny) {
+                foreach ($entries as $entryName) {
+                    $bytes = $zip->getFromName($entryName);
+
+                    if ($bytes === false || $bytes === '' || strlen($bytes) > self::MAX_IMAGE_BYTES || @getimagesizefromstring($bytes) === false) {
+                        $failedImages++;
+                        continue;
+                    }
+
+                    $entryFilename = pathinfo($entryName, PATHINFO_BASENAME);
+                    $savedPath = $this->cropAndResizeImage($bytes, $variantDir, $entryFilename);
+                    if (!$savedPath) {
+                        $failedImages++;
+                        continue;
+                    }
+
+                    $isPrimary = $needsPrimary;
+                    $needsPrimary = false;
+
+                    ProductImage::create([
+                        'product_id'         => $product->id,
+                        'product_variant_id' => $variant->id,
+                        'image_path'         => 'products/' . trim($product->barcode) . '/' . trim($variant->barcode) . '/' . pathinfo($savedPath, PATHINFO_BASENAME),
+                        'is_primary'         => $isPrimary,
+                        'created_by'         => $userId,
+                    ]);
+
+                    $savedAny = true;
+                    $isPrimary ? $primaryAdded++ : $additionalAdded++;
+                }
+            });
+        } catch (\Throwable $e) {
+            Log::error('Bulk variant image upload failed for barcode ' . $variant->barcode . ': ' . $e->getMessage());
+
+            return null;
+        }
+
+        return [
+            'primary_added'    => $primaryAdded,
+            'additional_added' => $additionalAdded,
+            'failed_images'    => $failedImages,
+            'saved_any'        => $savedAny,
+        ];
     }
 
     /**

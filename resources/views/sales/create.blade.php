@@ -551,6 +551,7 @@
 @endsection
 
 @section('page-js')
+<script src="{{ asset('assets/js/product-barcode.js') }}"></script>
 <script>
 $(document).ready(function () {
 
@@ -600,9 +601,10 @@ $(document).ready(function () {
 
         return purchasePrice > 0 ? qty * purchasePrice * 1.10 : 0;
     }
-    function setProductImage(container, product) {
-        if (product.image) {
-            container.html(`<img src="${product.image}" class="rounded product-thumbnail" style="width: 40px; height: 40px; object-fit: cover;" alt="${product.name || ''}" />`);
+    function setProductImage(container, product, imgUrl = null) {
+        const src = imgUrl || product?.image;
+        if (src) {
+            container.html(`<img src="${src}" class="rounded product-thumbnail" style="width: 40px; height: 40px; object-fit: cover;" alt="${product?.name || ''}" />`);
         } else {
             container.html(`<div class="rounded bg-label-secondary d-flex align-items-center justify-content-center" style="width: 40px; height: 40px;"><i class="ti ti-photo text-muted" style="font-size: 1.25rem;"></i></div>`);
         }
@@ -926,16 +928,6 @@ $(document).ready(function () {
     const searchInput = $('#productSearchInput');
     const searchResults = $('#productSearchResults');
 
-    function findExactProductMatch(query) {
-        const q = query.toLowerCase().trim();
-        if (!q) return null;
-        const matches = allProducts.filter(p =>
-            p.name.toLowerCase() === q ||
-            (p.barcode && String(p.barcode).toLowerCase() === q)
-        );
-        return matches.length === 1 ? matches[0] : null;
-    }
-
     function hasUnselectedVariableProduct() {
         let unselected = false;
         $('.item-row').each(function () {
@@ -982,7 +974,7 @@ $(document).ready(function () {
         return updated;
     }
 
-    function selectSearchProduct(product) {
+    function selectSearchProduct(product, variantId = null) {
         if (hasUnselectedVariableProduct()) {
             toastr.warning('Please select a variant for the existing variable product before scanning or adding another product.');
             searchInput.val('');
@@ -1015,7 +1007,7 @@ $(document).ready(function () {
         if (exists) {
             incrementExistingRowQty(product);
         } else {
-            addItemRow(product);
+            addItemRow(product, variantId);
         }
         searchInput.val('');
         searchResults.hide().empty();
@@ -1025,12 +1017,13 @@ $(document).ready(function () {
     let scanMatchTimer = null;
 
     searchInput.on('keydown', function(e) {
-        if (e.key === 'Enter' || e.keyCode === 13) {
+        if (e.key === 'Enter' || e.keyCode === 13 || e.key === 'Tab') {
+            const exactMatch = findProductScanMatch(allProducts, $(this).val());
+            if (e.key === 'Tab' && !exactMatch?.variantId) return;
             e.preventDefault();
             if (scanMatchTimer) { clearTimeout(scanMatchTimer); scanMatchTimer = null; }
-            const exactMatch = findExactProductMatch($(this).val());
             if (exactMatch) {
-                selectSearchProduct(exactMatch);
+                selectSearchProduct(exactMatch.product, exactMatch.variantId);
                 return;
             }
             const firstItem = searchResults.find('.search-result-item').first();
@@ -1051,16 +1044,22 @@ $(document).ready(function () {
             return;
         }
 
+        const exactMatch = findProductScanMatch(allProducts, query);
         scanMatchTimer = setTimeout(function() {
             if (searchInput.val().toLowerCase().trim() !== query) return;
-            const exactMatch = findExactProductMatch(query);
-            if (exactMatch) selectSearchProduct(exactMatch);
+            if (exactMatch) selectSearchProduct(exactMatch.product, exactMatch.variantId);
         }, 100);
+
+        if (exactMatch?.variantId) {
+            searchResults.hide();
+            return;
+        }
 
         const matchedProducts = allProducts.filter(p =>
             p.name.toLowerCase().includes(query) ||
             p.label.toLowerCase().includes(query) ||
-            (p.barcode && p.barcode.toLowerCase().includes(query))
+            (p.barcode && p.barcode.toLowerCase().includes(query)) ||
+            (p.variants && p.variants.some(v => v.barcode && v.barcode.toLowerCase().includes(query)))
         );
 
         if (matchedProducts.length === 0) {
@@ -1078,19 +1077,23 @@ $(document).ready(function () {
                 ? `<img src="${p.image}" class="rounded me-3" style="width: 40px; height: 40px; object-fit: cover;" alt="${p.name}" />`
                 : `<div class="rounded me-3 bg-label-secondary d-flex align-items-center justify-content-center" style="width: 40px; height: 40px; flex-shrink: 0;"><i class="ti ti-photo text-secondary fs-4"></i></div>`;
 
+            const matchedVar = p.variants?.find(v => v.barcode && v.barcode.toLowerCase().includes(query));
+            const displayBarcode = matchedVar ? `${matchedVar.barcode} (${matchedVar.attr_name || ''}: ${matchedVar.value_name || ''})` : p.barcode;
+
             const item = $(`
                 <a href="javascript:void(0)" class="list-group-item list-group-item-action d-flex justify-content-between align-items-center search-result-item bg-white" style="background-color: #ffffff;" data-id="${p.id}">
                     <div class="d-flex align-items-center">
                         ${imgHtml}
                         <div>
                             <div class="fw-semibold">${p.name}</div>
-                            <small class="text-muted">Barcode: ${p.barcode}</small>
+                            <small class="text-muted">Barcode: ${displayBarcode}</small>
                         </div>
                     </div>
                     ${priceBadge}
                 </a>
             `);
             item.data('product', p);
+            item.data('variant-id', matchedVar ? matchedVar.id : null);
             searchResults.append(item);
         });
 
@@ -1104,7 +1107,7 @@ $(document).ready(function () {
     });
 
     $(document).on('click', '.search-result-item', function() {
-        selectSearchProduct($(this).data('product'));
+        selectSearchProduct($(this).data('product'), $(this).data('variant-id') || null);
     });
 
     // A variant with its own pack-size list overrides the product's shared list.
@@ -1280,7 +1283,7 @@ $(document).ready(function () {
                 }
                 const isDisabled = (vStock <= 0 && !selected) ? 'disabled' : '';
                 const stockLabel = (activeLocId && vStock <= 0) ? ' (Out of stock)' : '';
-                selectHtml += `<option value="${v.id}" data-price="${optPrice}" data-mrp="${optMrp}" data-purchase-price="${optPurchasePrice}" data-stock="${vStock}" ${selected} ${isDisabled}>${v.attr_name}: ${v.value_name} (${symbol}${optPrice})${stockLabel}</option>`;
+                selectHtml += `<option value="${v.id}" data-price="${optPrice}" data-mrp="${optMrp}" data-purchase-price="${optPurchasePrice}" data-stock="${vStock}" data-barcode="${v.barcode || ''}" ${selected} ${isDisabled}>${v.attr_name}: ${v.value_name} (${symbol}${optPrice})${stockLabel}</option>`;
             });
             selectHtml += `</select>`;
             row.find('.variant-select-container').html(selectHtml);
@@ -1298,9 +1301,10 @@ $(document).ready(function () {
             row.data('bypass-min-price', product.bypass_min_price == 1 || product.bypass_min_price === true);
             row.find('.item-mrp-display').text(symbol + ' ' + formatPrice(initialMrp));
             setItemPrice(row, price != null ? price : (initialPrice > 0 ? initialPrice : (selectedOpt.data('price') || 0)));
-            row.find('.product-sku-display').text('Barcode: ' + product.barcode);
+            const initialBarcode = (initialVariantId ? (selectedOpt.data('barcode') || product.variants?.find(v => String(v.id) === String(initialVariantId))?.barcode) : '') || product.barcode || '';
+            row.find('.product-sku-display').text(initialBarcode ? 'Barcode: ' + initialBarcode : '');
         } else {
-            row.find('.product-sku-display').text('Barcode: ' + product.barcode);
+            row.find('.product-sku-display').text(product.barcode ? 'Barcode: ' + product.barcode : '');
             const itemMrp = product.mrp != null ? product.mrp : 0;
             row.data('mrp', itemMrp);
             row.data('purchase-price', product.purchase_price != null ? product.purchase_price : 0);
@@ -1364,6 +1368,11 @@ $(document).ready(function () {
         const variantId = selectedOpt.val();
         const variantPrice = selectedOpt.data('price') || 0;
         const variantMrp = selectedOpt.data('mrp') || (product ? product.mrp : 0) || 0;
+
+        const selectedBarcode = (variantId ? (selectedOpt.data('barcode') || product?.variants?.find(v => String(v.id) === String(variantId))?.barcode) : '') || product?.barcode || '';
+        row.find('.product-sku-display').text(selectedBarcode ? 'Barcode: ' + selectedBarcode : '');
+        const matchedVar = product?.variants?.find(v => String(v.id) === String(variantId));
+        setProductImage(row.find('.product-image-container'), product, matchedVar?.image || null);
 
         row.attr('data-variant-id', variantId);
         row.data('variant-id', variantId);

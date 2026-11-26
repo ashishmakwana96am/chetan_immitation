@@ -39,6 +39,23 @@ class CartItem extends Model
         return $this->belongsTo(ProductVariant::class);
     }
 
+    public function getImageUrlAttribute(): string
+    {
+        if ($this->relationLoaded('productVariant') && $this->productVariant) {
+            $variantImg = $this->productVariant->primary_image_url;
+            if ($variantImg && !str_contains($variantImg, 'placeholder.png')) {
+                return $variantImg;
+            }
+        } elseif (!$this->relationLoaded('productVariant') && $this->product_variant_id) {
+            $variant = $this->productVariant;
+            if ($variant && $variant->primary_image_url && !str_contains($variant->primary_image_url, 'placeholder.png')) {
+                return $variant->primary_image_url;
+            }
+        }
+
+        return $this->product?->primary_image_url ?? asset('website/assets/images/no-image.svg');
+    }
+
     /**
      * Get the correct price based on pair_type
      */

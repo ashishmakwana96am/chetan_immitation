@@ -244,6 +244,7 @@
 @endsection
 
 @section('page-js')
+<script src="{{ asset('assets/js/product-barcode.js') }}"></script>
 <script>
 $(document).ready(function () {
     let itemIndex = 0;
@@ -260,22 +261,13 @@ $(document).ready(function () {
         return parseFloat(val || 0).toLocaleString('en-IN', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
     }
 
-    function setProductImage(container, product) {
-        if (product.image) {
-            container.html(`<img src="${product.image}" class="rounded product-thumbnail" style="width: 40px; height: 40px; object-fit: cover;" alt="${product.name || ''}">`);
+    function setProductImage(container, product, imgUrl = null) {
+        const src = imgUrl || product?.image;
+        if (src) {
+            container.html(`<img src="${src}" class="rounded product-thumbnail" style="width: 40px; height: 40px; object-fit: cover;" alt="${product.name || ''}">`);
         } else {
             container.html(`<div class="rounded bg-label-secondary d-flex align-items-center justify-content-center" style="width: 40px; height: 40px;"><i class="ti ti-photo text-muted" style="font-size: 1.25rem;"></i></div>`);
         }
-    }
-
-    function findExactProductMatch(query) {
-        const q = query.toLowerCase().trim();
-        if (!q) return null;
-        const matches = allProducts.filter(p =>
-            p.name.toLowerCase() === q ||
-            (p.barcode && String(p.barcode).toLowerCase() === q)
-        );
-        return matches.length === 1 ? matches[0] : null;
     }
 
     function hasDuplicate(productId, variantId) {
@@ -388,11 +380,14 @@ $(document).ready(function () {
                 const stockLabel = (activeLocId && vStock <= 0) ? ' (Out of stock)' : '';
 
                 const label = `${variant.attr_name}: ${variant.value_name} (${symbol}${price})${stockLabel}`;
-                options += `<option value="${variant.id}" ${selected} ${isDisabled}>${label}</option>`;
+                options += `<option value="${variant.id}" data-barcode="${variant.barcode || ''}" ${selected} ${isDisabled}>${label}</option>`;
             });
             row.find('.variant-select-container').html(`<select class="form-select form-select-sm variant-select mt-2 no-select2">${options}</select>`);
-            const currentVarVal = row.find('.variant-select').val() || null;
+            const selectedOpt = row.find('.variant-select option:selected');
+            const currentVarVal = selectedOpt.val() || null;
             row.data('variant-id', currentVarVal);
+            const initialBarcode = (currentVarVal ? (selectedOpt.data('barcode') || product.variants?.find(v => String(v.id) === String(currentVarVal))?.barcode) : '') || product.barcode || '';
+            row.find('.product-sku-display').text(initialBarcode ? 'Barcode: ' + initialBarcode : '');
         }
 
         if (product.pair_product) {
@@ -693,7 +688,7 @@ $(document).ready(function () {
         return unselected;
     }
 
-    function selectSearchProduct(product) {
+    function selectSearchProduct(product, variantId = null) {
         if (hasUnselectedVariableProduct()) {
             toastr.warning('Please select a variant for the existing variable product before scanning or adding another product.');
             searchInput.val('');
@@ -701,7 +696,9 @@ $(document).ready(function () {
             return;
         }
 
-        addItemRow(product);
+        if (!variantId || !incrementExistingRowQty(product.id, variantId)) {
+            addItemRow(product, variantId);
+        }
         searchInput.val('');
         searchResults.hide().empty();
         searchInput.focus();
@@ -710,12 +707,13 @@ $(document).ready(function () {
     let scanMatchTimer = null;
 
     searchInput.on('keydown', function(e) {
-        if (e.key === 'Enter' || e.keyCode === 13) {
+        if (e.key === 'Enter' || e.keyCode === 13 || e.key === 'Tab') {
+            const exactMatch = findProductScanMatch(allProducts, $(this).val());
+            if (e.key === 'Tab' && !exactMatch?.variantId) return;
             e.preventDefault();
             if (scanMatchTimer) { clearTimeout(scanMatchTimer); scanMatchTimer = null; }
-            const exactMatch = findExactProductMatch($(this).val());
             if (exactMatch) {
-                selectSearchProduct(exactMatch);
+                selectSearchProduct(exactMatch.product, exactMatch.variantId);
                 return;
             }
             const firstItem = searchResults.find('.search-result-item').first();
@@ -738,15 +736,21 @@ $(document).ready(function () {
         // input event per character. Wait briefly for the burst to finish
         // before treating an exact match as a completed scan, so a shorter
         // barcode that is a prefix of the one being scanned isn't added by mistake.
+        const exactMatch = findProductScanMatch(allProducts, query);
         scanMatchTimer = setTimeout(function() {
             if (searchInput.val().toLowerCase().trim() !== query) return;
-            const exactMatch = findExactProductMatch(query);
-            if (exactMatch) selectSearchProduct(exactMatch);
+            if (exactMatch) selectSearchProduct(exactMatch.product, exactMatch.variantId);
         }, 100);
+
+        if (exactMatch?.variantId) {
+            searchResults.hide();
+            return;
+        }
 
         const matchedProducts = allProducts.filter(p =>
             p.name.toLowerCase().includes(query) ||
-            (p.barcode && p.barcode.toLowerCase().includes(query))
+            (p.barcode && p.barcode.toLowerCase().includes(query)) ||
+            (p.variants && p.variants.some(v => v.barcode && v.barcode.toLowerCase().includes(query)))
         );
         if (!matchedProducts.length) {
             searchResults.html('<div class="list-group-item text-muted">No products found</div>').show();
@@ -760,21 +764,24 @@ $(document).ready(function () {
             const imgHtml = product.image
                 ? `<img src="${product.image}" class="rounded me-3" style="width: 40px; height: 40px; object-fit: cover;" alt="${product.name}" />`
                 : `<div class="rounded me-3 bg-label-secondary d-flex align-items-center justify-content-center" style="width: 40px; height: 40px; flex-shrink: 0;"><i class="ti ti-photo text-secondary fs-4"></i></div>`;
+            const matchedVar = product.variants?.find(v => v.barcode && v.barcode.toLowerCase().includes(query));
+            const displayBarcode = matchedVar ? `${matchedVar.barcode} (${matchedVar.attr_name || matchedVar.name || 'Variant'})` : (product.barcode || '-');
             const item = $(`
                 <a href="javascript:void(0)" class="list-group-item list-group-item-action d-flex justify-content-between align-items-center search-result-item bg-white" style="background-color: #ffffff;" data-id="${product.id}">
                     <div class="d-flex align-items-center">
                         ${imgHtml}
                         <div>
                             <div class="fw-semibold">${product.name}</div>
-                            <small class="text-muted">Barcode: ${product.barcode || '-'}</small>
+                            <small class="text-muted">Barcode: ${displayBarcode}</small>
                         </div>
                     </div>
                     ${priceBadge}
                 </a>
             `);
             item.data('product', product);
+            item.data('variant-id', matchedVar ? matchedVar.id : null);
             item.on('click', function () {
-                selectSearchProduct($(this).data('product'));
+                selectSearchProduct($(this).data('product'), $(this).data('variant-id') || null);
             });
             searchResults.append(item);
         });
@@ -844,6 +851,12 @@ $(document).ready(function () {
             variantId = null;
         }
         row.data('variant-id', variantId);
+
+        const selectedOpt = $(this).find('option:selected');
+        const selectedBarcode = (variantId ? (selectedOpt.data('barcode') || product?.variants?.find(v => String(v.id) === String(variantId))?.barcode) : '') || product?.barcode || '';
+        row.find('.product-sku-display').text(selectedBarcode ? 'Barcode: ' + selectedBarcode : '');
+        const matchedVar = product?.variants?.find(v => String(v.id) === String(variantId));
+        setProductImage(row.find('.product-image-container'), product, matchedVar?.image || null);
 
         // Pack sizes can differ per variant — rebuild the toggle for the new variant,
         // trying to keep the same size selected if it still exists.

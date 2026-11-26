@@ -145,7 +145,16 @@ class HomeController extends Controller
     {
         $product = Product::where('slug', $slug)
             ->forWebsite()
-            ->with('primaryImage', 'images', 'variants.attributeValue.attribute', 'category', 'subCategory')
+            ->with([
+                'primaryImage',
+                'images',
+                'allImages.variant.attributeValue.attribute',
+                'variants.attributeValue.attribute',
+                'variants.images',
+                'variants.primaryImage',
+                'category',
+                'subCategory'
+            ])
             ->withSum('inventories', 'quantity')
             ->withReviewStats()
             ->first();

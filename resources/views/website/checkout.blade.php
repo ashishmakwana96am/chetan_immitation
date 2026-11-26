@@ -463,7 +463,9 @@
                                     $price = $item->getPrice();
                                     $mrp = $item->getMrp();
 
-                                    $imgUrl   = $product->primaryImage?->image_url ?? asset('website/assets/images/no-image.svg');
+                                    $imgUrl   = ($variant && $variant->primary_image_url && !str_contains($variant->primary_image_url, 'placeholder.png'))
+                                        ? $variant->primary_image_url
+                                        : ($product->primaryImage?->image_url ?? asset('website/assets/images/no-image.svg'));
                                     $detailUrl = route('product.detail', $product->slug);
                                     if ($variant) {
                                         $detailUrl .= '?variant=' . $variant->id;

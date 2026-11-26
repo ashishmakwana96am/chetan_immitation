@@ -50,152 +50,48 @@
 
 <script>
     (function () {
-        var maxAllowed = {{ (float) $maxAllowed }};
+        const maxAllowed = {{ (float) $maxAllowed }};
+        const maxCents = Math.round(maxAllowed * 100);
+        const $form = $('#commonModalForm');
+        const $method = $form.find('#edit_payment_method');
+        const $cash = $form.find('#edit_cash_amount');
+        const $online = $form.find('#edit_online_amount');
 
-        function syncSplit(source) {
-            var m = $('#edit_payment_method').val();
-            if (m === 'cash') {
-                var c = parseFloat($('#edit_cash_amount').val()) || 0;
-                if (c > maxAllowed) {
-                    $('#edit_cash_amount').val(maxAllowed);
-                } else if (c < 0) {
-                    $('#edit_cash_amount').val(0);
-                }
-                $('#edit_online_amount').val(0);
-                return;
+        function validateAmounts() {
+            const cashCents = $cash.prop('disabled') ? 0 : Math.round((Number($cash.val()) || 0) * 100);
+            const onlineCents = $online.prop('disabled') ? 0 : Math.round((Number($online.val()) || 0) * 100);
+            const totalCents = cashCents + onlineCents;
+            let message = '';
+
+            if (totalCents > maxCents) {
+                message = @json('Total collected amount cannot exceed ' . format_price($maxAllowed) . '.');
+            } else if (totalCents <= 0) {
+                message = 'Total collected amount must be greater than 0.';
             }
-            if (m === 'online') {
-                var o = parseFloat($('#edit_online_amount').val()) || 0;
-                if (o > maxAllowed) {
-                    $('#edit_online_amount').val(maxAllowed);
-                } else if (o < 0) {
-                    $('#edit_online_amount').val(0);
-                }
-                $('#edit_cash_amount').val(0);
-                return;
-            }
-            if (m === 'online_cash') {
-                if (source === 'online') {
-                    var valStr = $('#edit_online_amount').val();
-                    if (valStr === '') {
-                        $('#edit_cash_amount').val(maxAllowed);
-                        return;
-                    }
-                    var o = parseFloat(valStr) || 0;
-                    if (o < 0) {
-                        o = 0;
-                        $('#edit_online_amount').val(0);
-                    }
-                    if (o > maxAllowed) {
-                        o = maxAllowed;
-                        $('#edit_online_amount').val(maxAllowed);
-                    }
-                    var c = Math.max(0, Math.round((maxAllowed - o) * 100) / 100);
-                    $('#edit_cash_amount').val(c);
-                } else if (source === 'cash') {
-                    var valStr = $('#edit_cash_amount').val();
-                    if (valStr === '') {
-                        $('#edit_online_amount').val(maxAllowed);
-                        return;
-                    }
-                    var c = parseFloat(valStr) || 0;
-                    if (c < 0) {
-                        c = 0;
-                        $('#edit_cash_amount').val(0);
-                    }
-                    if (c > maxAllowed) {
-                        c = maxAllowed;
-                        $('#edit_cash_amount').val(maxAllowed);
-                    }
-                    var o = Math.max(0, Math.round((maxAllowed - c) * 100) / 100);
-                    $('#edit_online_amount').val(o);
-                }
-            }
+
+            $cash[0].setCustomValidity('');
+            $online[0].setCustomValidity('');
+            const activeInput = $cash.prop('disabled') ? $online[0] : $cash[0];
+            activeInput.setCustomValidity(message);
+            return message === '';
         }
 
         function syncMethodFields() {
-            var m = $('#edit_payment_method').val();
-            if (m === 'cash') {
-                $('#editCashCol').show();
-                $('#editOnlineCol').hide();
-                var c = parseFloat($('#edit_cash_amount').val()) || 0;
-                if (c <= 0 || c > maxAllowed) {
-                    $('#edit_cash_amount').val(maxAllowed);
-                }
-                $('#edit_online_amount').val(0);
-            } else if (m === 'online') {
-                $('#editOnlineCol').show();
-                $('#editCashCol').hide();
-                var o = parseFloat($('#edit_online_amount').val()) || 0;
-                if (o <= 0 || o > maxAllowed) {
-                    $('#edit_online_amount').val(maxAllowed);
-                }
-                $('#edit_cash_amount').val(0);
-            } else {
-                $('#editCashCol').show();
-                $('#editOnlineCol').show();
-                var c = parseFloat($('#edit_cash_amount').val()) || 0;
-                var o = parseFloat($('#edit_online_amount').val()) || 0;
-                if (c <= 0 && o <= 0) {
-                    $('#edit_cash_amount').val(maxAllowed);
-                    $('#edit_online_amount').val(0);
-                } else if (Math.round((c + o) * 100) / 100 !== maxAllowed) {
-                    if (o > 0 && o <= maxAllowed) {
-                        $('#edit_cash_amount').val(Math.max(0, Math.round((maxAllowed - o) * 100) / 100));
-                    } else if (c > 0 && c <= maxAllowed) {
-                        $('#edit_online_amount').val(Math.max(0, Math.round((maxAllowed - c) * 100) / 100));
-                    } else {
-                        $('#edit_cash_amount').val(maxAllowed);
-                        $('#edit_online_amount').val(0);
-                    }
-                }
-            }
+            const method = $method.val();
+            $form.find('#editCashCol').toggle(method !== 'online');
+            $form.find('#editOnlineCol').toggle(method !== 'cash');
+            $cash.prop('disabled', method === 'online');
+            $online.prop('disabled', method === 'cash');
+            validateAmounts();
         }
 
-        $('#edit_payment_method').on('change', syncMethodFields);
-        $('#edit_online_amount').on('input', function () {
-            syncSplit('online');
-        });
-        $('#edit_cash_amount').on('input', function () {
-            syncSplit('cash');
-        });
-
-        $('#commonModalForm').on('submit', function (e) {
-            var m = $('#edit_payment_method').val();
-            var c = parseFloat($('#edit_cash_amount').val()) || 0;
-            var o = parseFloat($('#edit_online_amount').val()) || 0;
-            if (m === 'cash') {
-                o = 0;
-                $('#edit_online_amount').val(0);
-            } else if (m === 'online') {
-                c = 0;
-                $('#edit_cash_amount').val(0);
-            }
-            var sum = Math.round((c + o) * 100) / 100;
-            if (sum <= 0) {
-                e.preventDefault();
-                e.stopImmediatePropagation();
-                if (typeof toastr !== 'undefined') {
-                    toastr.error('Total collected amount must be greater than 0.');
-                }
-                return false;
-            }
-            if (sum > (maxAllowed + 0.01)) {
-                e.preventDefault();
-                e.stopImmediatePropagation();
-                if (m === 'cash') {
-                    $('#edit_cash_amount').val(maxAllowed);
-                } else if (m === 'online') {
-                    $('#edit_online_amount').val(maxAllowed);
-                } else {
-                    if (o > maxAllowed) {
-                        $('#edit_online_amount').val(maxAllowed);
-                        $('#edit_cash_amount').val(0);
-                    } else {
-                        $('#edit_cash_amount').val(Math.max(0, Math.round((maxAllowed - o) * 100) / 100));
-                    }
-                }
-                return false;
+        $method.on('change', syncMethodFields);
+        $cash.add($online).on('input', validateAmounts);
+        $form.on('submit', function (event) {
+            if (!validateAmounts()) {
+                event.preventDefault();
+                event.stopImmediatePropagation();
+                this.reportValidity();
             }
         });
 

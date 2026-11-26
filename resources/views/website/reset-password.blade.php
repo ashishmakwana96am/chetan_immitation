@@ -14,7 +14,6 @@
     }
     .toggle-password:hover { color: #B4771E; }
     .pw-wrap { position: relative; }
-    .pw-strength-bar { height: 4px; border-radius: 2px; transition: width 0.3s ease, background-color 0.3s ease; }
 </style>
 @endsection
 
@@ -29,7 +28,7 @@
                 <div class="text-center">
                     <h1 class="font-moglan text-[#131615] text-[38px] md:text-[48px] lg:text-[54px] leading-none">Set New Password</h1>
                     <p class="mt-4 text-[#3D403F] text-[15px] sm:text-[18px] leading-7 max-w-[360px] mx-auto">
-                        Create a strong new password for your Chetan Imitation account.
+                        Create a new password for your Chetan Imitation account.
                     </p>
                 </div>
 
@@ -48,10 +47,6 @@
                                 <svg class="eye hidden" width="20" height="20" fill="none" stroke="currentColor" stroke-width="1.8" viewBox="0 0 24 24"><path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/><circle cx="12" cy="12" r="3"/></svg>
                             </button>
                         </div>
-                        <div class="mt-2 bg-[#e5e7eb] rounded-full overflow-hidden h-[4px]">
-                            <div id="pwStrengthBar" class="pw-strength-bar w-0 bg-[#dc2626]"></div>
-                        </div>
-                        <p id="pwStrengthLabel" class="text-[12px] mt-1 text-[#9ca3af]"></p>
                         <p class="text-[12px] text-[#9ca3af] mt-1">Minimum 8 characters</p>
                         <p class="field-error hidden" id="password-error"></p>
                     </div>
@@ -84,7 +79,7 @@
                 <div class="absolute inset-0 bg-gradient-to-t from-[#B4771E]/95 via-[#B4771E]/20 to-transparent"></div>
                 <div class="absolute bottom-0 left-0 w-full p-5 lg:p-[25px] text-white">
                     <h3 class="text-[28px] lg:text-[32px] font-bold leading-tight">Almost There!</h3>
-                    <p class="mt-3 text-lg leading-7">Create a strong password to keep your account secure and continue enjoying our exclusive jewellery collections.</p>
+                    <p class="mt-3 text-lg leading-7">Create your new password to keep your account secure and continue enjoying our exclusive jewellery collections.</p>
                 </div>
             </div>
 
@@ -118,20 +113,8 @@ $(function () {
         $('#resetSpinner').addClass('hidden');
     }
 
-    function checkStrength(val) {
-        var s = 0;
-        if (val.length >= 8) s++; if (/[a-z]/.test(val)) s++;
-        if (/[A-Z]/.test(val)) s++; if (/\d/.test(val)) s++;
-        if (/[@$!%*?&_#^()\-+=]/.test(val)) s++;
-        return s;
-    }
-
     $('#password').on('input', function () {
-        var val = $(this).val(), score = checkStrength(val), pct = (score / 5) * 100;
-        var colors = ['#dc2626','#dc2626','#f59e0b','#f59e0b','#22c55e','#16a34a'];
-        var labels = ['','Very Weak','Weak','Fair','Good','Strong'];
-        $('#pwStrengthBar').css({ width: pct + '%', 'background-color': colors[score] });
-        $('#pwStrengthLabel').text(val.length ? labels[score] : '').css('color', colors[score]);
+        var val = $(this).val();
         if (val.length) { if (minLenRegex.test(val)) markValid('password'); else { clearError('password'); $('#password').removeClass('input-valid'); } }
         if ($('#password_confirmation').val().length) validateConfirm();
     });

@@ -257,7 +257,7 @@ class ShopCategoryController extends Controller
     {
         $categories = Category::where('status', Category::STATUS_ACTIVE)
             ->whereHas('products', function ($q) {
-                $q->forWebsite()->has('images');
+                $q->whereNull('products.deleted_at')->forWebsite()->has('images');
             })
             ->with(['subCategories' => function ($q) {
                 $q->where('status', SubCategory::STATUS_ACTIVE)
@@ -272,7 +272,11 @@ class ShopCategoryController extends Controller
                   ->has('images');
             }])
             ->orderBy('sort_order')
-            ->get();
+            ->get()
+            ->sortBy(function ($cat) {
+                return empty($cat->image) ? 1 : 0;
+            })
+            ->values();
 
         $collections = Collection::whereIn('status', [Collection::STATUS_ACTIVE, 1, '1', 'active'])
             ->whereNotNull('name')

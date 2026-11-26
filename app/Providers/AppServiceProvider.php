@@ -44,18 +44,22 @@ class AppServiceProvider extends ServiceProvider
         view()->composer('layouts.website', function ($view) {
             $categories = Category::where('status', Category::STATUS_ACTIVE)
                 ->whereHas('products', function ($q) {
-                    $q->where('status', Product::STATUS_ACTIVE)->has('images');
+                    $q->whereNull('products.deleted_at')->forWebsite()->hasImages();
                 })
                 ->with(['subCategories' => function ($q) {
                     $q
                         ->where('status', SubCategory::STATUS_ACTIVE)
                         ->whereHas('products', function ($pq) {
-                            $pq->where('status', Product::STATUS_ACTIVE)->has('images');
+                            $pq->forWebsite()->hasImages();
                         })
                         ->orderBy('sort_order');
                 }])
                 ->orderBy('sort_order')
-                ->get();
+                ->get()
+                ->sortBy(function ($cat) {
+                    return empty($cat->image) ? 1 : 0;
+                })
+                ->values();
             $collections = Collection::whereIn('status', [Collection::STATUS_ACTIVE, 1, '1', 'active'])
                 ->whereNotNull('name')
                 ->where('name', '!=', '')

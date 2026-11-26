@@ -107,11 +107,16 @@
 
             <!-- LEFT SIDE -->
             <div class="lg:col-span-5 w-full  lg:sticky lg:top-[80px]">
+                    @php
+                        $mainImages = $product->allImages->whereNull('product_variant_id')->sortByDesc('is_primary');
+                        $variantImages = $product->allImages->whereNotNull('product_variant_id');
+                        $detailImages = $mainImages->concat($variantImages);
+                    @endphp
                     <div class="swiper mainSwiper relative">
 
                         <div class="swiper-wrapper">
-                            @forelse($product->images as $img)
-                            <div class="swiper-slide relative">
+                            @forelse($detailImages as $img)
+                            <div class="swiper-slide relative" data-variant-id="{{ $img->product_variant_id ?? '' }}">
                                 <div class="swiper-zoom-container">
                                     <img src="{{ $img->image_url }}" class="zoom-main-img select-none">
                                 </div>
@@ -154,8 +159,8 @@
                     </div>
                     <div class="swiper thumbSwiper mt-4">
                         <div class="swiper-wrapper">
-                            @forelse($product->images as $img)
-                            <div class="swiper-slide border border-[#D5D5D5] cursor-pointer">
+                            @forelse($detailImages as $img)
+                            <div class="swiper-slide border border-[#D5D5D5] cursor-pointer" data-variant-id="{{ $img->product_variant_id ?? '' }}">
                                 <img src="{{ $img->image_url }}" class="w-full h-full object-cover">
                             </div>
                             @empty
@@ -296,6 +301,7 @@
                             @endphp
                             <button class="variant-selector min-w-[69px] px-2 py-1 md:py-2 border text-base leading-tight whitespace-normal text-center transition-all duration-300 {{ $isActive ? 'bg-[#B4771E] text-white border-[#B4771E] active' : 'border-[#D5D5D5] text-[#131615] hover:border-[#B4771E]' }}"
                                 data-variant-id="{{ $variant->id }}"
+                                data-variant-image="{{ $variant->primary_image_url }}"
                                 data-sale-price="{{ $variant->sale_price }}"
                                 data-mrp="{{ $variant->product->mrp ?? '' }}"
                                 data-stock="{{ $product->totalAvailableStock($variant->id) }}"
@@ -442,7 +448,7 @@
 </section>
 @endif
 
-<!-- You May Also Like -->
+@if(isset($relatedProducts) && $relatedProducts->isNotEmpty())
 <section class="section-space-bottom">
 
     <div class="container-1440">
@@ -470,6 +476,7 @@
     </div>
 
 </section>
+@endif
 
 @endsection
 
@@ -513,22 +520,51 @@ function fmtPrice(amount) {
 const thumbSwiper = new Swiper(".thumbSwiper", {
     spaceBetween: 12,
     slidesPerView: 5,
-    freeMode: true,
+    centeredSlides: true,
+    centeredSlidesBounds: true,
+    slideToClickedSlide: true,
     watchSlidesProgress: true,
     breakpoints: {
-        0: { slidesPerView: 4 },
-        768: { slidesPerView: 5 },
-        1199: { slidesPerView: 5 }
+        0: { slidesPerView: 4, centeredSlides: true, centeredSlidesBounds: true },
+        768: { slidesPerView: 5, centeredSlides: true, centeredSlidesBounds: true },
+        1199: { slidesPerView: 5, centeredSlides: true, centeredSlidesBounds: true }
     }
 });
 
 const mainSwiper = new Swiper(".mainSwiper", {
     spaceBetween: 10,
-    loop: true,
+    loop: false,
     thumbs: { swiper: thumbSwiper },
 });
 
+mainSwiper.on('slideChange', function () {
+    if (typeof thumbSwiper !== 'undefined' && thumbSwiper) {
+        thumbSwiper.slideTo(mainSwiper.activeIndex);
+    }
+});
+
+function switchGalleryToVariant(variantId) {
+    if (!variantId) return;
+    const slides = document.querySelectorAll('.mainSwiper .swiper-slide:not(.swiper-slide-duplicate)');
+    for (let i = 0; i < slides.length; i++) {
+        if (slides[i].dataset.variantId && String(slides[i].dataset.variantId) === String(variantId)) {
+            if (typeof mainSwiper !== 'undefined' && mainSwiper) {
+                mainSwiper.slideTo(i);
+            }
+            if (typeof thumbSwiper !== 'undefined' && thumbSwiper) {
+                thumbSwiper.slideTo(i);
+            }
+            break;
+        }
+    }
+}
+window.switchGalleryToVariant = switchGalleryToVariant;
+
 document.addEventListener('DOMContentLoaded', () => {
+    const activeVarBtn = document.querySelector('.variant-selector.active');
+    if (activeVarBtn && activeVarBtn.dataset.variantId) {
+        switchGalleryToVariant(activeVarBtn.dataset.variantId);
+    }
     const slides = document.querySelectorAll('.mainSwiper .swiper-slide');
 
     slides.forEach(slide => {
@@ -876,6 +912,9 @@ window.productCustomSizes = @json($product->pair_product ? ($product->custom_siz
     // When user switches variant, update the heart to reflect wishlist state or auto-update if wishlisted
     document.querySelectorAll('.variant-selector').forEach(function (btn) {
         btn.addEventListener('click', function () {
+            if (typeof switchGalleryToVariant === 'function') {
+                switchGalleryToVariant(btn.dataset.variantId);
+            }
             document.querySelectorAll('.variant-selector').forEach(function (s) {
                 s.classList.remove('bg-[#B4771E]', 'text-white', 'border-[#B4771E]', 'active');
                 s.classList.add('border-[#D5D5D5]', 'text-[#131615]');

@@ -15,6 +15,7 @@ use App\Models\Order;
 use App\Models\OrderItem;
 use App\Models\Product;
 use App\Models\ProductImage;
+use App\Models\ProductVariant;
 use App\Models\Purchase;
 use App\Models\PurchaseBill;
 use App\Models\PurchaseBillItem;
@@ -102,6 +103,13 @@ class ReportController extends Controller
         ]);
     }
 
+    private function reportVariantBarcode(Request $request): ?string
+    {
+        $search = trim((string) $request->input('search.value', ''));
+
+        return $search === '' ? null : ProductVariant::where('barcode', $search)->value('barcode');
+    }
+
     public function productsData(Request $request)
     {
         $this->authorize('view product reports');
@@ -109,18 +117,27 @@ class ReportController extends Controller
         $user = auth()->user();
         $isRestricted = $user->location_id && !$user->hasRole('super-admin');
         $locationId = $isRestricted ? $user->location_id : null;
+        $variantBarcode = $this->reportVariantBarcode($request);
 
-        $query = Product::with(['category', 'subCategory', 'primaryImage', 'variants.attributeValue.attribute', 'inventories'])
-            ->when($request->category_id, fn($q) => $q->where('category_id', $request->category_id))
-            ->when($request->sub_category_id, fn($q) => $q->where('sub_category_id', $request->sub_category_id))
-            ->when($request->status, fn($q) => $q->where('status', $request->status))
-            ->when($request->input('search.value'), function ($q, $search) {
-                $q->where(function ($sub) use ($search) {
-                    $sub
-                        ->where('name', 'like', "%{$search}%")
-                        ->orWhere('barcode', 'like', "%{$search}%");
+        $query = Product::with(['category', 'subCategory', 'primaryImage', 'inventories'])
+            ->when($request->category_id, fn($q) => $q->where('products.category_id', $request->category_id))
+            ->when($request->sub_category_id, fn($q) => $q->where('products.sub_category_id', $request->sub_category_id));
+
+        if ($variantBarcode !== null) {
+            $query->withWhereHas('variants', fn ($variants) => $variants->where('barcode', $variantBarcode)
+                ->when($request->status, fn ($q) => $q->where('status', $request->status))
+                ->with('attributeValue.attribute'));
+        } else {
+            $query->with('variants.attributeValue.attribute')
+                ->when($request->status, fn($q) => $q->where('products.status', $request->status))
+                ->when($request->input('search.value'), function ($q, $search) {
+                    $q->where(function ($sub) use ($search) {
+                        $sub->where('products.name', 'like', "%{$search}%")
+                            ->orWhere('products.barcode', 'like', "%{$search}%")
+                            ->orWhereHas('variants', fn ($vq) => $vq->where('barcode', 'like', "%{$search}%"));
+                    });
                 });
-            });
+        }
 
         $recordsTotal = Product::count();
         $recordsFiltered = (clone $query)->count();
@@ -178,8 +195,11 @@ class ReportController extends Controller
         $index = $start + 1;
 
         foreach ($products as $product) {
-            $margin = (float) $product->sale_price - (float) $product->purchase_price;
-            $marginPct = $product->purchase_price > 0 ? round(($margin / $product->purchase_price) * 100, 1) : 0;
+            $matchedVariant = $variantBarcode !== null ? $product->variants->first() : null;
+            $displayItem = $matchedVariant ?? $product;
+            $margin = (float) $displayItem->sale_price - (float) $displayItem->purchase_price;
+            $marginPct = $displayItem->purchase_price > 0 ? round(($margin / $displayItem->purchase_price) * 100, 1) : 0;
+            $displayName = $product->name;
 
             $variantsData = [];
             if ($product->type === 'variable') {
@@ -213,9 +233,16 @@ class ReportController extends Controller
                     $attrName = $v->attributeValue->attribute->name ?? '';
                     $valName = $v->attributeValue->value ?? '';
 
+                    if ($matchedVariant) {
+                        $parentStock = $vStock;
+                        $displayName .= " ({$attrName}: {$valName})";
+                        continue;
+                    }
+
                     $variantsData[] = [
                         'index' => $vIndex + 1,
                         'name' => "{$attrName}: {$valName}",
+                        'barcode' => $v->barcode,
                         'purchase_price' => format_price($v->purchase_price),
                         'sale_price' => format_price($v->sale_price),
                         'margin_badge' => '<span class="badge ' . ($vMargin >= 0 ? 'bg-label-success' : 'bg-label-danger') . '">' . format_price($vMargin) . ' (' . $vMarginPct . '%)</span>',
@@ -238,25 +265,25 @@ class ReportController extends Controller
                 $nameHtml .= '<span class="me-2" style="width: 24px;"></span>';
             }
             $nameHtml .= '<img src="' . $product->primary_image_url . '" alt="' . e($product->name) . '" class="rounded me-2 product-thumbnail" style="width: 32px; height: 32px; object-fit: cover;">';
-            $nameHtml .= '<a href="' . route('admin.products.show', $product->id) . '" class="fw-semibold mb-0">' . e($product->name) . '</a></div>';
+            $nameHtml .= '<a href="' . route('admin.products.show', $product->id) . '" class="fw-semibold mb-0">' . e($displayName) . '</a></div>';
 
             $data[] = [
                 'index'              => $index++,
                 'id'                 => $product->id,
                 'name'               => $nameHtml,
-                'raw_name'           => $product->name,
-                'barcode'            => '<code>' . e($product->barcode) . '</code>',
-                'raw_barcode'        => $product->barcode,
+                'raw_name'           => $displayName,
+                'barcode'            => '<code>' . e($displayItem->barcode) . '</code>',
+                'raw_barcode'        => $displayItem->barcode,
                 'sub_category'       => ($product->subCategory->name ?? null) ? '<span class="badge bg-label-info">' . e($product->subCategory->name) . '</span>' : '<span class="text-muted small">-</span>',
-                'purchase_price'     => format_price($product->purchase_price),
-                'raw_purchase_price' => (float) $product->purchase_price,
-                'sale_price'         => format_price($product->sale_price),
-                'raw_sale_price'     => (float) $product->sale_price,
+                'purchase_price'     => format_price($displayItem->purchase_price),
+                'raw_purchase_price' => (float) $displayItem->purchase_price,
+                'sale_price'         => format_price($displayItem->sale_price),
+                'raw_sale_price'     => (float) $displayItem->sale_price,
                 'margin_badge'       => '<span class="badge ' . ($margin >= 0 ? 'bg-label-success' : 'bg-label-danger') . '">' . format_price($margin) . ' (' . $marginPct . '%)</span>',
                 'raw_margin'         => round($margin, 2),
                 'stock_badge'        => '<span class="badge ' . ($parentStock > 0 ? 'bg-label-success' : 'bg-label-danger') . '">' . ($parentStock > 0 ? $product->formatStockDisplay($parentStock) : 'SOLD OUT') . '</span>',
                 'raw_stock'          => (int) $parentStock,
-                'status_badge'       => status_badge($product->status),
+                'status_badge'       => status_badge($displayItem->status),
                 'variants'           => $variantsData,
                 'has_variants'       => $hasVariants
             ];
@@ -373,7 +400,8 @@ class ReportController extends Controller
         $stockFilter = $request->input('stock');
         $attributeId = $request->integer('attribute_id');
         $attributeValueId = $request->integer('attribute_value_id');
-        $filterByAttribute = $attributeId || $attributeValueId;
+        $variantBarcode = $this->reportVariantBarcode($request);
+        $filterByVariant = $attributeId || $attributeValueId || $variantBarcode !== null;
         $minAge = $request->input('min_age');
         $fromDate = $request->input('from_date');
         $toDate = $request->input('to_date');
@@ -382,15 +410,18 @@ class ReportController extends Controller
 
         $query = Product::query()
             ->when($categoryId, fn($q) => $q->where('category_id', $categoryId))
-            ->when($search !== null && $search !== '', function ($q) use ($search) {
+            ->when($variantBarcode === null && $search !== null && $search !== '', function ($q) use ($search) {
                 $q->where(function ($sub) use ($search) {
                     $sub
                         ->where('name', 'like', "%{$search}%")
-                        ->orWhere('barcode', 'like', "%{$search}%");
+                        ->orWhere('barcode', 'like', "%{$search}%")
+                        ->orWhereHas('variants', function ($vq) use ($search) {
+                            $vq->where('barcode', 'like', "%{$search}%");
+                        });
                 });
             });
 
-        if (!$filterByAttribute) {
+        if (!$filterByVariant) {
             if ($stockFilter === 'in' || $stockFilter === 'in_stock') {
                 $query->whereRaw("{$stockExprSql} > 0", $stockExprBindings);
             } elseif ($stockFilter === 'low' || $stockFilter === 'low_stock') {
@@ -400,7 +431,7 @@ class ReportController extends Controller
             }
         }
 
-        if ($hasDateFilter && !$filterByAttribute) {
+        if ($hasDateFilter && !$filterByVariant) {
             $sql = 'exists (select 1 from purchase_items join purchases on purchases.id = purchase_items.purchase_id
                      where purchase_items.product_id = products.id and purchases.status = ?';
             $bindings = [Purchase::STATUS_APPROVE];
@@ -419,15 +450,15 @@ class ReportController extends Controller
         }
 
         $cutoff = $minAge !== null && $minAge !== '' ? now()->subDays((int) $minAge)->toDateTimeString() : null;
-        if ($cutoff && !$filterByAttribute) {
+        if ($cutoff && !$filterByVariant) {
             $query->whereRaw(
                 "({$lastPurchaseExprSql} IS NULL OR {$lastPurchaseExprSql} <= ?)",
                 array_merge($lastPurchaseExprBindings, $lastPurchaseExprBindings, [$cutoff])
             );
         }
 
-        if ($filterByAttribute) {
-            $matches = $this->stockInventoryMatchingVariants($query, $attributeId, $attributeValueId, $effectiveLocationId, $request);
+        if ($filterByVariant) {
+            $matches = $this->stockInventoryMatchingVariants($query, $attributeId, $attributeValueId, $effectiveLocationId, $request, $variantBarcode);
             $variantMatches = array_filter($matches, function ($match) use ($stockFilter, $hasDateFilter, $cutoff) {
                 $quantity = $match['total'];
                 if (($hasDateFilter && (!$match['purchased_in_range'] || $quantity === 0))
@@ -448,20 +479,24 @@ class ReportController extends Controller
         return $query;
     }
 
-    private function stockInventoryMatchingVariants($productQuery, int $attributeId, int $valueId, ?int $locationId, Request $request): array
+    private function stockInventoryMatchingVariants($productQuery, int $attributeId, int $valueId, ?int $locationId, Request $request, ?string $variantBarcode = null): array
     {
         $matches = [];
         $locationIds = $locationId ? [$locationId] : Location::where('status', 1)->pluck('id')->all();
         $candidates = (clone $productQuery)->where('products.type', 'variable')
-            ->withWhereHas('variants', function ($variants) use ($attributeId, $valueId) {
-                $variants->with('attributeValue.attribute')->whereHas('attributeValue', function ($values) use ($attributeId, $valueId) {
-                    $values->when($attributeId, fn ($query) => $query->where('attribute_id', $attributeId))
-                        ->when($valueId, fn ($query) => $query->whereKey($valueId))
-                        ->whereHas('attribute', fn ($query) => $query->where('status', Attribute::STATUS_ACTIVE));
-                });
+            ->withWhereHas('variants', function ($variants) use ($attributeId, $valueId, $variantBarcode) {
+                $variants->with('attributeValue.attribute')
+                    ->when($variantBarcode !== null, fn ($query) => $query->where('barcode', $variantBarcode))
+                    ->when($attributeId || $valueId, function ($query) use ($attributeId, $valueId) {
+                        $query->whereHas('attributeValue', function ($values) use ($attributeId, $valueId) {
+                            $values->when($attributeId, fn ($query) => $query->where('attribute_id', $attributeId))
+                                ->when($valueId, fn ($query) => $query->whereKey($valueId))
+                                ->whereHas('attribute', fn ($query) => $query->where('status', Attribute::STATUS_ACTIVE));
+                        });
+                    });
             })->with('category');
 
-        $candidates->chunkById(250, function ($products) use (&$matches, $locationIds, $request) {
+        $candidates->chunkById(250, function ($products) use (&$matches, $locationIds, $request, $variantBarcode) {
             $variantIds = $products->flatMap(fn ($product) => $product->variants->modelKeys())->all();
             $history = DB::table('purchase_items')
                 ->join('purchases', 'purchases.id', '=', 'purchase_items.purchase_id')
@@ -501,6 +536,7 @@ class ReportController extends Controller
                         'last_purchase_at' => null,
                         'purchased_in_range' => false,
                         'variants' => [],
+                        'variant_barcode_search' => $variantBarcode !== null,
                     ];
                     foreach ($product->variants as $variant) {
                         $variantStock = [];
@@ -521,6 +557,7 @@ class ReportController extends Controller
                         $match['purchased_in_range'] = $match['purchased_in_range'] || isset($purchasedInRange[$variant->id]);
                         $match['variants'][$variant->id] = [
                             'name' => ($variant->attributeValue->attribute->name ?? '') . ': ' . ($variant->attributeValue->value ?? ''),
+                            'barcode' => $variant->barcode,
                             'stock' => $variantStock,
                             'total' => $quantity,
                             'purchase_value' => $purchaseValue,
@@ -592,6 +629,11 @@ class ReportController extends Controller
         $data = [];
         foreach ($page as $match) {
             $product = $match['product'];
+            if ($match['variant_barcode_search']) {
+                $variant = reset($match['variants']);
+                $data[] = $this->stockInventoryProductRow($product, $locations, $variant, [], ++$start, true);
+                continue;
+            }
             $variants = [];
             foreach ($match['variants'] as $variant) {
                 $variants[] = $this->stockInventoryVariantRow($product, $locations, $variant, count($variants) + 1);
@@ -856,6 +898,7 @@ class ReportController extends Controller
                     $variantKey = $product->id . ':' . $v->id;
                     $variantsData[] = $this->stockInventoryVariantRow($product, $locations, [
                         'name' => "{$attrName}: {$valName}",
+                        'barcode' => $v->barcode,
                         'stock' => $vLocStock,
                         'total' => $vTotal,
                         'purchase_value' => $vPurchVal,
@@ -1041,17 +1084,18 @@ class ReportController extends Controller
         return '<span class="badge bg-label-success">' . $ageInfo['age_display'] . '</span>';
     }
 
-    private function stockInventoryProductRow(Product $product, $locations, array $stock, array $variants, int $index): array
+    private function stockInventoryProductRow(Product $product, $locations, array $stock, array $variants, int $index, bool $displayVariant = false): array
     {
+        $displayName = $displayVariant ? $product->name . ' (' . $stock['name'] . ')' : $product->name;
         $name = '<div class="d-flex align-items-center">';
         $name .= $variants
             ? '<button type="button" class="btn btn-icon btn-sm variant-toggle me-2" data-product-id="' . $product->id . '" aria-expanded="false"><i class="ti ti-chevron-right"></i></button>'
             : '<span class="me-2" style="width: 24px;"></span>';
         $name .= '<img src="' . $product->primary_image_url . '" alt="' . e($product->name) . '" class="rounded me-2 product-thumbnail" style="width: 32px; height: 32px; object-fit: cover;">';
-        $name .= '<a href="' . route('admin.products.show', $product->id) . '" class="fw-semibold">' . e($product->name) . '</a></div>';
+        $name .= '<a href="' . route('admin.products.show', $product->id) . '" class="fw-semibold">' . e($displayName) . '</a></div>';
         $row = $this->stockInventoryVariantRow($product, $locations, ['name' => $name] + $stock, $index);
         $row['id'] = $product->id;
-        $row['barcode'] = '<code>' . e($product->barcode) . '</code>';
+        $row['barcode'] = '<code>' . e($displayVariant ? $stock['barcode'] : $product->barcode) . '</code>';
         $row['category'] = '<span class="badge bg-label-primary">' . e($product->category->name ?? '-') . '</span>';
         $row['variants'] = $variants;
         $row['has_variants'] = count($variants) > 0;
@@ -1072,6 +1116,7 @@ class ReportController extends Controller
         return [
             'index' => $index,
             'name' => $stock['name'],
+            'barcode' => $stock['barcode'] ?? null,
             'last_purchase_display' => $ageInfo['last_purchase_display'],
             'loc_badges' => $locBadges,
             'total_badge' => '<span class="badge ' . ($total > 5 ? 'bg-label-success' : ($total > 0 ? 'bg-label-warning' : 'bg-label-danger')) . ' fw-bold">' . $product->formatStockDisplay($total) . '</span>',
@@ -3291,7 +3336,7 @@ class ReportController extends Controller
                         'product'        => $product,
                         'pair_size'      => $pairSize,
                         'name'           => $product->name,
-                        'barcode'        => $product->barcode,
+                        'barcode'        => $v->barcode ?: $product->barcode,
                         'sub_category'   => $product->subCategory->name ?? '-',
                         'purchase_price' => (float) $v->purchase_price,
                         'sale_price'     => (float) $v->sale_price,
@@ -3598,7 +3643,7 @@ class ReportController extends Controller
                         'product' => $product,
                         'pair_size' => $pairSize,
                         'name' => $product->name . " ({$attrName}: {$valName})",
-                        'barcode' => $product->barcode,
+                        'barcode' => $v->barcode ?: $product->barcode,
                         'category' => $product->category->name ?? '-',
                         'stock' => $vLocStock,
                         'total' => $vTotal,
@@ -3662,12 +3707,13 @@ class ReportController extends Controller
                 $product = $match['product'];
                 $details = [
                     'product' => $product,
-                    'barcode' => $product->barcode,
                     'category' => $product->category->name ?? '-',
                 ];
-                $productsList->push($details + ['name' => $product->name, 'status' => $product->status] + $match);
+                if (!$match['variant_barcode_search']) {
+                    $productsList->push($details + ['name' => $product->name, 'barcode' => $product->barcode, 'status' => $product->status] + $match);
+                }
                 foreach ($match['variants'] as $variant) {
-                    $productsList->push($details + ['name' => $product->name . ' (' . $variant['name'] . ')'] + $variant);
+                    $productsList->push($details + ['name' => $product->name . ' (' . $variant['name'] . ')', 'barcode' => $variant['barcode'] ?? $product->barcode] + $variant);
                 }
             }
         }
@@ -5673,7 +5719,7 @@ class ReportController extends Controller
             ->get();
         $otherTotal = (float) $otherPayments->sum('amount');
         $orderGrandTotal = (float) $order->final_amount;
-        $maxAllowed = max(0, $orderGrandTotal - $otherTotal);
+        $maxAllowed = max(0, round($orderGrandTotal - $otherTotal, 2));
         $currentPaidTotal = (float) ($order->paid_cash_amount + $order->paid_online_amount);
         $remainingDue = max(0, $orderGrandTotal - $currentPaidTotal);
 
@@ -5732,28 +5778,26 @@ class ReportController extends Controller
             return response()->json(['status' => 'error', 'message' => 'Related sale not found.'], 404);
         }
 
-        $otherPayments = SalePayment::where('order_id', $order->id)
-            ->where('id', '!=', $salePayment->id)
-            ->get();
-        $otherCash = (float) $otherPayments->sum('cash_amount');
-        $otherOnline = (float) $otherPayments->sum('online_amount');
-        $otherTotal = (float) $otherPayments->sum('amount');
+        return DB::transaction(function () use ($salePayment, $order, $cash, $online, $totalThisPayment, $request) {
+            $order = Order::whereKey($order->id)->lockForUpdate()->firstOrFail();
+            $salePayment = SalePayment::whereKey($salePayment->id)->where('order_id', $order->id)->lockForUpdate()->firstOrFail();
+            $otherPayments = SalePayment::where('order_id', $order->id)->whereKeyNot($salePayment->id)->get();
+            $otherCash = (float) $otherPayments->sum('cash_amount');
+            $otherOnline = (float) $otherPayments->sum('online_amount');
+            $otherTotal = (float) $otherPayments->sum('amount');
+            $newTotalPaid = round($otherTotal + $totalThisPayment, 2);
+            $orderGrandTotal = round((float) $order->final_amount, 2);
 
-        $newTotalPaid = round($otherTotal + $totalThisPayment, 2);
-        $orderGrandTotal = round((float) $order->final_amount, 2);
+            if ($newTotalPaid > $orderGrandTotal) {
+                $maxAllowed = max(0, round($orderGrandTotal - $otherTotal, 2));
+                return response()->json([
+                    'status'  => 'error',
+                    'message' => 'Collected amount cannot exceed the order remaining balance of ' . format_price($maxAllowed) . '.',
+                ], 422);
+            }
 
-        if ($newTotalPaid > ($orderGrandTotal + 0.01)) {
-            $maxAllowed = max(0, $orderGrandTotal - $otherTotal);
-            return response()->json([
-                'status'  => 'error',
-                'message' => 'Collected amount cannot exceed the order remaining balance of ₹' . number_format($maxAllowed, 2) . '.',
-            ], 422);
-        }
-
-        $resolvedMethod = ($cash > 0 && $online > 0) ? 'online_cash' : ($online > 0 ? 'online' : 'cash');
-        $oldAmount = (float) $salePayment->amount;
-
-        DB::transaction(function () use ($salePayment, $order, $cash, $online, $totalThisPayment, $resolvedMethod, $request, $otherCash, $otherOnline, $newTotalPaid, $orderGrandTotal, $oldAmount) {
+            $resolvedMethod = ($cash > 0 && $online > 0) ? 'online_cash' : ($online > 0 ? 'online' : 'cash');
+            $oldAmount = (float) $salePayment->amount;
             $salePayment->update([
                 'location_id'    => $salePayment->location_id ?: $order->location_id,
                 'cash_amount'    => $cash,
@@ -5765,7 +5809,7 @@ class ReportController extends Controller
 
             $finalCash = round($otherCash + $cash, 2);
             $finalOnline = round($otherOnline + $online, 2);
-            $newStatus = ($newTotalPaid >= ($orderGrandTotal - 0.01))
+            $newStatus = ($newTotalPaid >= $orderGrandTotal)
                 ? Order::PAYMENT_STATUS_PAID
                 : ($newTotalPaid > 0 ? Order::PAYMENT_STATUS_PARTIAL : Order::PAYMENT_STATUS_PENDING);
 
@@ -5794,12 +5838,12 @@ class ReportController extends Controller
                 ['amount' => $totalThisPayment, 'cash' => $cash, 'online' => $online, 'notes' => $request->notes],
                 'Payment collection for Sale #' . $order->order_no . ' edited (₹' . number_format($oldAmount, 2) . ' -> ₹' . number_format($totalThisPayment, 2) . ')'
             );
-        });
 
-        return response()->json([
-            'status'  => 'success',
-            'message' => 'Payment collection updated successfully.',
-        ]);
+            return response()->json([
+                'status'  => 'success',
+                'message' => 'Payment collection updated successfully.',
+            ]);
+        });
     }
 
     public function destroyDailyReportCollection(Request $request, SalePayment $salePayment)

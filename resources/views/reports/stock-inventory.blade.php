@@ -146,15 +146,16 @@
         function renderVariantChild(variants) {
             let html = '<div class="table-responsive" style="max-height: 300px; overflow-y: auto;">';
             html += '<table class="table table-sm mb-0 variant-table">';
-            html += '<thead class="table-light"><tr><th style="width: 40px;">#</th><th>Variant</th><th>Last Purchase Date</th>';
+            html += '<thead class="table-light"><tr><th style="width: 40px;">#</th><th>Variant</th><th>Last Purchase Date</th><th>Barcode</th>';
             html += '<th class="text-center" colspan="' + locationCount + '">Location Stock</th>';
             html += '<th class="text-center">Total Qty</th><th class="text-end">Purchase Value</th><th class="text-end">MRP Value</th><th class="text-center">Inventory Age</th></tr></thead>';
             html += '<tbody>';
             variants.forEach(function (v) {
                 html += '<tr>';
                 html += '<td>' + v.index + '</td>';
-                html += '<td class="ps-4">' + $('<div>').text(v.name).html() + '</td>';
+                html += '<td class="ps-4 fw-semibold">' + $('<div>').text(v.name).html() + '</td>';
                 html += '<td>' + v.last_purchase_display + '</td>';
+                html += '<td>' + (v.barcode ? '<code>' + $('<div>').text(v.barcode).html() + '</code>' : '<span class="text-muted">-</span>') + '</td>';
                 html += v.loc_badges;
                 html += '<td class="text-center">' + v.total_badge + '</td>';
                 html += '<td class="text-end fw-semibold">' + v.purchase_value + '</td>';

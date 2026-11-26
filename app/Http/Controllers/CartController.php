@@ -37,6 +37,8 @@ class CartController extends Controller
                     'product.category',
                     'product.variants.attributeValue.attribute',
                     'productVariant.attributeValue.attribute',
+                    'productVariant.primaryImage',
+                    'productVariant.images',
                 ])
                 ->latest()
                 ->get();
@@ -85,7 +87,7 @@ class CartController extends Controller
                     $item->setRelation('product', $product);
 
                     if ($variantId) {
-                        $variant = ProductVariant::with('attributeValue.attribute')->find($variantId);
+                        $variant = ProductVariant::with(['attributeValue.attribute', 'primaryImage', 'images'])->find($variantId);
                         if ($variant) {
                             $item->setRelation('productVariant', $variant);
                         }

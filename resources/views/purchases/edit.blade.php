@@ -395,6 +395,7 @@
 @endsection
 
 @section('page-js')
+<script src="{{ asset('assets/js/product-barcode.js') }}"></script>
 <script>
 $(document).ready(function () {
 
@@ -426,9 +427,10 @@ $(document).ready(function () {
     function formatPriceNoDecimals(val) {
         return parseFloat(val).toLocaleString('en-IN', { minimumFractionDigits: 0, maximumFractionDigits: 0 });
     }
-    function setProductImage(container, product) {
-        if (product.image) {
-            container.html(`<img src="${product.image}" class="rounded product-thumbnail" style="width: 40px; height: 40px; object-fit: cover;" alt="${product.name || ''}" />`);
+    function setProductImage(container, product, imgUrl = null) {
+        const src = imgUrl || product?.image;
+        if (src) {
+            container.html(`<img src="${src}" class="rounded product-thumbnail" style="width: 40px; height: 40px; object-fit: cover;" alt="${product.name || ''}" />`);
         } else {
             container.html(`<div class="rounded bg-label-secondary d-flex align-items-center justify-content-center" style="width: 40px; height: 40px;"><i class="ti ti-photo text-muted" style="font-size: 1.25rem;"></i></div>`);
         }
@@ -438,6 +440,22 @@ $(document).ready(function () {
     $.getJSON('{{ route("admin.purchases.products-json") }}', function(res) {
         allProducts = res || [];
         loadExistingItems();
+        $('#itemsBody .item-row').each(function () {
+            const row = $(this);
+            const pId = row.find('.product-id-input').val();
+            if (pId) {
+                const freshProduct = allProducts.find(p => p.id == pId);
+                if (freshProduct) {
+                    row.data('product', freshProduct);
+                    const currentVarId = row.find('.variant-select').val() || row.attr('data-variant-id') || row.data('variant-id');
+                    if (currentVarId) {
+                        const variantBarcode = freshProduct.variants?.find(v => String(v.id) === String(currentVarId))?.barcode || freshProduct.barcode || '';
+                        row.find('.product-sku-display').text(variantBarcode ? 'Barcode: ' + variantBarcode : '');
+                    }
+                }
+            }
+            updateStockInfo(row);
+        });
     });
     const locations = @json($locations->map(fn ($l) => ['id' => $l->id, 'name' => $l->name])->values());
     updateGrandTotal();
@@ -457,16 +475,6 @@ $(document).ready(function () {
     // -------------------------------------------------------
     const searchInput = $('#productSearchInput');
     const searchResults = $('#productSearchResults');
-
-    function findExactProductMatch(query) {
-        const q = query.toLowerCase().trim();
-        if (!q) return null;
-        const matches = allProducts.filter(p =>
-            p.name.toLowerCase() === q ||
-            (p.barcode && String(p.barcode).toLowerCase() === q)
-        );
-        return matches.length === 1 ? matches[0] : null;
-    }
 
     function hasUnselectedVariableProduct() {
         let unselected = false;
@@ -499,7 +507,7 @@ $(document).ready(function () {
         return updated;
     }
 
-    function selectSearchProduct(product) {
+    function selectSearchProduct(product, variantId = null) {
         if (hasUnselectedVariableProduct()) {
             toastr.warning('Please select a variant for the existing variable product before scanning or adding another product.');
             searchInput.val('');
@@ -524,7 +532,7 @@ $(document).ready(function () {
             searchInput.focus();
             return;
         }
-        addItemRow(product);
+        addItemRow(product, variantId);
         searchInput.val('');
         searchResults.hide().empty();
         searchInput.focus();
@@ -533,12 +541,13 @@ $(document).ready(function () {
     let scanMatchTimer = null;
 
     searchInput.on('keydown', function(e) {
-        if (e.key === 'Enter' || e.keyCode === 13) {
+        if (e.key === 'Enter' || e.keyCode === 13 || e.key === 'Tab') {
+            const exactMatch = findProductScanMatch(allProducts, $(this).val());
+            if (e.key === 'Tab' && !exactMatch?.variantId) return;
             e.preventDefault();
             if (scanMatchTimer) { clearTimeout(scanMatchTimer); scanMatchTimer = null; }
-            const exactMatch = findExactProductMatch($(this).val());
             if (exactMatch) {
-                selectSearchProduct(exactMatch);
+                selectSearchProduct(exactMatch.product, exactMatch.variantId);
                 return;
             }
             const firstItem = searchResults.find('.search-result-item').first();
@@ -563,15 +572,21 @@ $(document).ready(function () {
         // input event per character. Wait briefly for the burst to finish
         // before treating an exact match as a completed scan, so a shorter
         // barcode that is a prefix of the one being scanned isn't added by mistake.
+        const exactMatch = findProductScanMatch(allProducts, query);
         scanMatchTimer = setTimeout(function() {
             if (searchInput.val().toLowerCase().trim() !== query) return;
-            const exactMatch = findExactProductMatch(query);
-            if (exactMatch) selectSearchProduct(exactMatch);
+            if (exactMatch) selectSearchProduct(exactMatch.product, exactMatch.variantId);
         }, 100);
+
+        if (exactMatch?.variantId) {
+            searchResults.hide();
+            return;
+        }
 
         const matchedProducts = allProducts.filter(p =>
             p.name.toLowerCase().includes(query) ||
-            (p.barcode && p.barcode.toLowerCase().includes(query))
+            (p.barcode && p.barcode.toLowerCase().includes(query)) ||
+            (p.variants && p.variants.some(v => v.barcode && v.barcode.toLowerCase().includes(query)))
         );
 
         if (matchedProducts.length === 0) {
@@ -589,19 +604,23 @@ $(document).ready(function () {
                 ? `<img src="${p.image}" class="rounded me-3" style="width: 40px; height: 40px; object-fit: cover;" alt="${p.name}" />`
                 : `<div class="rounded me-3 bg-label-secondary d-flex align-items-center justify-content-center" style="width: 40px; height: 40px; flex-shrink: 0;"><i class="ti ti-photo text-secondary fs-4"></i></div>`;
 
+            const matchedVar = p.variants?.find(v => v.barcode && v.barcode.toLowerCase().includes(query));
+            const displayBarcode = matchedVar ? `${matchedVar.barcode} (${matchedVar.attr_name || ''}: ${matchedVar.value_name || ''})` : p.barcode;
+
             const item = $(`
                 <a href="javascript:void(0)" class="list-group-item list-group-item-action d-flex justify-content-between align-items-center search-result-item bg-white" style="background-color: #ffffff;" data-id="${p.id}">
                     <div class="d-flex align-items-center">
                         ${imgHtml}
                         <div>
                             <div class="fw-semibold">${p.name}</div>
-                            <small class="text-muted">Barcode: ${p.barcode}</small>
+                            <small class="text-muted">Barcode: ${displayBarcode}</small>
                         </div>
                     </div>
                     ${priceBadge}
                 </a>
             `);
             item.data('product', p);
+            item.data('variant-id', matchedVar ? matchedVar.id : null);
             searchResults.append(item);
         });
 
@@ -617,7 +636,7 @@ $(document).ready(function () {
 
     // Handle product selection
     $(document).on('click', '.search-result-item', function() {
-        selectSearchProduct($(this).data('product'));
+        selectSearchProduct($(this).data('product'), $(this).data('variant-id') || null);
     });
 
     function getEffectiveCustomSizes(product, variantId) {
@@ -634,7 +653,7 @@ $(document).ready(function () {
         return sizes.reduce((max, cs) => (cs.size > max ? cs.size : max), sizes[0].size);
     }
 
-    function addItemRow(product, selectedVariantId = null, qty = 1, price = null, discountType = 'percentage', discountValue = 0, selectedCustomSize = null, prependRow = true, soldQty = 0) {
+    function addItemRow(product, selectedVariantId = null, qty = 1, price = null, discountType = 'percentage', discountValue = 0, selectedCustomSize = null, prependRow = true, soldQty = 0, purchaseItemId = null) {
         const template = document.getElementById('itemRowTemplate').innerHTML
             .replaceAll('__INDEX__', itemIndex);
 
@@ -654,6 +673,7 @@ $(document).ready(function () {
         row.data('product', product);
         row.data('index', itemIndex);
         row.data('sold-qty', soldQty);
+        row.data('purchase-item-id', purchaseItemId);
 
         if (product.pair_product) {
             row.find('.pair-product-badge').removeClass('d-none');
@@ -671,7 +691,7 @@ $(document).ready(function () {
             product.variants.forEach(v => {
                 const optPrice = v.purchase_price != null ? v.purchase_price : 0;
                 const selected = selectedVariantId && selectedVariantId == v.id ? 'selected' : '';
-                selectHtml += `<option value="${v.id}" data-price="${optPrice}" ${selected}>${v.attr_name}: ${v.value_name} (${symbol}${optPrice})</option>`;
+                selectHtml += `<option value="${v.id}" data-price="${optPrice}" data-barcode="${v.barcode || ''}" ${selected}>${v.attr_name}: ${v.value_name} (${symbol}${optPrice})</option>`;
             });
             selectHtml += `</select>`;
             row.find('.variant-select-container').html(selectHtml);
@@ -684,12 +704,15 @@ $(document).ready(function () {
             row.attr('data-variant-id', initialVariantId);
             row.data('variant-id', initialVariantId);
             row.find('.purchase-price').val(initialPrice);
-            row.find('.product-sku-display').text('Barcode: ' + product.barcode);
+            const initialBarcode = (initialVariantId ? (selectedOpt.data('barcode') || product.variants?.find(v => String(v.id) === String(initialVariantId))?.barcode) : '') || product.barcode || '';
+            row.find('.product-sku-display').text(initialBarcode ? 'Barcode: ' + initialBarcode : '');
+            const initialVar = product.variants?.find(v => String(v.id) === String(initialVariantId));
+            setProductImage(row.find('.product-image-container'), product, initialVar?.image || null);
 
             const variantText = selectedOpt.text().split(' (')[0];
             row.data('product-name', product.name + (initialVariantId ? ' (' + variantText + ')' : ''));
         } else {
-            row.find('.product-sku-display').text('Barcode: ' + product.barcode);
+            row.find('.product-sku-display').text(product.barcode ? 'Barcode: ' + product.barcode : '');
             row.find('.purchase-price').val(price != null ? price : (product.purchase_price != null ? product.purchase_price : 0));
             row.data('product-name', product.name);
         }
@@ -724,6 +747,11 @@ $(document).ready(function () {
         row.attr('data-variant-id', variantId);
         row.data('variant-id', variantId);
         row.find('.purchase-price').val(price);
+
+        const selectedBarcode = (variantId ? (selectedOpt.data('barcode') || product?.variants?.find(v => String(v.id) === String(variantId))?.barcode) : '') || product?.barcode || '';
+        row.find('.product-sku-display').text(selectedBarcode ? 'Barcode: ' + selectedBarcode : '');
+        const matchedVar = product?.variants?.find(v => String(v.id) === String(variantId));
+        setProductImage(row.find('.product-image-container'), product, matchedVar?.image || null);
 
         if (product && product.pair_product) {
             const effectiveSizes = getEffectiveCustomSizes(product, variantId);
@@ -794,10 +822,10 @@ $(document).ready(function () {
                 }
 
                 if (matchedVariant) {
-                    addItemRow(product, matchedVariant.id, item.quantity, item.purchase_price, discType, discVal, item.custom_size_value, false, soldQty);
+                    addItemRow(product, matchedVariant.id, item.quantity, item.purchase_price, discType, discVal, item.custom_size_value, false, soldQty, item.id);
                 }
             } else {
-                addItemRow(product, null, item.quantity, item.purchase_price, discType, discVal, item.custom_size_value, false, soldQty);
+                addItemRow(product, null, item.quantity, item.purchase_price, discType, discVal, item.custom_size_value, false, soldQty, item.id);
             }
         });
     }
@@ -998,7 +1026,7 @@ $(document).ready(function () {
             return;
         }
 
-        const product = allProducts.find(p => p.id == productId);
+        const product = allProducts.find(p => p.id == productId) || row.data('product');
         if (!product) {
             stockDisplay.text('').removeAttr('title').css('cursor', '').removeClass('bg-label-success bg-label-danger bg-label-warning text-success text-danger text-warning').hide();
             return;
@@ -1132,7 +1160,7 @@ $(document).ready(function () {
             $('#editModalPurchaseInvoiceNo').text('{{ $purchase->invoice_no }}');
             
             let itemsTableHtml = '';
-            let newItemsMap = [];
+            const newItems = [];
 
             $('.item-row').each(function() {
                 const row = $(this);
@@ -1148,49 +1176,49 @@ $(document).ready(function () {
                     prodLabel += ' (' + vName + ')';
                 }
 
-                newItemsMap.push({
+                newItems.push({
                     product_id: product.id,
                     product_variant_id: variantId,
+                    custom_size_value: row.data('custom-size-value'),
                     prod_label: prodLabel,
-                    qty: qty,
-                    price: purchasePrice
+                    quantity: qty,
+                    purchase_price: purchasePrice
                 });
             });
 
-            let allItemKeys = [];
+            function groupItems(items) {
+                const groups = new Map();
+                items.forEach(function(item) {
+                    const size = parseFloat(item.custom_size_value) || 0;
+                    const key = `${item.product_id}_${item.product_variant_id || 0}_${size}`;
+                    const group = groups.get(key) || { quantity: 0, priceQuantities: new Map(), label: item.prod_label || item.product?.name || 'Product #' + item.product_id };
+                    const quantity = parseInt(item.quantity) || 0;
+                    const price = (parseFloat(item.purchase_price) || 0).toFixed(2);
+                    group.quantity += quantity;
+                    group.priceQuantities.set(price, (group.priceQuantities.get(price) || 0) + quantity);
+                    groups.set(key, group);
+                });
+                return groups;
+            }
+
+            const oldGroups = groupItems(existingItemsData);
+            const newGroups = groupItems(newItems);
+            const allItemKeys = new Set([...oldGroups.keys(), ...newGroups.keys()]);
             let hasActualChanges = false;
 
-            existingItemsData.forEach(function(item) {
-                const key = item.product_id + '_' + (item.product_variant_id || '');
-                if (!allItemKeys.includes(key)) allItemKeys.push(key);
-            });
-            newItemsMap.forEach(function(item) {
-                const key = item.product_id + '_' + (item.product_variant_id || '');
-                if (!allItemKeys.includes(key)) allItemKeys.push(key);
-            });
-
             allItemKeys.forEach(function(key) {
-                const parts = key.split('_');
-                const prodId = parseInt(parts[0]);
-                const varId = parts[1] ? parseInt(parts[1]) : '';
+                const oldItem = oldGroups.get(key);
+                const newItem = newGroups.get(key);
+                const oldQty = oldItem?.quantity || 0;
+                const newQty = newItem?.quantity || 0;
+                const oldPrices = oldItem?.priceQuantities || new Map();
+                const newPrices = newItem?.priceQuantities || new Map();
 
-                const oldItem = existingItemsData.find(function(it) {
-                    return parseInt(it.product_id) === prodId && (it.product_variant_id ? parseInt(it.product_variant_id) : '') === varId;
-                });
-                const newItem = newItemsMap.find(function(it) {
-                    return parseInt(it.product_id) === prodId && (it.product_variant_id ? parseInt(it.product_variant_id) : '') === varId;
-                });
-
-                const oldQty = oldItem ? parseInt(oldItem.quantity) : 0;
-                const newQty = newItem ? parseInt(newItem.qty) : 0;
-                const oldPrice = oldItem ? parseFloat(oldItem.purchase_price) : 0;
-                const newPrice = newItem ? parseFloat(newItem.price) : 0;
-
-                if (oldQty !== newQty || Math.abs(oldPrice - newPrice) > 0.001) {
+                if (oldQty !== newQty || oldPrices.size !== newPrices.size || [...oldPrices].some(([price, qty]) => newPrices.get(price) !== qty)) {
                     hasActualChanges = true;
                 }
 
-                const prodLabel = newItem ? newItem.prod_label : (oldItem && oldItem.product ? oldItem.product.name : 'Product #' + prodId);
+                const prodLabel = newItem?.label || oldItem.label;
                 const deltaQty = newQty - oldQty;
                 
                 let stockBadge = '<span class="badge bg-secondary">No Change</span>';
@@ -1206,8 +1234,8 @@ $(document).ready(function () {
                         <td class="text-center">${oldQty}</td>
                         <td class="text-center fw-bold">${newQty}</td>
                         <td class="text-center">${stockBadge}</td>
-                        <td class="text-end">₹${oldPrice.toFixed(2)}</td>
-                        <td class="text-end fw-semibold">₹${newPrice.toFixed(2)}</td>
+                        <td class="text-end">${[...oldPrices.keys()].map(price => `₹${price}`).join(', ') || '—'}</td>
+                        <td class="text-end fw-semibold">${[...newPrices.keys()].map(price => `₹${price}`).join(', ') || '—'}</td>
                     </tr>
                 `;
             });
@@ -1317,7 +1345,9 @@ $(document).ready(function () {
                 const purchasePrice = parseFloat(row.find('.purchase-price').val()) || 0;
                 const discountType = row.find('.item-discount-type').val() || 'flat';
                 const discountValue = parseFloat(row.find('.item-discount-value').val()) || 0;
+                const purchaseItemId = row.data('purchase-item-id') || '';
 
+                hiddenContainer.append(`<input type="hidden" name="items[${submitIdx}][purchase_item_id]" value="${purchaseItemId}">`);
                 hiddenContainer.append(`<input type="hidden" name="items[${submitIdx}][product_id]" value="${product.id}">`);
                 hiddenContainer.append(`<input type="hidden" name="items[${submitIdx}][product_variant_id]" value="${variantId}">`);
                 hiddenContainer.append(`<input type="hidden" name="items[${submitIdx}][custom_size_value]" value="${customSizeValue}">`);

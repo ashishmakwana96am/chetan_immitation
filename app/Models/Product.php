@@ -3,10 +3,12 @@
 namespace App\Models;
 
 use App\Models\Concerns\LogsActivity;
+use App\Services\ProductBarcodes;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\SoftDeletes;
 use App\Http\Controllers\DashboardController;
 use Illuminate\Support\Facades\Cache;
+use Illuminate\Validation\ValidationException;
 
 class Product extends Model
 {
@@ -31,6 +33,43 @@ class Product extends Model
     {
         static::saved(fn () => static::clearMappedCaches());
         static::deleted(fn () => static::clearMappedCaches());
+    }
+
+    public function save(array $options = [])
+    {
+        if (!$this->isDirty('barcode')) {
+            return parent::save($options);
+        }
+
+        $connection = $this->getConnection();
+
+        return $connection->transaction(function () use ($options, $connection) {
+            $barcode = trim((string) $this->barcode);
+            if ($this->barcode !== null) {
+                $this->barcode = $barcode;
+            }
+
+            $previous = $this->exists ? ProductBarcodes::key($connection->table('products')
+                ->where('id', $this->getKey())->lockForUpdate()->value('barcode')) : '';
+
+            if (ProductBarcodes::key($barcode) === $previous) {
+                return parent::save($options);
+            }
+
+            if ($barcode !== '' && ProductBarcodes::isTaken($connection, $barcode, lock: true)) {
+                throw ValidationException::withMessages(['barcode' => 'The barcode has already been taken.']);
+            }
+
+            if (!parent::save($options)) {
+                return false;
+            }
+
+            if ($previous === '' && $barcode !== '') {
+                ProductBarcodes::backfillProduct($connection, $this->id);
+            }
+
+            return true;
+        });
     }
 
     public function activityLabel(): string
@@ -108,12 +147,17 @@ class Product extends Model
 
     public function images()
     {
-        return $this->hasMany(ProductImage::class)->orderByDesc('is_primary')->orderBy('id');
+        return $this->hasMany(ProductImage::class)->whereNull('product_variant_id')->orderByDesc('is_primary')->orderBy('id');
     }
 
     public function primaryImage()
     {
-        return $this->hasOne(ProductImage::class)->where('is_primary', true);
+        return $this->hasOne(ProductImage::class)->where('is_primary', true)->whereNull('product_variant_id');
+    }
+
+    public function allImages()
+    {
+        return $this->hasMany(ProductImage::class)->orderByDesc('is_primary')->orderBy('id');
     }
 
     /**
@@ -596,7 +640,7 @@ class Product extends Model
 
         do {
             $barcode = $prefix.str_pad(mt_rand(1, 99999999), 8, '0', STR_PAD_LEFT);
-        } while (self::where('barcode', $barcode)->exists());
+        } while (ProductBarcodes::isTaken(self::resolveConnection(), $barcode));
 
         return $barcode;
     }
